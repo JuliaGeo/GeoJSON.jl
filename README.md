@@ -14,14 +14,11 @@ This library is developed independently of, but is heavily influenced in design 
 `GeoJSON.jl` is not a listed package (yet). Heres what you're going to need to do to install it:
 
 ```julia
-# You'll need JSON.jl, so install it if you haven't already
-Pkg.add("JSON")
-# Now download JuMPeR direct from this repository
+# Install GeoJSON direct from this repository to your Julia package directory:
 Pkg.clone("https://github.com/yeesian/GeoJSON.jl.git")
-# This will install it to your Julia package directory.
 # Running Pkg.update() will always give you the freshest version of GeoJSON
+# Double-check that it works:
 Pkg.test("GeoJSON")
-# Doublecheck that it works
 ```
 
 ## Basic Usage
