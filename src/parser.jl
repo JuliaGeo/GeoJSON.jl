@@ -23,11 +23,9 @@ function dict2geojson(obj::Dict{String,Any})
     end
 end
 
-dict2geojson(::Nothing) = Nothing()
+dict2geojson(obj::Nothing) = obj
 
 # GeoJSON -> Dict
-
-geo_interface = 
 
 for (geom,attributes) in ((MultiPolygon, (coordinates,)),
                           (Polygon,  (coordinates,)),

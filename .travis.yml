@@ -3,11 +3,11 @@ os:
     - linux
 julia:
     - release
+    - nightly
 notifications:
     email: false
-env:
-    matrix:
-        - PKGADD="JSON" JULIAVERSION="juliareleases"
-        - PKGADD="JSON" JULIAVERSION="julianightlies"
+script:
+    - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+    - julia -e 'Pkg.clone(pwd()); Pkg.build("GeoJSON"); Pkg.test("GeoJSON"; coverage=true)'
 after_success:
-    - julia -e 'cd(Pkg.dir("JSON")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
+    - julia -e 'cd(Pkg.dir("GeoJSON")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'

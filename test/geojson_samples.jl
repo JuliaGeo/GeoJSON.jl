@@ -3,7 +3,7 @@
 a = """{
     "properties": {
         "Ã": "Ã"
-    }, 
+    },
     "type": "Feature",
     "geometry": null
 }"""
