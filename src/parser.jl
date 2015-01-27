@@ -27,8 +27,6 @@ dict2geojson(::Nothing) = Nothing()
 
 # GeoJSON -> Dict
 
-geo_interface = 
-
 for (geom,attributes) in ((MultiPolygon, (coordinates,)),
                           (Polygon,  (coordinates,)),
                           (MultiLineString, (coordinates,)),
