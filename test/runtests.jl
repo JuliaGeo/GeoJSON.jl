@@ -1,4 +1,4 @@
-using GeoJSON, FactCheck, JSON
+using GeoJSON, FactCheck
 
 include(joinpath(dirname(@__FILE__),"geojson_samples.jl"))
 
