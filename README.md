@@ -1,7 +1,7 @@
 # GeoJSON.jl
 
 [![Build Status](https://travis-ci.org/yeesian/GeoJSON.jl.svg)](https://travis-ci.org/yeesian/GeoJSON.jl)
-[![Coverage Status](http://img.shields.io/coveralls/yeesian/GeoJSON.jl.svg)](https://coveralls.io/r/yeesian/GeoJSON.jl)
+[![Coverage Status](https://coveralls.io/repos/yeesian/GeoJSON.jl/badge.svg)](https://coveralls.io/r/yeesian/GeoJSON.jl)
 
 This library is developed independently of, but is heavily influenced in design by the [python-geojson](https://github.com/frewsxcv/python-geojson) package. It contains:
 
