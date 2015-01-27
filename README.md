@@ -15,7 +15,7 @@ This library is developed independently of, but is heavily influenced in design 
 
 ```julia
 # Install GeoJSON direct from this repository to your Julia package directory:
-Pkg.clone("https://github.com/yeesian/GeoJSON.jl.git")
+Pkg.add("GeoJSON")
 # Running Pkg.update() will always give you the freshest version of GeoJSON
 # Double-check that it works:
 Pkg.test("GeoJSON")
