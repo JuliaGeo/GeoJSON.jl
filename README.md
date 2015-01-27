@@ -10,11 +10,7 @@ This library is developed independently of, but is heavily influenced in design 
 - An implementation of the [__geo_interface__](https://gist.github.com/sgillies/2217756), a GeoJSON-like protocol for geo-spatial (GIS) vector data.
 
 ## Installation
-
-`GeoJSON.jl` is not a listed package (yet). Heres what you're going to need to do to install it:
-
 ```julia
-# Install GeoJSON direct from this repository to your Julia package directory:
 Pkg.add("GeoJSON")
 # Running Pkg.update() will always give you the freshest version of GeoJSON
 # Double-check that it works:
