@@ -3,7 +3,15 @@
 
 # Coordinate Reference System Objects
 # (has keys "type" and "properties")
-typealias CRS Dict{String,Any}
+typealias CRS Union(Nothing, Dict{String,Any})
+# TODO: Handle full CRS spec
+
+# Position
+# (x, y, [z, ...]) - meaning of additional elements undefined.
+# In an object's contained geometries, Positions must have uniform dimensions.
+# A bbox must match that dimensionality.
+# Both requirements are currently unchecked.
+typealias Position Vector{Float64}
 
 # Abstract Interfaces
 
@@ -19,7 +27,7 @@ abstract Geometry <: AbstractGeoJSON
 # Geometry Objects
 
 type Point <: Geometry
-    coordinates::Union(Nothing, Vector)
+    coordinates::Position
     # optional
     bbox::Vector{Float64}
     crs::CRS
@@ -28,7 +36,7 @@ type Point <: Geometry
 end
 
 type MultiPoint <: Geometry
-    coordinates::Union(Nothing, Vector)
+    coordinates::Vector{Position}
     # optional
     bbox::Vector{Float64}
     crs::CRS
@@ -37,7 +45,7 @@ type MultiPoint <: Geometry
 end
 
 type LineString <: Geometry
-    coordinates::Union(Nothing, Vector)
+    coordinates::Vector{Position} # two or more positions
     # optional
     bbox::Vector{Float64}
     crs::CRS
@@ -46,7 +54,7 @@ type LineString <: Geometry
 end
 
 type MultiLineString <: Geometry
-    coordinates::Union(Nothing, Vector)
+    coordinates::Vector{Vector{Position}} # vector{vector of two or more positions}
     # optional
     bbox::Vector{Float64}
     crs::CRS
@@ -55,7 +63,7 @@ type MultiLineString <: Geometry
 end
 
 type Polygon <: Geometry
-    coordinates::Union(Nothing, Vector)
+    coordinates::Vector{Vector{Position}} # vector{'LinearRing' vectors, exterior ring first}
     # optional
     bbox::Vector{Float64}
     crs::CRS
@@ -64,7 +72,7 @@ type Polygon <: Geometry
 end
 
 type MultiPolygon <: Geometry
-    coordinates::Union(Nothing, Vector)
+    coordinates::Vector{Vector{Vector{Position}}} # vector{vector{'LinearRing' vectors, exterior ring first}}
     # optional
     bbox::Vector{Float64}
     crs::CRS
@@ -73,12 +81,12 @@ type MultiPolygon <: Geometry
 end
 
 type GeometryCollection <: Geometry
-    geometries::Union(Nothing, Vector{Geometry})
+    geometries::Vector{Geometry}
     # optional
     bbox::Vector{Float64}
     crs::CRS
 
-    GeometryCollection(geometries::Union(Nothing, Vector{Geometry}); kwargs...) =
+    GeometryCollection(geometries::Vector{Geometry}; kwargs...) =
         fill_options!(new(geometries); kwargs...)
 end
 
@@ -98,12 +106,12 @@ end
 has_id(obj::Feature) = isdefined(obj, :id)
 
 type FeatureCollection <: AbstractGeoJSON
-    features::Union(Nothing, Vector{Feature})
+    features::Vector{Feature}
     # optional
     bbox::Vector{Float64}
     crs::CRS
 
-    FeatureCollection(features::Union(Nothing, Vector{Feature}); kwargs...) =
+    FeatureCollection(features::Vector{Feature}; kwargs...) =
         fill_options!(new(features); kwargs...)
 end
 
