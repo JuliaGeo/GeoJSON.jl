@@ -5,11 +5,18 @@ a = """{
         "Ã": "Ã"
     },
     "type": "Feature",
-    "geometry": null
+    "geometry": null,
+    "crs": {
+        "type": "link",
+        "properties": {
+            "href": "data.crs",
+            "type": "ogcwkt"
+        }
+    }
 }"""
 
 b = """{"type": "Feature",
-    "geometry": null,
+    "geometry": {"coordinates": [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]], "type": "MultiPoint"},
     "id": 1,
     "properties": {"type": "é"}
 }"""
@@ -25,12 +32,20 @@ c = """{"type": "Feature",
 d = """{
     "type": "Feature",
     "id": "1",
-    "geometry": {"type": "Point", "coordinates": [53, -4]},
+    "bbox": [-180.0, -90.0, 180.0, 90.0],
+    "geometry": {"type": "MultiLineString", "coordinates": [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]]},
     "properties": {"title": "Dict 1"}
 }"""
 
 e = """{"geometry": {"coordinates": [53, -4],
-    "type": "Point"},
+                     "type": "Point",
+                     "crs": {
+                         "type": "link",
+                         "properties": {
+                           "href": "http://example.com/crs/42",
+                           "type": "proj4"
+                           }
+                     }},
     "id": "1",
     "properties": {"link": "http://example.org/features/1",
                    "summary": "The first feature",
@@ -46,6 +61,7 @@ multipolygon = """{
     "type": "FeatureCollection",
     "features": [{
         "type": "Feature",
+        "bbox": [100.0, 0.0, 105.0, 1.0],
         "properties": {
             "cartodb_id": 46,
             "addr1": "18150 E. Pathfinder Rd.",
