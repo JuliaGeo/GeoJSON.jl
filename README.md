@@ -96,8 +96,9 @@ GeoJSON.print(io::IO, obj::AbstractGeoJSON)
 ## GeoJSON Objects
 This library implements the following [GeoJSON Objects](http://www.geojson.org/geojson-spec.html#geojson-objects) described in The GeoJSON Format Specification.
 
+- `CRS`
+- `Position`
 - `Geometry <: AbstractGeoJSON`
-  - `abstract Geometry`
   - `Point <: Geometry`
   - `MultiPoint <: Geometry`
   - `LineString <: Geometry`
