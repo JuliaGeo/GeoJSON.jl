@@ -65,7 +65,7 @@ function geojson2dict(obj::FeatureCollection)
     dict
 end
 
-geojson2dict(::Nothing) = "null"
+geojson2dict(obj::Nothing) = obj
 
 # String/File -> GeoJSON
 parse(input; kwargs...) = dict2geojson(JSON.parse(input; kwargs...))
