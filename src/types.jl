@@ -156,7 +156,7 @@ end
 # Additional Constructors (Dict -> GeoJSON)
 
 function GeometryCollection(obj::Dict{String,Any})
-    collection = GeometryCollection([])
+    collection = GeometryCollection(Geometry[])
     geometries = obj["geometries"]
     sizehint!(collection.geometries, length(geometries))
     for geometry in geometries

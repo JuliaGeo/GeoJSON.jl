@@ -50,7 +50,7 @@ end
 
 function geojson2dict(obj::Feature)
     dict = ["type" => "Feature",
-            "geometries" => geometries(obj)]
+            "geometry" => geojson2dict(geometry(obj))]
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     hasid(obj) && (dict["id"] = id(obj))
@@ -59,11 +59,13 @@ end
 
 function geojson2dict(obj::FeatureCollection)
     dict = ["type" => "FeatureCollection",
-            "geometries" => map(geojson2dict, features(obj))]
+            "features" => map(geojson2dict, features(obj))]
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     dict
 end
+
+geojson2dict(::Nothing) = "null"
 
 # String/File -> GeoJSON
 parse(input; kwargs...) = dict2geojson(JSON.parse(input; kwargs...))
