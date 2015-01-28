@@ -115,7 +115,7 @@ hascrs(obj::AbstractGeoJSON) # returns true if obj has a "crs" key
 bbox(obj::AbstractGeoJSON) # returns the boundingbox of obj
 crs(obj::AbstractGeoJSON) # returns the coordinate reference system
 ```
-In addition, the `Feature` object also implements ```has_id(obj::Feature)```
+In addition, the `Feature` object also implements ```hasid(obj::Feature)```.
 
 ### GeoJSON Attributes (GEO_Interface)
 In accordance with the [GeoJSON format](http://geojson.org/geojson-spec.html) (and the [__geo_interface__](https://gist.github.com/sgillies/2217756)), the following methods are implemented for each of the GeoJSON objects:
@@ -129,6 +129,6 @@ In accordance with the [GeoJSON format](http://geojson.org/geojson-spec.html) (a
  (MultiPoint,         (coordinates,)),
  (Point,              (coordinates,)),
  (GeometryCollection, (geometries,)),
- (Feature,            (geometry, properties)),
+ (Feature,            (geometry, properties, id)),
  (FeatureCollection,  (features,)))
 ```

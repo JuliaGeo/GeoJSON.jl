@@ -103,7 +103,7 @@ type Feature <: AbstractGeoJSON
     Feature(geometry::Union(Nothing, Geometry), properties::Union(Nothing, Dict{String,Any}); kwargs...) =
         fill_options!(new(geometry, properties); kwargs...)
 end
-has_id(obj::Feature) = isdefined(obj, :id)
+hasid(obj::Feature) = isdefined(obj, :id)
 
 type FeatureCollection <: AbstractGeoJSON
     features::Vector{Feature}
@@ -196,7 +196,7 @@ for (geom,attributes) in ((MultiPolygon, (:coordinates,)),
                           (MultiPoint, (:coordinates,)),
                           (Point, (:coordinates,)),
                           (GeometryCollection, (:geometries,)),
-                          (Feature, (:geometry, :properties)),
+                          (Feature, (:geometry, :properties, :id)),
                           (FeatureCollection, (:features,)))
     for attr in attributes
         @eval $(attr)(obj::$geom) = obj.$(attr)

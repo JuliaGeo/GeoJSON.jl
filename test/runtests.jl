@@ -23,6 +23,9 @@ feature = GeoJSON.parse(b)
 @fact GeoJSON.hascrs(feature) => false
 @fact "Ã" in keys(feature.properties) => false
 @fact feature.properties["type"] => "é"
+@fact GeoJSON.hasid(feature) => true
+@fact GeoJSON.id(feature) => feature.id
+@fact feature.id => 1
 
 feature = GeoJSON.parse(c)
 @fact typeof(feature) => Feature
@@ -37,6 +40,9 @@ feature = GeoJSON.parse(c)
 @fact typeof(feature.crs) => Dict{String,Any}
 @fact feature.crs["type"] => "name"
 @fact feature.crs["properties"]["name"] => "urn:ogc:def:crs:EPSG::3785"
+@fact GeoJSON.hasid(feature) => true
+@fact GeoJSON.id(feature) => feature.id
+@fact feature.id => 1
 
 feature = GeoJSON.parse(d)
 @fact typeof(feature) => Feature
@@ -51,6 +57,9 @@ feature = GeoJSON.parse(d)
 @fact feature.properties["title"] => "Dict 1"
 @fact GeoJSON.hasbbox(feature) => false
 @fact GeoJSON.hascrs(feature) => false
+@fact GeoJSON.hasid(feature) => true
+@fact GeoJSON.id(feature) => feature.id
+@fact feature.id => "1"
 
 feature = GeoJSON.parse(e)
 @fact typeof(feature) => Feature
