@@ -32,7 +32,7 @@ type Point <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    Point(coordinates; kwargs...) = fill_options!(new(coordinates); kwargs...)
+    Point(coordinates = Float64[]; kwargs...) = fill_options!(new(coordinates); kwargs...)
 end
 
 type MultiPoint <: Geometry
@@ -41,7 +41,7 @@ type MultiPoint <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    MultiPoint(coordinates; kwargs...) = fill_options!(new(coordinates); kwargs...)
+    MultiPoint(coordinates = Position[]; kwargs...) = fill_options!(new(coordinates); kwargs...)
 end
 
 type LineString <: Geometry
@@ -50,7 +50,7 @@ type LineString <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    LineString(coordinates; kwargs...) = fill_options!(new(coordinates); kwargs...)
+    LineString(coordinates = Position[]; kwargs...) = fill_options!(new(coordinates); kwargs...)
 end
 
 type MultiLineString <: Geometry
@@ -59,7 +59,7 @@ type MultiLineString <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    MultiLineString(coordinates; kwargs...) = fill_options!(new(coordinates); kwargs...)
+    MultiLineString(coordinates = Vector{Position}[]; kwargs...) = fill_options!(new(coordinates); kwargs...)
 end
 
 type Polygon <: Geometry
@@ -68,7 +68,7 @@ type Polygon <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    Polygon(coordinates; kwargs...) = fill_options!(new(coordinates); kwargs...)
+    Polygon(coordinates = Vector{Position}[]; kwargs...) = fill_options!(new(coordinates); kwargs...)
 end
 
 type MultiPolygon <: Geometry
@@ -77,7 +77,7 @@ type MultiPolygon <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    MultiPolygon(coordinates; kwargs...) = fill_options!(new(coordinates); kwargs...)
+    MultiPolygon(coordinates = Vector{Vector{Position}}[]; kwargs...) = fill_options!(new(coordinates); kwargs...)
 end
 
 type GeometryCollection <: Geometry
@@ -86,7 +86,7 @@ type GeometryCollection <: Geometry
     bbox::Vector{Float64}
     crs::CRS
 
-    GeometryCollection(geometries::Vector{Geometry}; kwargs...) =
+    GeometryCollection(geometries = Geometry[]; kwargs...) =
         fill_options!(new(geometries); kwargs...)
 end
 
@@ -100,7 +100,7 @@ type Feature <: AbstractGeoJSON
     bbox::Vector{Float64}
     crs::CRS
 
-    Feature(geometry::Union(Nothing, Geometry), properties::Union(Nothing, Dict{String,Any}); kwargs...) =
+    Feature(geometry::Union(Nothing, Geometry)=nothing, properties::Union(Nothing, Dict{String,Any})=nothing; kwargs...) =
         fill_options!(new(geometry, properties); kwargs...)
 end
 hasid(obj::Feature) = isdefined(obj, :id)
@@ -111,7 +111,7 @@ type FeatureCollection <: AbstractGeoJSON
     bbox::Vector{Float64}
     crs::CRS
 
-    FeatureCollection(features::Vector{Feature}; kwargs...) =
+    FeatureCollection(features::Vector{Feature} = Feature[]; kwargs...) =
         fill_options!(new(features); kwargs...)
 end
 
@@ -156,7 +156,7 @@ end
 # Additional Constructors (Dict -> GeoJSON)
 
 function GeometryCollection(obj::Dict{String,Any})
-    collection = GeometryCollection(Geometry[])
+    collection = GeometryCollection()
     geometries = obj["geometries"]
     sizehint!(collection.geometries, length(geometries))
     for geometry in geometries
