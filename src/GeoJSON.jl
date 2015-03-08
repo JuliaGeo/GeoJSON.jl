@@ -1,6 +1,6 @@
 module GeoJSON
 
-    using JSON, Compat
+    using JSON, DataFrames, Compat
 
     export
         Point,
