@@ -22,6 +22,7 @@ dict = GeoJSON.geojson2dict(feature)
 @fact dict["crs"]["properties"]["href"] => "data.crs"
 @fact dict["crs"]["properties"]["type"] => "ogcwkt"
 @fact dict["crs"]["type"] => "link"
+@fact dict["properties"]["Ã"] => "Ã"
 
 feature = GeoJSON.parse(b)
 @fact typeof(feature) => Feature

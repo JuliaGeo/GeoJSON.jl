@@ -50,6 +50,7 @@ end
 
 function geojson2dict(obj::Feature)
     dict = ["type" => "Feature",
+            "properties" => properties(obj),
             "geometry" => geojson2dict(geometry(obj))]
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
