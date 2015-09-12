@@ -31,8 +31,8 @@ for geom in (MultiPolygon, MultiLineString, MultiPoint,
              Polygon, LineString, Point)
     @eval begin
         function geojson2dict(obj::$geom)
-            dict = ["type" => string($geom),
-                    "coordinates" => coordinates(obj)]
+            dict = @compat Dict("type" => string($geom),
+                                "coordinates" => coordinates(obj))
             hasbbox(obj) && (dict["bbox"] = bbox(obj))
             hascrs(obj) && (dict["crs"] = crs(obj))
             dict
@@ -41,17 +41,17 @@ for geom in (MultiPolygon, MultiLineString, MultiPoint,
 end
 
 function geojson2dict(obj::GeometryCollection)
-    dict = ["type" => "GeometryCollection",
-            "geometries" => map(geojson2dict, geometries(obj))]
+    dict = @compat Dict("type" => "GeometryCollection",
+                        "geometries" => map(geojson2dict, geometries(obj)))
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     dict
 end
 
 function geojson2dict(obj::Feature)
-    dict = ["type" => "Feature",
-            "properties" => properties(obj),
-            "geometry" => geojson2dict(geometry(obj))]
+    dict = @compat Dict("type" => "Feature",
+                        "properties" => properties(obj),
+                        "geometry" => geojson2dict(geometry(obj)))
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     hasid(obj) && (dict["id"] = id(obj))
@@ -59,8 +59,8 @@ function geojson2dict(obj::Feature)
 end
 
 function geojson2dict(obj::FeatureCollection)
-    dict = ["type" => "FeatureCollection",
-            "features" => map(geojson2dict, features(obj))]
+    dict = @compat Dict("type" => "FeatureCollection",
+                        "features" => map(geojson2dict, features(obj)))
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     dict
