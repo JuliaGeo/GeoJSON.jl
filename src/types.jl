@@ -3,7 +3,7 @@
 
 # Coordinate Reference System Objects
 # (has keys "type" and "properties")
-typealias CRS Union(Nothing, Dict{String,Any})
+typealias CRS @compat(Union{Void, Dict{@compat(AbstractString),Any}})
 # TODO: Handle full CRS spec
 
 # Position
@@ -93,14 +93,14 @@ end
 # Feature Objects
 
 type Feature <: AbstractGeoJSON
-    geometry::Union(Nothing, Geometry)
-    properties::Union(Nothing, Dict{String,Any})
+    geometry::@compat(Union{Void, Geometry})
+    properties::@compat(Union{Void, Dict{@compat(AbstractString),Any}})
     # optional
     id
     bbox::Vector{Float64}
     crs::CRS
 
-    Feature(geometry::Union(Nothing, Geometry)=nothing, properties::Union(Nothing, Dict{String,Any})=nothing; kwargs...) =
+    Feature(geometry::@compat(Union{Void, Geometry})=nothing, properties::@compat(Union{Void, Dict{@compat(AbstractString),Any}})=nothing; kwargs...) =
         fill_options!(new(geometry, properties); kwargs...)
 end
 hasid(obj::Feature) = isdefined(obj, :id)
@@ -117,7 +117,7 @@ end
 
 # Helper Functions
 
-function fill_options!(obj::AbstractGeoJSON, param::String, value)
+function fill_options!(obj::AbstractGeoJSON, param::@compat(AbstractString), value)
     if param == "id"
         obj.id = value
     elseif param == "bbox"
@@ -146,7 +146,7 @@ function fill_options!(obj::AbstractGeoJSON; kwargs...)
     obj
 end
 
-function fill_options!(obj::AbstractGeoJSON, kwargs::Dict{String,Any})
+function fill_options!(obj::AbstractGeoJSON, kwargs::Dict{@compat(AbstractString),Any})
     for (param, value) in kwargs
         fill_options!(obj, param, value)
     end
@@ -155,7 +155,7 @@ end
 
 # Additional Constructors (Dict -> GeoJSON)
 
-function GeometryCollection(obj::Dict{String,Any})
+function GeometryCollection(obj::Dict{@compat(AbstractString),Any})
     collection = GeometryCollection()
     geometries = obj["geometries"]
     sizehint!(collection.geometries, length(geometries))
@@ -166,10 +166,10 @@ function GeometryCollection(obj::Dict{String,Any})
 end
 
 for geom in (:MultiPolygon, :Polygon, :MultiLineString, :LineString, :MultiPoint, :Point)
-    @eval $(geom)(obj::Dict{String,Any}) = fill_options!($(geom)(obj["coordinates"]), obj)
+    @eval $(geom)(obj::Dict{@compat(AbstractString),Any}) = fill_options!($(geom)(obj["coordinates"]), obj)
 end
 
-function Feature(obj::Dict{String,Any})
+function Feature(obj::Dict{@compat(AbstractString),Any})
     feature = Feature(dict2geojson(obj["geometry"]), obj["properties"])
     if haskey(obj, "id")
         feature.id = obj["id"]
@@ -177,7 +177,7 @@ function Feature(obj::Dict{String,Any})
     fill_options!(feature, obj)
 end
 
-function FeatureCollection(obj::Dict{String,Any})
+function FeatureCollection(obj::Dict{@compat(AbstractString),Any})
     features = obj["features"]
     collection = FeatureCollection(Feature[])
     sizehint!(collection.features, length(features))

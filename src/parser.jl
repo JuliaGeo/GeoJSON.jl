@@ -1,6 +1,6 @@
 # Dict -> GeoJSON
 
-function dict2geojson(obj::Dict{String,Any})
+function dict2geojson(obj::Dict{@compat(AbstractString),Any})
     t = symbol(obj["type"])
     if t == :FeatureCollection
         return FeatureCollection(obj)
@@ -68,10 +68,10 @@ end
 
 geojson2dict(obj::Nothing) = obj
 
-# String/File -> GeoJSON
+# @compat(AbstractString)/File -> GeoJSON
 parse(input; kwargs...) = dict2geojson(JSON.parse(input; kwargs...))
 parsefile(filename; kwargs...) = dict2geojson(JSON.parsefile(filename; kwargs...))
 
-# GeoJSON -> String/IO
+# GeoJSON -> @compat(AbstractString)/IO
 geojson(obj::AbstractGeoJSON) = JSON.json(geojson2dict(obj))
 print(io::IO, obj::AbstractGeoJSON) = JSON.print(io, geojson2dict(obj))
