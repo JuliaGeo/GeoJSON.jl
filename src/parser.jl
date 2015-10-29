@@ -23,7 +23,7 @@ function dict2geojson(obj::Dict{@compat(AbstractString),Any})
     end
 end
 
-dict2geojson(obj::Nothing) = obj
+dict2geojson(obj::@compat(Void)) = obj
 
 # GeoJSON -> Dict
 
@@ -66,7 +66,7 @@ function geojson2dict(obj::FeatureCollection)
     dict
 end
 
-geojson2dict(obj::Nothing) = obj
+geojson2dict(obj::@compat(Void)) = obj
 
 # @compat(AbstractString)/File -> GeoJSON
 parse(input; kwargs...) = dict2geojson(JSON.parse(input; kwargs...))
