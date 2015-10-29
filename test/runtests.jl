@@ -1,4 +1,4 @@
-using GeoJSON, FactCheck
+using GeoJSON, FactCheck, Compat
 
 include(joinpath(dirname(@__FILE__),"geojson_samples.jl"))
 
@@ -6,7 +6,7 @@ feature = GeoJSON.parse(a)
 @fact typeof(feature) --> Feature
 @fact GeoJSON.geometry(feature) --> nothing
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 1
 @fact GeoJSON.hasbbox(feature) --> false
 @fact GeoJSON.hascrs(feature) --> true
@@ -30,7 +30,7 @@ feature = GeoJSON.parse(b)
 coords = GeoJSON.coordinates(GeoJSON.geometry(feature))
 @fact string(GeoJSON.coordinates(GeoJSON.geometry(feature))) --> "[[-155.52,19.61],[-156.22,20.74],[-157.97,21.46]]"
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 1
 @fact GeoJSON.hasbbox(feature) --> false
 @fact GeoJSON.hascrs(feature) --> false
@@ -44,13 +44,13 @@ feature = GeoJSON.parse(c)
 @fact typeof(feature) --> Feature
 @fact GeoJSON.geometry(feature) --> nothing
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 1
 @fact feature.properties["type"] --> "meow"
 @fact GeoJSON.hasbbox(feature) --> false
 @fact GeoJSON.hascrs(feature) --> true
 @fact GeoJSON.crs(feature) --> feature.crs
-@fact typeof(feature.crs) --> Dict{String,Any}
+@fact typeof(feature.crs) --> Dict{AbstractString,Any}
 @fact feature.crs["type"] --> "name"
 @fact feature.crs["properties"]["name"] --> "urn:ogc:def:crs:EPSG::3785"
 @fact GeoJSON.hasid(feature) --> true
@@ -71,7 +71,7 @@ feature = GeoJSON.parse(d)
 @fact GeoJSON.hasbbox(feature.geometry) --> false
 @fact GeoJSON.hascrs(feature.geometry) --> false
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 1
 @fact feature.properties["title"] --> "Dict 1"
 @fact GeoJSON.hasbbox(feature) --> true
@@ -94,7 +94,7 @@ feature = GeoJSON.parse(e)
 @fact GeoJSON.crs(feature.geometry)["properties"]["type"] --> "proj4"
 @fact feature.geometry.crs["type"] --> "link"
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 3
 @fact feature.properties["title"] --> "Feature 1"
 @fact feature.properties["summary"] --> "The first feature"
@@ -112,7 +112,7 @@ feature = GeoJSON.parse(f)
 @fact typeof(feature) --> Feature
 @fact GeoJSON.geometry(feature) --> nothing
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 1
 @fact feature.properties["foo"] --> "bar"
 @fact GeoJSON.hasbbox(feature) --> false
@@ -215,7 +215,7 @@ feature = testobj.features[1]
 @fact feature.id --> "a7vs0i9rnyyx"
 @fact feature.properties["fax"] --> "305-571-8347"
 @fact feature.properties["phone"] --> "305-571-8345"
-@fact typeof(feature.geometry) --> Nothing
+@fact typeof(feature.geometry) --> Void
 dict = GeoJSON.geojson2dict(testobj)
 @fact dict["type"] --> "FeatureCollection"
 @fact dict["features"][1]["geometry"] --> "null"
@@ -317,7 +317,7 @@ feature = buildings.features[1]
 @fact typeof(feature) --> Feature
 @fact typeof(GeoJSON.geometry(feature)) --> Polygon
 @fact GeoJSON.properties(feature) --> feature.properties
-@fact typeof(feature.properties) --> Dict{String,Any}
+@fact typeof(feature.properties) --> Dict{AbstractString,Any}
 @fact length(feature.properties) --> 2
 @fact feature.properties["height"] --> 150
 @fact feature.properties["color"] --> "rgb(255,200,150)"
@@ -325,7 +325,7 @@ feature = buildings.features[1]
 @fact GeoJSON.hascrs(feature) --> false
 
 building_dict = GeoJSON.geojson2dict(buildings)
-@fact typeof(building_dict) --> Dict{String,Any}
+@fact typeof(building_dict) --> Dict{AbstractString,Any}
 @fact string(GeoJSON.parse(osm_buildings)) --> string(GeoJSON.dict2geojson(building_dict))
 
 @fact GeoJSON.geojson(buildings) -->
