@@ -1,6 +1,6 @@
 # Dict -> GeoJSON
 
-function dict2geojson(obj::Dict{@compat(AbstractString),Any})
+function dict2geojson(obj::Dict)
     t = symbol(obj["type"])
     if t == :FeatureCollection
         return FeatureCollection(obj)
