@@ -31,7 +31,7 @@ for geom in (MultiPolygon, MultiLineString, MultiPoint,
              Polygon, LineString, Point)
     @eval begin
         function geojson2dict(obj::$geom)
-            dict = @compat Dict("type" => string($geom),
+            dict = @compat Dict("type" => string($(geom).name.name),
                                 "coordinates" => coordinates(obj))
             hasbbox(obj) && (dict["bbox"] = bbox(obj))
             hascrs(obj) && (dict["crs"] = crs(obj))

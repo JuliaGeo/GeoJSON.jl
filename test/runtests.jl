@@ -348,3 +348,20 @@ feature = obj.features[1]
 @fact length(feature.geometry.coordinates) --> 1
 @fact length(feature.geometry.coordinates[1]) --> 38
 @fact feature.geometry.coordinates[1][1] --> feature.geometry.coordinates[1][end]
+
+# Tests added for PR #19
+v = Vector{Float64}[]
+push!(v, [1.0;2.0])
+push!(v, [3.0;4.0])
+ls = LineString(v)
+f = Feature(ls)
+fc = FeatureCollection(Feature[f])
+gj = GeoJSON.geojson2dict(ls)
+fj = GeoJSON.geojson2dict(f)
+fcj = GeoJSON.geojson2dict(fc)
+@fact gj["type"] --> "LineString"
+@fact fj["type"] --> "Feature"
+@fact fj["geometry"]["type"] --> "LineString"
+@fact fcj["type"] --> "FeatureCollection"
+@fact fcj["features"][1]["type"] --> "Feature"
+@fact fcj["features"][1]["geometry"]["type"] --> "LineString"
