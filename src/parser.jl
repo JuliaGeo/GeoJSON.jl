@@ -1,7 +1,7 @@
 # Dict -> GeoJSON
 
 function dict2geojson(obj::Dict)
-    t = symbol(obj["type"])
+    t = Symbol(obj["type"])
     if t == :FeatureCollection
         return FeatureCollection(obj)
     elseif t == :Feature
