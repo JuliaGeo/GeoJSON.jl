@@ -1,3 +1,5 @@
+__precompile__()
+
 module GeoJSON
 
     using JSON, Compat
