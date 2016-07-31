@@ -23,7 +23,7 @@ function dict2geojson(obj::Dict)
     end
 end
 
-dict2geojson(obj::@compat(Void)) = obj
+dict2geojson(obj::Void) = obj
 
 # GeoJSON -> Dict
 
@@ -31,8 +31,8 @@ for geom in (MultiPolygon, MultiLineString, MultiPoint,
              Polygon, LineString, Point)
     @eval begin
         function geojson2dict(obj::$geom)
-            dict = @compat Dict("type" => string($(geom).name.name),
-                                "coordinates" => coordinates(obj))
+            dict = Dict("type" => string($(geom).name.name),
+                                  "coordinates" => coordinates(obj))
             hasbbox(obj) && (dict["bbox"] = bbox(obj))
             hascrs(obj) && (dict["crs"] = crs(obj))
             dict
@@ -41,17 +41,17 @@ for geom in (MultiPolygon, MultiLineString, MultiPoint,
 end
 
 function geojson2dict(obj::GeometryCollection)
-    dict = @compat Dict("type" => "GeometryCollection",
-                        "geometries" => map(geojson2dict, geometries(obj)))
+    dict = Dict("type" => "GeometryCollection",
+                          "geometries" => map(geojson2dict, geometries(obj)))
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     dict
 end
 
 function geojson2dict(obj::Feature)
-    dict = @compat Dict("type" => "Feature",
-                        "properties" => properties(obj),
-                        "geometry" => geojson2dict(geometry(obj)))
+    dict = Dict("type" => "Feature",
+                          "properties" => properties(obj),
+                          "geometry" => geojson2dict(geometry(obj)))
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     hasid(obj) && (dict["id"] = id(obj))
@@ -59,19 +59,19 @@ function geojson2dict(obj::Feature)
 end
 
 function geojson2dict(obj::FeatureCollection)
-    dict = @compat Dict("type" => "FeatureCollection",
-                        "features" => map(geojson2dict, features(obj)))
+    dict = Dict("type" => "FeatureCollection",
+                          "features" => map(geojson2dict, features(obj)))
     hasbbox(obj) && (dict["bbox"] = bbox(obj))
     hascrs(obj) && (dict["crs"] = crs(obj))
     dict
 end
 
-geojson2dict(obj::@compat(Void)) = obj
+geojson2dict(obj::Void) = obj
 
-# @compat(AbstractString)/File -> GeoJSON
+# String/File -> GeoJSON
 parse(input; kwargs...) = dict2geojson(JSON.parse(input; kwargs...))
 parsefile(filename; kwargs...) = dict2geojson(JSON.parsefile(filename; kwargs...))
 
-# GeoJSON -> @compat(AbstractString)/IO
+# GeoJSON -> String/IO
 geojson(obj::AbstractGeoJSON) = JSON.json(geojson2dict(obj))
 print(io::IO, obj::AbstractGeoJSON) = JSON.print(io, geojson2dict(obj))

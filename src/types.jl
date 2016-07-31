@@ -3,7 +3,7 @@
 
 # Coordinate Reference System Objects
 # (has keys "type" and "properties")
-typealias CRS @compat(Union{Void, Dict})
+typealias CRS Union{Void, Dict}
 # TODO: Handle full CRS spec
 
 # Position
@@ -93,16 +93,16 @@ end
 # Feature Objects
 
 type Feature <: AbstractGeoJSON
-    geometry::@compat(Union{Void, Geometry})
-    properties::@compat(Union{Void, Dict})
+    geometry::Union{Void, Geometry}
+    properties::Union{Void, Dict}
     # optional
     bbox::Vector{Float64}
     crs::CRS
     id
 
     Feature(
-            geometry::@compat(Union{Void, Geometry})=nothing,
-            properties::@compat(Union{Void, Dict})=nothing;
+            geometry::Union{Void, Geometry}=nothing,
+            properties::Union{Void, Dict}=nothing;
             kwargs...
         ) =
         fill_options!(new(geometry, properties); kwargs...)
@@ -121,7 +121,7 @@ end
 
 # Helper Functions
 
-function fill_options!(obj::AbstractGeoJSON, param::@compat(AbstractString), value)
+function fill_options!(obj::AbstractGeoJSON, param::AbstractString, value)
     if param == "id"
         obj.id = value
     elseif param == "bbox"
