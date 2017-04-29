@@ -5,9 +5,7 @@ module GeoJSON
     import GeoInterface
     import JSON
 
-    export parse,
-           parsefile,
-           dict2geo,
+    export dict2geo,
            geojson
 
     # String/File -> GeoJSON
