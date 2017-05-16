@@ -55,6 +55,34 @@ e = """{"geometry": {"coordinates": [53, -4],
 
 f = """{"geometry": null, "id": 12, "properties": {"foo": "bar"}, "type": "Feature"}"""
 
+# Self-Added for test coverage
+
+g = """{
+    "type": "FeatureCollection",
+    "features": [{
+        "type": "Feature",
+        "properties": {
+            "cartodb_id": 46,
+            "addr1": "18150 E. Pathfinder Rd.",
+            "addr2": "Rowland Heights",
+            "park": "Pathfinder Park"
+        },
+        "geometry": {
+            "type":"MultiPolygon",
+            "coordinates": [[[ [-117.913883,33.96657], [-117.907767,33.967747], [-117.912919,33.96445], [-117.913883,33.96657] ]]]
+        }
+    }],
+    "bbox": [100.0, 0.0, 105.0, 1.0],
+    "crs": {"properties": {"name": "urn:ogc:def:crs:EPSG::3785"},
+            "type": "name"}
+}"""
+
+h = """{
+    "type": "Feature",
+    "geometry": {"type": "MultiLineString", "coordinates": [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]]},
+    "properties": {"title": "Dict 1", "bbox": [-180.0, -90.0, 180.0, 90.0]}
+}"""
+
 # Examples from https://github.com/Esri/geojson-utils/blob/master/tests/geojson.js
 
 multipolygon = """{
@@ -356,4 +384,4 @@ osm_buildings = """{
       "height": 140
     }
   }]
-}"""
+}""";

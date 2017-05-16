@@ -91,6 +91,17 @@ feature = GeoJSON.parse(f)
 @fact feature.properties["foo"] --> "bar"
 @fact feature.properties["featureid"] --> 12
 
+featurecollection = GeoJSON.parse(g)
+@fact sprint(print,json(featurecollection)) -->
+    "{\"features\":[{\"geometry\":{\"coordinates\":[[[[-117.913883,33.96657],[-117.907767,33.967747],[-117.912919,33.96445],[-117.913883,33.96657]]]]},\"properties\":{\"addr2\":\"Rowland Heights\",\"cartodb_id\":46,\"addr1\":\"18150 E. Pathfinder Rd.\",\"park\":\"Pathfinder Park\"}}],\"bbox\":[100.0,0.0,105.0,1.0],\"crs\":{\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::3785\"},\"type\":\"name\"}}"
+@fact featurecollection.bbox --> roughly([100,0,105,1])
+@fact featurecollection.crs --> Dict("properties" => Dict("name" => "urn:ogc:def:crs:EPSG::3785"),
+                                     "type" => "name")
+
+feature = GeoJSON.parse(h)
+@fact sprint(print,json(feature)) -->
+    "{\"geometry\":{\"coordinates\":[[[3.75,9.25],[-130.95,1.52]],[[23.15,-34.25],[-1.35,-4.65],[3.45,77.95]]]},\"properties\":{\"title\":\"Dict 1\",\"bbox\":[-180.0,-90.0,180.0,90.0]}}"
+
 testobj = GeoJSON.parse(multipolygon)
 @fact typeof(testobj) --> GeoInterface.FeatureCollection{GeoInterface.Feature}
 features = GeoInterface.features(testobj)
