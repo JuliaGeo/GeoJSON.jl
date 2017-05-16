@@ -54,7 +54,7 @@ module GeoJSON
             feature.properties["featureid"] = obj["id"]
         end
         if haskey(obj, "bbox")
-            feature.properties["bbox"] = obj["bbox"]
+            feature.properties["bbox"] = GeoInterface.BBox(obj["bbox"])
         end
         if haskey(obj, "crs")
             feature.properties["crs"] = obj["crs"]
@@ -66,7 +66,7 @@ module GeoJSON
         features = GeoInterface.Feature[map(parseFeature,obj["features"])...]
         featurecollection = GeoInterface.FeatureCollection(features)
         if haskey(obj, "bbox")
-            featurecollection.bbox = obj["bbox"]
+            featurecollection.bbox = GeoInterface.BBox(obj["bbox"])
         end
         if haskey(obj, "crs")
             featurecollection.crs = obj["crs"]
