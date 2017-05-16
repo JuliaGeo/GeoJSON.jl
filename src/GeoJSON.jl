@@ -17,7 +17,6 @@ module GeoJSON
                  :AbstractMultiPolygon, :AbstractPolygon, :AbstractMultiLineString,
                  :AbstractLineString, :AbstractMultiPoint, :AbstractPoint)
         @eval json(obj::GeoInterface.$geom) = JSON.json(geojson(obj))
-        @eval print(io::IO, obj::GeoInterface.$geom) = JSON.print(io, geojson(obj))
     end
 
     dict2geo(obj::Void) = nothing
