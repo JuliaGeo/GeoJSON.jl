@@ -21,7 +21,7 @@ module GeoJSON
     end
 
     dict2geo(obj::Void) = nothing
-    
+
     function dict2geo(obj::Dict{String,Any})
         t = Symbol(obj["type"])
         if t == :FeatureCollection
