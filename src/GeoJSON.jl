@@ -6,6 +6,7 @@ module GeoJSON
     import JSON
 
     export dict2geo,
+           geo2dict,
            geojson
 
     # String/File -> GeoJSON
@@ -16,7 +17,7 @@ module GeoJSON
     for geom in (:AbstractFeatureCollection, :AbstractGeometryCollection, :AbstractFeature,
                  :AbstractMultiPolygon, :AbstractPolygon, :AbstractMultiLineString,
                  :AbstractLineString, :AbstractMultiPoint, :AbstractPoint)
-        @eval JSON.json(obj::GeoInterface.$geom) = JSON.json(geojson(obj))
+        @eval geojson(obj::GeoInterface.$geom) = JSON.json(geo2dict(obj))
     end
 
     dict2geo(obj::Void) = nothing
@@ -73,21 +74,21 @@ module GeoJSON
         featurecollection
     end
 
-    geojson(obj::Void) = nothing
+    geo2dict(obj::Void) = nothing
 
-    function geojson(obj::GeoInterface.AbstractGeometry)
+    function geo2dict(obj::GeoInterface.AbstractGeometry)
         Dict("type" => string(GeoInterface.geotype(obj)),
              "coordinates" => GeoInterface.coordinates(obj))
     end
 
-    function geojson(obj::GeoInterface.AbstractGeometryCollection)
+    function geo2dict(obj::GeoInterface.AbstractGeometryCollection)
         Dict("type" => string(GeoInterface.geotype(obj)),
-             "geometries" => map(geojson, GeoInterface.geometries(obj)))
+             "geometries" => map(geo2dict, GeoInterface.geometries(obj)))
     end
 
-    function geojson(obj::GeoInterface.AbstractFeature)
+    function geo2dict(obj::GeoInterface.AbstractFeature)
         result = Dict("type" => string(GeoInterface.geotype(obj)),
-                      "geometry" => geojson(GeoInterface.geometry(obj)),
+                      "geometry" => geo2dict(GeoInterface.geometry(obj)),
                       "properties" => copy(GeoInterface.properties(obj)))
         if haskey(result["properties"], "bbox")
             result["bbox"] = result["properties"]["bbox"]
@@ -104,9 +105,9 @@ module GeoJSON
         result
     end
 
-    function geojson(obj::GeoInterface.AbstractFeatureCollection)
+    function geo2dict(obj::GeoInterface.AbstractFeatureCollection)
         result = Dict("type" => string(GeoInterface.geotype(obj)),
-                      "features" => map(geojson, GeoInterface.features(obj)))
+                      "features" => map(geo2dict, GeoInterface.features(obj)))
         if GeoInterface.bbox(obj) != nothing
             result["bbox"] = GeoInterface.bbox(obj)
         end
