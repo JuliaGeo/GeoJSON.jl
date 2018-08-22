@@ -1,5 +1,5 @@
 using GeoJSON, GeoInterface
-using Base.Test
+using Test
 
 include(joinpath(@__DIR__, "geojson_samples.jl"))
 
@@ -208,7 +208,7 @@ end
     @test feature.properties["featureid"] == "a7vs0i9rnyyx"
     @test feature.properties["fax"] == "305-571-8347"
     @test feature.properties["phone"] == "305-571-8345"
-    @test feature.geometry isa Void
+    @test feature.geometry isa Nothing
     dict = geo2dict(testobj)
     @test dict["type"] == "FeatureCollection"
     @test dict["features"][1]["geometry"] == nothing
