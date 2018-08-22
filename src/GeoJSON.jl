@@ -1,5 +1,3 @@
-__precompile__()
-
 module GeoJSON
 
     import GeoInterface
@@ -20,7 +18,7 @@ module GeoJSON
         @eval geojson(obj::GeoInterface.$geom) = JSON.json(geo2dict(obj))
     end
 
-    dict2geo(obj::Void) = nothing
+    dict2geo(obj::Nothing) = nothing
 
     function dict2geo(obj::Dict{String,Any})
         t = Symbol(obj["type"])
@@ -74,7 +72,7 @@ module GeoJSON
         featurecollection
     end
 
-    geo2dict(obj::Void) = nothing
+    geo2dict(obj::Nothing) = nothing
 
     function geo2dict(obj::GeoInterface.AbstractGeometry)
         Dict("type" => string(GeoInterface.geotype(obj)),
