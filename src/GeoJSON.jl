@@ -15,7 +15,7 @@ Parse a GeoJSON string or IO stream into a GeoInterface object.
 See also: [`parsefile`](@ref)
 
 # Examples
-```jldoctest
+```julia
 julia> GeoJSON.parse("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
 GeoInterface.Point([30.0, 10.0])
 ```
@@ -38,12 +38,9 @@ Create a GeoJSON string from an object that implements the GeoInterface, either
 `AbstractGeometry`, `AbstractFeature` or `AbstractFeatureCollection`.
 
 # Examples
-```jldoctest
-julia> using GeoInterface; p = Point([30.0, 10.0])
-Point([30.0, 10.0])
-
-julia> geojson(p)
-"{\"coordinates\":[30.0,10.0],\"type\":\"Point\"}"
+```julia
+julia> geojson(Point([30.0, 10.0]))
+\"{\"coordinates\":[30.0,10.0],\"type\":\"Point\"}\"
 ```
 """
 function geojson end
@@ -62,7 +59,7 @@ Transform a parsed JSON dictionary to a GeoInterface object.
 See also: [`geo2dict`](@ref)
 
 # Examples
-```jldoctest
+```julia
 julia> dict2geo(Dict("type" => "Point", "coordinates" => [30.0, 10.0]))
 Point([30.0, 10.0])
 ```
@@ -129,8 +126,8 @@ Transform a GeoInterface object to a JSON dictionary.
 See also: [`dict2geo`](@ref)
 
 # Examples
-```jldoctest
-julia> using GeoInterface; geo2dict(Point([30.0, 10.0]))
+```julia
+julia> geo2dict(Point([30.0, 10.0]))
 Dict{String,Any} with 2 entries:
   "coordinates" => [30.0, 10.0]
   "type"        => "Point"
