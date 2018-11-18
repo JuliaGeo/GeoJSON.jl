@@ -14,3 +14,4 @@ This library is developed independently of, but is heavily influenced in design 
 
 ## Documentation
 
+Documentation for GeoJSON.jl can be found at https://juliageo.github.io/GeoJSON.jl/.

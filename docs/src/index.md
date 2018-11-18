@@ -33,7 +33,7 @@ Although we use GeoInterface types for representing GeoJSON objects, it works in
 with the [JSON.jl](https://github.com/JuliaIO/JSON.jl) package, for parsing and some
 printing of objects. Here are some examples of its functionality:
 
-- Parses a GeoJSON String or IO stream into a GeoInterface object
+### Parses a GeoJSON String or IO stream into a GeoInterface object
 
 ```@example basic
 using GeoJSON
@@ -67,33 +67,32 @@ osm_buildings = """
 buildings = GeoJSON.parse(osm_buildings)
 buildings
 ```
+
 Use `GeoJSON.parsefile("tech_square.geojson")` to read GeoJSON files from disk.
 
-- Transforms a GeoInterface object into a nested Array or Dict
+### Transforms a GeoInterface object into a nested Array or Dict
 
-```julia
-julia> dict = geo2dict(buildings) # geo2dict -- GeoInterface object to Dict/Array-representation
-Dict{String,Any} with 2 entries:
-  "features" => Dict{String,Any}[Dict{String,Any}(Pair{String,Any}("geometry",Dict{String,Any}(Pair{String,Any}("coordi…
-  "type"     => "FeatureCollection"
-
-julia> JSON.parse(osm_buildings) # should be comparable (if not the same)
-Dict{String,Any} with 2 entries:
-  "features" => Any[Dict{String,Any}(Pair{String,Any}("geometry",Dict{String,Any}(Pair{String,Any}("coordinates",Any[An…
-  "type"     => "FeatureCollection"
+```@example basic
+dict = geo2dict(buildings) # geo2dict -- GeoInterface object to Dict/Array-representation
+dict
 ```
 
-- Transforms from a nested Array/Dict to a GeoInterface object
-
-```julia
-julia> dict2geo(dict)
-GeoInterface.FeatureCollection{GeoInterface.Feature}(GeoInterface.Feature[GeoInterface.Feature(GeoInterface.Polygon(Array{Array{Float64,1},1}[Array{Float64,1}[[13.4263,52.4953],[13.4266,52.4952],[13.4262,52.4948],[13.4258,52.495],[13.4259,52.495],[13.4261,52.4949],[13.4264,52.4952],[13.4263,52.4953],[13.4263,52.4953]]]),Dict{String,Any}(Pair{String,Any}("height",150),Pair{String,Any}("color","rgb(255,200,150)")))],nothing,nothing)
-
-julia> GeoJSON.parse(osm_buildings) # the original object (for comparison)
-GeoInterface.FeatureCollection{GeoInterface.Feature}(GeoInterface.Feature[GeoInterface.Feature(GeoInterface.Polygon(Array{Array{Float64,1},1}[Array{Float64,1}[[13.4263,52.4953],[13.4266,52.4952],[13.4262,52.4948],[13.4258,52.495],[13.4259,52.495],[13.4261,52.4949],[13.4264,52.4952],[13.4263,52.4953],[13.4263,52.4953]]]),Dict{String,Any}(Pair{String,Any}("height",150),Pair{String,Any}("color","rgb(255,200,150)")))],nothing,nothing)
+```@example basic
+using JSON
+JSON.parse(osm_buildings) # should be comparable (if not the same)
 ```
 
-- Writing back GeoJSON strings is not yet implemented
+### Transforms from a nested Array/Dict to a GeoInterface object
+
+```@example basic
+dict2geo(dict)
+```
+
+```@example basic
+GeoJSON.parse(osm_buildings) # the original object (for comparison)
+```
+
+*Writing back GeoJSON strings is not yet implemented.*
 
 ## GeoInterface
 This library implements the [GeoInterface](https://github.com/JuliaGeo/GeoInterface.jl).
