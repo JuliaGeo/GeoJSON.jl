@@ -21,7 +21,7 @@ var documenterSearchIndex = {"docs": [
     "page": "GeoJSON.jl",
     "title": "Introduction",
     "category": "section",
-    "text": "(Image: Build Status) (Image: Build Status) (Image: Coverage Status) (Image: Stable Documentation) (Image: Latest Documentation)This library is developed independently of, but is heavily influenced in design by the python-geojson package. It contains:Functions for encoding and decoding GeoJSON formatted data\na type hierarchy (according to the GeoJSON specification)\nAn implementation of the __geo_interface__, a GeoJSON-like protocol for geo-spatial (GIS) vector data."
+    "text": "(Image: Build Status) (Image: Build Status) (Image: Coverage Status) (Image: Latest Documentation)This library is developed independently of, but is heavily influenced in design by the python-geojson package. It contains:Functions for encoding and decoding GeoJSON formatted data\na type hierarchy (according to the GeoJSON specification)\nAn implementation of the __geo_interface__, a GeoJSON-like protocol for geo-spatial (GIS) vector data."
 },
 
 {
