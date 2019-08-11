@@ -3,7 +3,6 @@ using GeoJSON
 
 makedocs(
     sitename = "GeoJSON",
-    format = :html,
     modules = [GeoJSON],
 )
 

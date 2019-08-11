@@ -1,7 +1,7 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
-JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 
 [compat]
-Documenter = "~0.20"
+Documenter = "~0.23"
