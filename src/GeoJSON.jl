@@ -1,14 +1,14 @@
 module GeoJSON
 
 import GeoInterface
-import JSON
+import JSON3
 
 export dict2geo,
     geo2dict,
     geojson
 
 """
-    parse(input::Union{String, IO}, inttype::Type{<:Real}=Int64)
+    parse(input::Union{String, IO})
 
 Parse a GeoJSON string or IO stream into a GeoInterface object.
 
@@ -20,16 +20,20 @@ julia> GeoJSON.parse("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
 GeoInterface.Point([30.0, 10.0])
 ```
 """
-parse(input; kwargs...) = dict2geo(JSON.parse(input; kwargs...))
+parse(input) = dict2geo(JSON3.read(input))
 
 """
-    parsefile(filename::AbstractString, inttype::Type{<:Real}=Int64)
+    parsefile(filename::AbstractString)
 
 Parse a GeoJSON file into a GeoInterface object.
 
 See also: [`parse`](@ref)
 """
-parsefile(filename; kwargs...) = dict2geo(JSON.parsefile(filename; kwargs...))
+function parsefile(filename)
+    open(filename) do io
+        dict2geo(JSON3.read(io))
+    end
+end
 
 """
     geojson(obj)
@@ -48,11 +52,11 @@ function geojson end
 for geom in (:AbstractFeatureCollection, :AbstractGeometryCollection, :AbstractFeature,
         :AbstractMultiPolygon, :AbstractPolygon, :AbstractMultiLineString,
         :AbstractLineString, :AbstractMultiPoint, :AbstractPoint)
-    @eval geojson(obj::GeoInterface.$geom) = JSON.json(geo2dict(obj))
+    @eval geojson(obj::GeoInterface.$geom) = JSON3.write(geo2dict(obj))
 end
 
 """
-    dict2geo(obj::Dict{String, Any})
+    dict2geo(obj::AbstractDict{<:Union{Symbol, String}, Any})
 
 Transform a parsed JSON dictionary to a GeoInterface object.
 
@@ -64,7 +68,7 @@ julia> dict2geo(Dict("type" => "Point", "coordinates" => [30.0, 10.0]))
 Point([30.0, 10.0])
 ```
 """
-function dict2geo(obj::Dict{String,Any})
+function dict2geo(obj::AbstractDict{<:Union{Symbol, String}, Any})
     t = Symbol(obj["type"])
     if t == :FeatureCollection
         return parseFeatureCollection(obj)
@@ -89,11 +93,12 @@ end
 
 dict2geo(obj::Nothing) = nothing
 
-parseGeometryCollection(obj::Dict{String,Any}) =
-    GeoInterface.GeometryCollection(map(dict2geo,obj["geometries"]))
+parseGeometryCollection(obj::AbstractDict{<:Union{Symbol, String}, Any}) =
+    GeoInterface.GeometryCollection(dict2geo.(obj["geometries"]))
 
-function parseFeature(obj::Dict{String,Any})
-    feature = GeoInterface.Feature(dict2geo(obj["geometry"]), obj["properties"])
+function parseFeature(obj::AbstractDict{<:Union{Symbol, String}, Any})
+    properties = Dict{String, Any}(String(k) => v for (k, v) in obj["properties"])
+    feature = GeoInterface.Feature(dict2geo(obj["geometry"]), properties)
     if haskey(obj, "id")
         feature.properties["featureid"] = obj["id"]
     end
@@ -106,14 +111,14 @@ function parseFeature(obj::Dict{String,Any})
     feature
 end
 
-function parseFeatureCollection(obj::Dict{String,Any})
-    features = GeoInterface.Feature[map(parseFeature,obj["features"])...]
+function parseFeatureCollection(obj::AbstractDict{<:Union{Symbol, String}, Any})
+    features = parseFeature.(obj["features"])
     featurecollection = GeoInterface.FeatureCollection(features)
     if haskey(obj, "bbox")
         featurecollection.bbox = GeoInterface.BBox(obj["bbox"])
     end
     if haskey(obj, "crs")
-        featurecollection.crs = obj["crs"]
+        featurecollection.crs = Dict{String, Any}(String(k) => v for (k, v) in obj["crs"])
     end
     featurecollection
 end

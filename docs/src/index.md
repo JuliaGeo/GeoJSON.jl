@@ -29,7 +29,7 @@ pkg> test GeoJSON
 
 ## Basic Usage
 Although we use GeoInterface types for representing GeoJSON objects, it works in tandem 
-with the [JSON.jl](https://github.com/JuliaIO/JSON.jl) package, for parsing and some
+with the [JSON3.jl](https://github.com/quinnj/JSON3.jl) package, for parsing and some
 printing of objects. Here are some examples of its functionality:
 
 ### Parses a GeoJSON String or IO stream into a GeoInterface object
@@ -77,8 +77,8 @@ dict
 ```
 
 ```@example basic
-using JSON
-JSON.parse(osm_buildings) # should be comparable (if not the same)
+using JSON3
+JSON3.read(osm_buildings) # should be comparable (if not the same)
 ```
 
 ### Transforms from a nested Array/Dict to a GeoInterface object
