@@ -32,7 +32,7 @@ Although we use GeoInterface types for representing GeoJSON objects, it works in
 with the [JSON3.jl](https://github.com/quinnj/JSON3.jl) package, for parsing and some
 printing of objects. Here are some examples of its functionality:
 
-### Parses a GeoJSON String or IO stream into a GeoInterface object
+### Reads a GeoJSON String or IO stream into a GeoInterface object
 
 ```@example basic
 using GeoJSON
@@ -63,11 +63,11 @@ osm_buildings = """
         }
     }]
 }"""
-buildings = GeoJSON.parse(osm_buildings)
+buildings = GeoJSON.read(osm_buildings)
 buildings
 ```
 
-Use `GeoJSON.parsefile("tech_square.geojson")` to read GeoJSON files from disk.
+Use `GeoJSON.read(read("tech_square.geojson"))` to read GeoJSON files from disk.
 
 ### Transforms a GeoInterface object into a nested Array or Dict
 
@@ -88,7 +88,7 @@ dict2geo(dict)
 ```
 
 ```@example basic
-GeoJSON.parse(osm_buildings) # the original object (for comparison)
+GeoJSON.read(osm_buildings) # the original object (for comparison)
 ```
 
 *Writing back GeoJSON strings is not yet implemented.*
@@ -100,16 +100,14 @@ used on them, refer to the documentation of the GeoInterface package.
 
 ## Functions
 ### Input
-To read in GeoJSON data, use [`GeoJSON.parse`](@ref), or to read a file from disk use
-[`GeoJSON.parsefile`](@ref).
+To read in GeoJSON data, use [`GeoJSON.read`](@ref).
 ```@docs
-GeoJSON.parse
-GeoJSON.parsefile
+GeoJSON.read
 ```
 
 ### Output
 ```@docs
-geojson
+GeoJSON.write
 ```
 
 ### Conversion
