@@ -3,62 +3,47 @@ module GeoJSON
 import GeoInterface
 import JSON3
 
-export dict2geo,
-    geo2dict,
-    geojson
+export dict2geo, geo2dict
 
 """
-    parse(input::Union{String, IO})
+    read(input::Union{AbstractString, IO, AbstractVector{UInt8}})
 
-Parse a GeoJSON string or IO stream into a GeoInterface object.
+Read a GeoJSON string or IO stream into a GeoInterface object.
 
-See also: [`parsefile`](@ref)
+To read a file, use `GeoJSON.read(read(path))`.
 
 # Examples
 ```julia
-julia> GeoJSON.parse("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
+julia> GeoJSON.read("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
 GeoInterface.Point([30.0, 10.0])
 ```
 """
-parse(input) = dict2geo(JSON3.read(input))
+read(input) = dict2geo(JSON3.read(input))
 
 """
-    parsefile(filename::AbstractString)
-
-Parse a GeoJSON file into a GeoInterface object.
-
-See also: [`parse`](@ref)
-"""
-function parsefile(filename)
-    open(filename) do io
-        dict2geo(JSON3.read(io))
-    end
-end
-
-"""
-    geojson(obj)
+    write(obj)
 
 Create a GeoJSON string from an object that implements the GeoInterface, either
 `AbstractGeometry`, `AbstractFeature` or `AbstractFeatureCollection`.
 
 # Examples
 ```julia
-julia> geojson(Point([30.0, 10.0]))
+julia> GeoJSON.write(Point([30.0, 10.0]))
 \"{\"coordinates\":[30.0,10.0],\"type\":\"Point\"}\"
 ```
 """
-function geojson end
+function write end
 
 for geom in (:AbstractFeatureCollection, :AbstractGeometryCollection, :AbstractFeature,
         :AbstractMultiPolygon, :AbstractPolygon, :AbstractMultiLineString,
         :AbstractLineString, :AbstractMultiPoint, :AbstractPoint)
-    @eval geojson(obj::GeoInterface.$geom) = JSON3.write(geo2dict(obj))
+    @eval write(obj::GeoInterface.$geom) = JSON3.write(geo2dict(obj))
 end
 
 """
     dict2geo(obj::AbstractDict{<:Union{Symbol, String}, Any})
 
-Transform a parsed JSON dictionary to a GeoInterface object.
+Transform a JSON dictionary to a GeoInterface object.
 
 See also: [`geo2dict`](@ref)
 
@@ -182,5 +167,7 @@ function geo2dict(obj::GeoInterface.AbstractFeatureCollection)
 end
 
 geo2dict(obj::Nothing) = nothing
+
+include("deprecations.jl")
 
 end  # module
