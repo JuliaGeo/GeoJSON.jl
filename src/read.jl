@@ -1,14 +1,14 @@
 # GeoJSON read functions
 
-_readpoint(c::JSON3.Array) = SVector{length(c)}(c)
-_readlinestring(c::JSON3.Array) = LineString([SVector{length(p)}(p) for p in c])
+_readpoint(c::JSON3.Array) = SVector{length(c), Float64}(c)
+_readlinestring(c::JSON3.Array) = LineString([SVector{length(p), Float64}(p) for p in c])
 
 function _readpolygon(c::JSON3.Array)
-    outerior = LineString([SVector{length(p)}(p) for p in c[1]])
+    outerior = LineString([SVector{length(p), Float64}(p) for p in c[1]])
     otype = typeof(outerior)
     interiors = Vector{otype}(undef, length(c) - 1)
     for i in 2:length(c)
-        interiors[i-1] = otype([SVector{length(p)}(p) for p in c[i]])
+        interiors[i-1] = otype([SVector{length(p), Float64}(p) for p in c[i]])
     end
     Polygon(outerior, interiors)
 end

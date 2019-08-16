@@ -11,16 +11,16 @@ Certain two-dimensional operations are provided for `LineString`. A `LineString`
 `isclosed` if it is not empty and the first and last point is identical. A `LineString`
 `issimple` if it `isclosed`, and no lines intersect (when projected to the X-Y plane).
 """
-struct LineString{N, T <: Real, V <: AbstractVector{<:StaticVector{N, T}}} <: AbstractVector{Line{N, T}}
+struct LineString{N, V <: AbstractVector{<:StaticVector{N, Float64}}} <: AbstractVector{Line{N}}
     points::V
 end
 
 LineString(points::StaticVector{N,T}...) where {N, T <: Real} = LineString(collect(points))
 LineString{N}(points::AbstractVector{T}...) where {N, T <: Real} = LineString{N}(collect(points))
-LineString{N}(points::AbstractVector{<:AbstractVector{T}}) where {N, T <: Real} = LineString{N, T}(points)
-LineString{N, T}(points::AbstractVector{<:Real}...) where {N, T <: Real} = LineString{N, T}(collect(points))
-LineString{N, T}(points::AbstractVector{<:AbstractVector{<:Real}}) where {N, T <: Real} = LineString{N, T}(convert.(SVector{N,T}, points))
-LineString{N, T}(points::AbstractVector{<:StaticVector{N, T}}) where {N, T <: Real} = LineString{N, T, typeof(points)}(points)
+LineString{N}(points::AbstractVector{<:AbstractVector{T}}) where {N, T <: Real} = LineString{N}(points)
+LineString{N}(points::AbstractVector{<:Real}...) where {N, T <: Real} = LineString{N}(collect(points))
+LineString{N}(points::AbstractVector{<:AbstractVector{<:Real}}) where {N, T <: Real} = LineString{N}(convert.(SVector{N, Float64}, points))
+LineString{N}(points::AbstractVector{<:StaticVector{N, T}}) where {N, T <: Real} = LineString{N, typeof(points)}(points)
 
 # AbstractArray interface
 Base.IndexStyle(ls::Type{<:LineString}) = IndexLinear()
