@@ -26,6 +26,10 @@ geometrycollection = GeoJSON.GeometryCollection([
     GeoJSON.Polygon(SVector{2, Float64}[(40, 40), (20, 45), (45, 30), (40, 40)]),
 ])
 
+fpt = GeoJSON.Feature(point)
+fls = GeoJSON.Feature(linestring)
+fcol = GeoJSON.FeatureCollection([fpt,fls])
+
 @testset "Round trip geometries" begin
     @test GeoJSON.read(GeoJSON.write(point)) == point
     @test GeoJSON.read(GeoJSON.write(point)) === point
@@ -40,12 +44,9 @@ geometrycollection = GeoJSON.GeometryCollection([
 end
 
 @testset "Features and FeatureCollections" begin
-    fpt = GeoJSON.Feature(point)
-    fls = GeoJSON.Feature(linestring)
     @test fpt.geometry == point
     @test fls.geometry == linestring
     @test GeoJSON.FeatureCollection(fpt)[1] == fpt
-    fcol = GeoJSON.FeatureCollection([fpt,fls])
     @test length(fcol) === 2
     @test size(fcol) === (2,)
     @test fcol[1] == fpt
@@ -53,4 +54,16 @@ end
     @test GeoJSON.read(GeoJSON.write(fpt)) == fpt
     @test GeoJSON.read(GeoJSON.write(fls)) == fls
     @test GeoJSON.read(GeoJSON.write(fcol)) == fcol
+end
+
+@testset "BBox" begin
+    g = GeoJSON.GeometryCollection(geometrycollection, GeoJSON.BBox{3}(SMatrix{3,2}(1:6)))
+    @test g.bbox isa GeoJSON.BBox{3}
+    @test JSON3.write(g.bbox.bounds) === "[1.0,2.0,3.0,4.0,5.0,6.0]"
+    f = GeoJSON.Feature(fpt, bbox=GeoJSON.BBox{2}(SMatrix{2,2}(1:4)))
+    @test f.bbox isa GeoJSON.BBox{2}
+    @test JSON3.write(f.bbox.bounds) === "[1.0,2.0,3.0,4.0]"
+    fc = GeoJSON.FeatureCollection(fcol, GeoJSON.BBox{2}(SMatrix{2,2}(ones(2,2))))
+    @test fc.bbox isa GeoJSON.BBox{2}
+    @test JSON3.write(fc.bbox.bounds) === "[1.0,1.0,1.0,1.0]"
 end

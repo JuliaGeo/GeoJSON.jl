@@ -31,6 +31,7 @@ function _write_polygon_coordinates(io::IO, g::Polygon)
     end
 end
 
+"Write a Point to GeoJSON"
 function write(io::IO, g::StaticVector{N, <:Real} where N)
     Base.write(io, """{"type":"Point","coordinates":""")
     JSON3.write(io, g)
@@ -38,6 +39,7 @@ function write(io::IO, g::StaticVector{N, <:Real} where N)
     nothing
 end
 
+"Write a LineString to GeoJSON"
 function write(io::IO, g::LineString)
     Base.write(io, """{"type":"LineString","coordinates":""")
     JSON3.write(io, g.points)
@@ -45,6 +47,7 @@ function write(io::IO, g::LineString)
     nothing
 end
 
+"Write a Polygon to GeoJSON"
 function write(io::IO, g::Polygon)
     Base.write(io, """{"type":"Polygon","coordinates":[""")
     _write_polygon_coordinates(io, g)
@@ -52,7 +55,7 @@ function write(io::IO, g::Polygon)
     nothing
 end
 
-"MultiPoint"
+"Write a MultiPoint to GeoJSON"
 function write(io::IO, g::Vector{<:StaticVector{N, <:Real} where N})
     Base.write(io, """{"type":"MultiPoint","coordinates":[""")
     _write_vector_json(io, g)
@@ -60,7 +63,7 @@ function write(io::IO, g::Vector{<:StaticVector{N, <:Real} where N})
     nothing
 end
 
-"MultiLineString"
+"Write a MultiLineString to GeoJSON"
 function write(io::IO, g::Vector{<:LineString})
     Base.write(io, """{"type":"MultiLineString","coordinates":[""")
     _write_vector_json(io, g, usepoints=true)
@@ -68,7 +71,7 @@ function write(io::IO, g::Vector{<:LineString})
     nothing
 end
 
-"MultiPolygon"
+"Write a MultiPolygon to GeoJSON"
 function write(io::IO, g::Vector{<:Polygon})
     Base.write(io, """{"type":"MultiPolygon","coordinates":[""")
     n = length(g)
@@ -82,14 +85,21 @@ function write(io::IO, g::Vector{<:Polygon})
     nothing
 end
 
-"GeometryCollection"
+"Write a GeometryCollection to GeoJSON"
 function write(io::IO, g::GeometryCollection)
     Base.write(io, """{"type":"GeometryCollection","geometries":[""")
     _write_vector_geojson(io, g)
-    Base.write(io, "]}")
+    if g.bbox === nothing
+        Base.write(io, "]}")
+    else
+        Base.write(io, """],"bbox":""")
+        JSON3.write(io, g.bbox.bounds)
+        Base.write(io, '}')
+    end
     nothing
 end
 
+"Write a Feature to GeoJSON"
 function write(io::IO, f::Feature)
     Base.write(io, """{"type":"Feature","geometry":""")
     write(io, f.geometry)
@@ -99,14 +109,25 @@ function write(io::IO, f::Feature)
         Base.write(io, ""","id":""")
         JSON3.write(io, f.id)
     end
+    if f.bbox !== nothing
+        Base.write(io, ""","bbox":""")
+        JSON3.write(io, f.bbox.bounds)
+    end
     Base.write(io, '}')
     nothing
 end
 
+"Write a FeatureCollection to GeoJSON"
 function write(io::IO, fcol::FeatureCollection)
     Base.write(io, """{"type":"FeatureCollection","features":[""")
     _write_vector_geojson(io, fcol)
-    Base.write(io, "]}")
+    if fcol.bbox === nothing
+        Base.write(io, "]}")
+    else
+        Base.write(io, """],"bbox":""")
+        JSON3.write(io, fcol.bbox.bounds)
+        Base.write(io, '}')
+    end
     nothing
 end
 

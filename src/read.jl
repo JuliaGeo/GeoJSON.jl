@@ -31,9 +31,25 @@ function _readregular(t::AbstractString, c::JSON3.Array)
     end
 end
 
+function _bbox(obj::JSON3.Object)
+    b = get(obj, :bbox, nothing)
+    b === nothing && return b
+    n = length(b)
+    if n == 4
+        BBox{2}(SMatrix{2, 2, Float64}(b))
+    elseif n == 6
+        BBox{3}(SMatrix{3, 2, Float64}(b))
+    else
+        throw(ArgumentError("Invalid length bbox"))
+    end
+end
+
 function _readgeometry(t::String, obj::JSON3.Object)
     if t === "GeometryCollection"
-        GeometryCollection([_readregular(geom.type, geom.coordinates) for geom in obj.geometries])
+        GeometryCollection(
+            [_readregular(geom.type, geom.coordinates) for geom in obj.geometries],
+            _bbox(obj)
+        )
     else
         _readregular(t, obj.coordinates)
     end
@@ -41,7 +57,7 @@ end
 
 function _readfeature(f::JSON3.Object)
     geometry = _readgeometry(f.geometry.type, f.geometry)
-    Feature(geometry, f.properties, get(f, :id, nothing))
+    Feature(geometry, f.properties, get(f, :id, nothing), _bbox(f))
 end
 
 """
@@ -64,7 +80,7 @@ function read(input)
     obj = JSON3.read(input)
     t = obj.type
     if t === "FeatureCollection"
-        _readfeature.(obj.features)
+        FeatureCollection(_readfeature.(obj.features), _bbox(obj))
     elseif t === "Feature"
         _readfeature(obj)
     else
