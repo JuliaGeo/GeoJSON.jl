@@ -13,7 +13,7 @@ Going forward, it would be nice to try developing a GeoTables.jl, similarly to T
 for a geometry column, that supports a diverse set of geometries, such as those of [LibGEOS](https://github.com/JuliaGeo/LibGEOS.jl), [Shapefile](https://github.com/JuliaGeo/Shapefile.jl), [ArchGDAL.jl](https://github.com/yeesian/ArchGDAL.jl/), [GeometryBasics](https://github.com/SimonDanisch/GeometryBasics.jl) and of course this package.
 
 It would also be good to explore integrating this code into [GeoJSON.jl](https://github.com/JuliaGeo/GeoJSON.jl) and
-archiving this package.
+archiving this package. See [GeoJSON.jl#23](https://github.com/JuliaGeo/GeoJSON.jl/pull/23) for discussion.
 
 ## Usage
 
