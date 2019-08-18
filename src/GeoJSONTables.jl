@@ -65,4 +65,11 @@ end
     return Feature(val), state
 end
 
+Base.show(io::IO, x::FeatureCollection) = println(io, "FeatureCollection with $(length(x)) Features")
+function Base.show(io::IO, x::Feature)
+    println(io, "Feature with geometry type $(x.geometry.type) and properties $(propertynames(x))")
+end
+Base.show(io::IO, ::MIME"text/plain", x::FeatureCollection) = show(io, x)
+Base.show(io::IO, ::MIME"text/plain", x::Feature) = show(io, x)
+
 end # module
