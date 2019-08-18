@@ -3,6 +3,10 @@ uuid = "b51d8a2e-9f51-4bbc-a3e6-443ab3727fd0"
 authors = ["Martijn Visser <mgvisser@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
+
 [compat]
 julia = "1"
 
