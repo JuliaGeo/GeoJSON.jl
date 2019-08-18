@@ -14,3 +14,20 @@ for a geometry column, that supports a diverse set of geometries, such as those 
 
 It would also be good to explore integrating this code into [GeoJSON.jl](https://github.com/JuliaGeo/GeoJSON.jl) and
 archiving this package.
+
+## Usage
+
+```julia
+julia> using GeoJSONTables, DataFrames
+
+julia> jsonbytes = read("path/to/a.geojson");
+
+julia> fc = GeoJSONTables.read(jsonbytes)
+FeatureCollection with 171 Features
+
+julia> first(fc)
+Feature with geometry type Polygon and properties Symbol[:geometry, :timestamp, :version, :changeset, :user, :uid, :area, :highway, :type, :id]
+
+# use the Tables interface to convert the format, extract data, or iterate over the rows
+julia> df = DataFrame(fc)
+```
