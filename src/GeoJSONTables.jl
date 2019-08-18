@@ -46,8 +46,10 @@ function Base.getproperty(x::Feature, nm::Symbol)
     feature = getfield(x, :x)
     if nm in propertynames(feature)
         miss(getproperty(feature, nm))
-    else
+    elseif nm in propertynames(feature.properties)
         miss(getproperty(feature.properties, nm))
+    else
+        missing
     end
 end
 
