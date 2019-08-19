@@ -1,6 +1,6 @@
 module GeoJSONTables
 
-import JSON3, Tables
+import JSON3, Tables, GeoInterface
 
 struct FeatureCollection{T} <: AbstractVector{eltype(T)}
     source::T
@@ -73,5 +73,7 @@ function Base.show(io::IO, x::Feature)
 end
 Base.show(io::IO, ::MIME"text/plain", x::FeatureCollection) = show(io, x)
 Base.show(io::IO, ::MIME"text/plain", x::Feature) = show(io, x)
+
+include("geointerface.jl")
 
 end # module
