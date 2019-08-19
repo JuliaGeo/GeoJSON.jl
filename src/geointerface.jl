@@ -44,3 +44,11 @@ end
 function GeoInterface.geometry(f::Feature)
     _geometry(f.geometry)
 end
+
+function GeoInterface.Feature(f::Feature)
+    GeoInterface.Feature(GeoInterface.geometry(f), GeoInterface.properties(f))
+end
+
+function GeoInterface.FeatureCollection(fc::FeatureCollection)
+    GeoInterface.FeatureCollection(GeoInterface.Feature.(fc), nothing, nothing)
+end

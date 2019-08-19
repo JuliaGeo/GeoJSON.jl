@@ -69,6 +69,10 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
                 [-117.912919, 33.96445],
                 [-117.913883, 33.96657],
             ]]]
+            gi_f = GeoInterface.Feature(f1)
+            @test gi_f isa GeoInterface.Feature
+            gi_fc = GeoInterface.FeatureCollection(t)
+            @test gi_fc isa GeoInterface.FeatureCollection
         end
     end
 end
