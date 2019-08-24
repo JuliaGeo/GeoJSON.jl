@@ -5,21 +5,21 @@ GeoInterface.geotype(::Feature) = :Feature
 GeoInterface.geotype(::FeatureCollection) = :FeatureCollection
 
 function GeoInterface.properties(f::Feature)
-    properties = getfield(f, :x).properties
-    Dict{String, Any}(String(k) => v for (k, v) in properties)
+    props = properties(f)
+    Dict{String, Any}(String(k) => v for (k, v) in props)
 end
 
 # TODO implement for FeatureCollection, currently only features are captured
 function GeoInterface.bbox(f::Feature)
-    feature = getfield(f, :x)
-    if :bbox in propertynames(feature)
-        copy(feature.bbox)
+    bbox = get(json(f), :bbox, nothing)
+    if bbox === nothing
+        return nothing
     else
-        nothing
+        return copy(bbox)
     end
 end
 
-GeoInterface.coordinates(f::Feature) = copy(f.geometry.coordinates)
+GeoInterface.coordinates(f::Feature) = copy(geometry(f).coordinates)
 
 function _geometry(g::JSON3.Object)
     if g.type == "Point"
@@ -42,7 +42,7 @@ function _geometry(g::JSON3.Object)
 end
 
 function GeoInterface.geometry(f::Feature)
-    _geometry(f.geometry)
+    _geometry(geometry(f))
 end
 
 function GeoInterface.Feature(f::Feature)

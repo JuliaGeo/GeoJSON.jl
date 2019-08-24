@@ -33,23 +33,22 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test Tables.rows(t) === t
         @test Tables.columns(t) isa Tables.CopiedColumns
         @test t isa GeoJSONTables.FeatureCollection{<:JSON3.Array{JSON3.Object}}
-        @test Base.propertynames(t) == (:source,)  # override this?
+        @test Base.propertynames(t) == (:json,)  # override this?
         @test Tables.rowtable(t) isa Vector{<:NamedTuple}
         @test Tables.columntable(t) isa NamedTuple
 
         f1, _ = iterate(t)
         @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
-        @test Base.propertynames(t) == (:source,)
-        @test Base.propertynames(f1) == [:geometry, :cartodb_id, :addr1, :addr2, :park]
+        @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
         @test f1 == t[1]
-        @test f1.geometry isa JSON3.Object
-        @test f1.geometry.type === "MultiPolygon"
-        @test f1.geometry.coordinates isa JSON3.Array
-        @test length(f1.geometry.coordinates[1][1]) == 4
-        @test f1.geometry.coordinates[1][1][1] == [-117.913883,33.96657]
-        @test f1.geometry.coordinates[1][1][2] == [-117.907767,33.967747]
-        @test f1.geometry.coordinates[1][1][3] == [-117.912919,33.96445]
-        @test f1.geometry.coordinates[1][1][4] == [-117.913883,33.96657]
+        @test GeoJSONTables.geometry(f1) isa JSON3.Object
+        @test GeoJSONTables.geometry(f1).type === "MultiPolygon"
+        @test GeoJSONTables.geometry(f1).coordinates isa JSON3.Array
+        @test length(GeoJSONTables.geometry(f1).coordinates[1][1]) == 4
+        @test GeoJSONTables.geometry(f1).coordinates[1][1][1] == [-117.913883,33.96657]
+        @test GeoJSONTables.geometry(f1).coordinates[1][1][2] == [-117.907767,33.967747]
+        @test GeoJSONTables.geometry(f1).coordinates[1][1][3] == [-117.912919,33.96445]
+        @test GeoJSONTables.geometry(f1).coordinates[1][1][4] == [-117.913883,33.96657]
 
         @testset "GeoInterface" begin
             @test GeoInterface.geotype(t) === :FeatureCollection
