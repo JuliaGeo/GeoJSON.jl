@@ -1,16 +1,16 @@
-# even though we don't subtype the GeoInterface abstract types
+# even though we don't subtype the GeoInterphase abstract types
 # we can still extend some of their methods to make interoperation easier
 
-GeoInterface.geotype(::Feature) = :Feature
-GeoInterface.geotype(::FeatureCollection) = :FeatureCollection
+GeoInterphase.geotype(::Feature) = :Feature
+GeoInterphase.geotype(::FeatureCollection) = :FeatureCollection
 
-function GeoInterface.properties(f::Feature)
+function GeoInterphase.properties(f::Feature)
     props = properties(f)
     Dict{String, Any}(String(k) => v for (k, v) in props)
 end
 
 # TODO implement for FeatureCollection, currently only features are captured
-function GeoInterface.bbox(f::Feature)
+function GeoInterphase.bbox(f::Feature)
     bbox = get(json(f), :bbox, nothing)
     if bbox === nothing
         return nothing
@@ -19,21 +19,21 @@ function GeoInterface.bbox(f::Feature)
     end
 end
 
-GeoInterface.coordinates(f::Feature) = copy(geometry(f).coordinates)
+GeoInterphase.coordinates(f::Feature) = copy(geometry(f).coordinates)
 
 function _geometry(g::JSON3.Object)
     if g.type == "Point"
-        GeoInterface.Point(g.coordinates)
+        GeoInterphase.Point(g.coordinates)
     elseif g.type == "LineString"
-        GeoInterface.LineString(g.coordinates)
+        GeoInterphase.LineString(g.coordinates)
     elseif g.type == "Polygon"
-        GeoInterface.Polygon(g.coordinates)
+        GeoInterphase.Polygon(g.coordinates)
     elseif g.type == "MultiPoint"
-        GeoInterface.MultiPoint(g.coordinates)
+        GeoInterphase.MultiPoint(g.coordinates)
     elseif g.type == "MultiLineString"
-        GeoInterface.MultiLineString(g.coordinates)
+        GeoInterphase.MultiLineString(g.coordinates)
     elseif g.type == "MultiPolygon"
-        GeoInterface.MultiPolygon(g.coordinates)
+        GeoInterphase.MultiPolygon(g.coordinates)
     elseif g.type == "GeometryCollection"
         _geometry.(g.geometries)
     else
@@ -41,14 +41,14 @@ function _geometry(g::JSON3.Object)
     end
 end
 
-function GeoInterface.geometry(f::Feature)
+function GeoInterphase.geometry(f::Feature)
     _geometry(geometry(f))
 end
 
-function GeoInterface.Feature(f::Feature)
-    GeoInterface.Feature(GeoInterface.geometry(f), GeoInterface.properties(f))
+function GeoInterphase.Feature(f::Feature)
+    GeoInterphase.Feature(GeoInterphase.geometry(f), GeoInterphase.properties(f))
 end
 
-function GeoInterface.FeatureCollection(fc::FeatureCollection)
-    GeoInterface.FeatureCollection(GeoInterface.Feature.(fc), nothing, nothing)
+function GeoInterphase.FeatureCollection(fc::FeatureCollection)
+    GeoInterphase.FeatureCollection(GeoInterphase.Feature.(fc), nothing, nothing)
 end

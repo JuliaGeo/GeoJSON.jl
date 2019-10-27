@@ -1,6 +1,6 @@
 using GeoJSONTables
 using JSON3
-import GeoInterface
+import GeoInterphase
 using Tables
 using Test
 
@@ -50,28 +50,28 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test GeoJSONTables.geometry(f1).coordinates[1][1][3] == [-117.912919,33.96445]
         @test GeoJSONTables.geometry(f1).coordinates[1][1][4] == [-117.913883,33.96657]
 
-        @testset "GeoInterface" begin
-            @test GeoInterface.geotype(t) === :FeatureCollection
-            @test GeoInterface.geotype(f1) === :Feature
-            gi_mp = GeoInterface.geometry(f1)
-            @test gi_mp isa GeoInterface.MultiPolygon
-            @test GeoInterface.geotype(gi_mp) === :MultiPolygon
-            properties = GeoInterface.properties(f1)
+        @testset "GeoInterphase" begin
+            @test GeoInterphase.geotype(t) === :FeatureCollection
+            @test GeoInterphase.geotype(f1) === :Feature
+            gi_mp = GeoInterphase.geometry(f1)
+            @test gi_mp isa GeoInterphase.MultiPolygon
+            @test GeoInterphase.geotype(gi_mp) === :MultiPolygon
+            properties = GeoInterphase.properties(f1)
             @test properties isa Dict{String, Any}
             @test properties["addr2"] === "Rowland Heights"
-            @test_throws MethodError GeoInterface.bbox(t)
-            @test GeoInterface.bbox(f1) === nothing
-            coordinates = GeoInterface.coordinates(f1)
+            @test_throws MethodError GeoInterphase.bbox(t)
+            @test GeoInterphase.bbox(f1) === nothing
+            coordinates = GeoInterphase.coordinates(f1)
             @test coordinates == Vector{Vector{Vector{Float64}}}[[[
                 [-117.913883, 33.96657],
                 [-117.907767, 33.967747],
                 [-117.912919, 33.96445],
                 [-117.913883, 33.96657],
             ]]]
-            gi_f = GeoInterface.Feature(f1)
-            @test gi_f isa GeoInterface.Feature
-            gi_fc = GeoInterface.FeatureCollection(t)
-            @test gi_fc isa GeoInterface.FeatureCollection
+            gi_f = GeoInterphase.Feature(f1)
+            @test gi_f isa GeoInterphase.Feature
+            gi_fc = GeoInterphase.FeatureCollection(t)
+            @test gi_fc isa GeoInterphase.FeatureCollection
         end
     end
 end
