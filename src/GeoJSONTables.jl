@@ -82,6 +82,17 @@ end
 Base.show(io::IO, ::MIME"text/plain", fc::FeatureCollection) = show(io, fc)
 Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
 
+# TODO implement for FeatureCollection, currently only features are captured
+# TODO move this to GeoTables?
+function bbox(f::Feature)
+    bbox = get(json(f), :bbox, nothing)
+    if bbox === nothing
+        return nothing
+    else
+        return copy(bbox)
+    end
+end
+
 include("geointerface.jl")
 
 end # module

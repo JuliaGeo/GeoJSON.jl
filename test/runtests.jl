@@ -51,27 +51,15 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test GeoJSONTables.geometry(f1).coordinates[1][1][4] == [-117.913883,33.96657]
 
         @testset "GeoInterphase" begin
-            @test GeoInterphase.geotype(t) === :FeatureCollection
-            @test GeoInterphase.geotype(f1) === :Feature
-            gi_mp = GeoInterphase.geometry(f1)
-            @test gi_mp isa GeoInterphase.MultiPolygon
-            @test GeoInterphase.geotype(gi_mp) === :MultiPolygon
-            properties = GeoInterphase.properties(f1)
-            @test properties isa Dict{String, Any}
+            # Feature and FeatureCollection are not part of the GeoInterphase
+            @test_throws ErrorException GeoInterphase.geomtype(t)
+            @test GeoInterphase.geomtype(f1) === GeoInterphase.MultiPolygon()
+            @test GeoInterphase.geomtype(GeoJSONTables.geometry(f1)) === GeoInterphase.MultiPolygon()
+            properties = GeoJSONTables.properties(f1)
+            @test properties isa JSON3.Object
             @test properties["addr2"] === "Rowland Heights"
-            @test_throws MethodError GeoInterphase.bbox(t)
-            @test GeoInterphase.bbox(f1) === nothing
-            coordinates = GeoInterphase.coordinates(f1)
-            @test coordinates == Vector{Vector{Vector{Float64}}}[[[
-                [-117.913883, 33.96657],
-                [-117.907767, 33.967747],
-                [-117.912919, 33.96445],
-                [-117.913883, 33.96657],
-            ]]]
-            gi_f = GeoInterphase.Feature(f1)
-            @test gi_f isa GeoInterphase.Feature
-            gi_fc = GeoInterphase.FeatureCollection(t)
-            @test gi_fc isa GeoInterphase.FeatureCollection
+            @test_throws MethodError GeoJSONTables.bbox(t)
+            @test GeoJSONTables.bbox(f1) === nothing
         end
     end
 end
