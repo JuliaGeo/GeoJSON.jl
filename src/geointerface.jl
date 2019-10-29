@@ -1,29 +1,15 @@
 
 # TODO this is type piracy, how to solve? define all these geometry types here?
 # this could be an issue if JSON3 is used to encode geometries other than GeoJSON
-function GeoInterphase.geomtype(g::JSON3.Object)
-    if g.type == "Point"
-        GeoInterphase.Point()
-    elseif g.type == "LineString"
-        GeoInterphase.LineString()
-    elseif g.type == "Polygon"
-        GeoInterphase.Polygon()
-    elseif g.type == "MultiPoint"
-        GeoInterphase.MultiPoint()
-    elseif g.type == "MultiLineString"
-        GeoInterphase.MultiLineString()
-    elseif g.type == "MultiPolygon"
-        GeoInterphase.MultiPolygon()
-    elseif g.type == "GeometryCollection"
-        GeoInterphase.GeometryCollection()
-    else
-        throw(ArgumentError("Unknown geometry type"))
-    end
-end
 
-function GeoInterphase.geomtype(f::Feature)
-    GeoInterphase.geomtype(geometry(f))
-end
+GeoInterphase.geomtype(g::Point) = GeoInterphase.Point()
+GeoInterphase.geomtype(g::LineString) = GeoInterphase.LineString()
+GeoInterphase.geomtype(g::Polygon) = GeoInterphase.Polygon()
+GeoInterphase.geomtype(g::MultiPoint) = GeoInterphase.MultiPoint()
+GeoInterphase.geomtype(g::MultiLineString) = GeoInterphase.MultiLineString()
+GeoInterphase.geomtype(g::MultiPolygon) = GeoInterphase.MultiPolygon()
+GeoInterphase.geomtype(g::GeometryCollection) = GeoInterphase.GeometryCollection()
+GeoInterphase.geomtype(f::Feature) = GeoInterphase.geomtype(geometry(f))
 
 # we have to make use of the GeoInterphase fallbacks that call geomtype on the input
 

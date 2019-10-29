@@ -41,7 +41,7 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
         @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
         @test f1 == t[1]
-        @test GeoJSONTables.geometry(f1) isa JSON3.Object
+        @test GeoJSONTables.geometry(f1) isa GeoJSONTables.MultiPolygon
         @test GeoJSONTables.geometry(f1).type === "MultiPolygon"
         @test GeoJSONTables.geometry(f1).coordinates isa JSON3.Array
         @test length(GeoJSONTables.geometry(f1).coordinates[1][1]) == 4

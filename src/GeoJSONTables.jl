@@ -46,7 +46,34 @@ json(f::Feature) = getfield(f, :json)
 "Access the JSON3.Array that represents the FeatureCollection"
 json(f::FeatureCollection) = getfield(f, :json)
 "Access the JSON3.Object that represents the Feature's geometry"
-geometry(f::Feature) = json(f).geometry
+function geometry(f::Feature)
+    geometry(json(f).geometry)
+end
+
+"""
+Convert a GeoJSON geometry from JSON object to a struct specific
+to that geometry type.
+"""
+function geometry(g::JSON3.Object)
+    if g.type == "Point"
+        Point(g)
+    elseif g.type == "LineString"
+        LineString(g)
+    elseif g.type == "Polygon"
+        Polygon(g)
+    elseif g.type == "MultiPoint"
+        MultiPoint(g)
+    elseif g.type == "MultiLineString"
+        MultiLineString(g)
+    elseif g.type == "MultiPolygon"
+        MultiPolygon(g)
+    elseif g.type == "GeometryCollection"
+        GeometryCollection(g)
+    else
+        throw(ArgumentError("Unknown geometry type"))
+    end
+end
+
 
 """
 Get a specific property of the Feature
@@ -77,7 +104,7 @@ end
 
 Base.show(io::IO, fc::FeatureCollection) = println(io, "FeatureCollection with $(length(fc)) Features")
 function Base.show(io::IO, f::Feature)
-    println(io, "Feature with geometry type $(geometry(f).type) and properties $(propertynames(f))")
+    println(io, "Feature with geometry type $(json(f).geometry.type) and properties $(propertynames(f))")
 end
 Base.show(io::IO, ::MIME"text/plain", fc::FeatureCollection) = show(io, fc)
 Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
@@ -93,6 +120,7 @@ function bbox(f::Feature)
     end
 end
 
+include("geomtypes.jl")
 include("geointerface.jl")
 
 end # module
