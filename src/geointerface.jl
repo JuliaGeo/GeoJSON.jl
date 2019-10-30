@@ -13,35 +13,35 @@ GeoInterphase.geomtype(f::Feature) = GeoInterphase.geomtype(geometry(f))
 
 # we have to make use of the GeoInterphase fallbacks that call geomtype on the input
 
-GeoInterphase.ncoord(::GeoInterphase.Point, g::JSON3.Object) = length(g.coordinates)
-GeoInterphase.getcoord(::GeoInterphase.Point, g, i) = g.coordinates[i]
+GeoInterphase.ncoord(g::Point) = length(g.coordinates)
+GeoInterphase.getcoord(g::Point, i) = g.coordinates[i]
 
-GeoInterphase.ncoord(::GeoInterphase.LineString, g::JSON3.Object) = length(first(g.coordinates))
-GeoInterphase.npoint(::GeoInterphase.LineString, g::JSON3.Object) = length(g.coordinates)
-GeoInterphase.getpoint(::GeoInterphase.LineString, g::JSON3.Object, i) = g.coordinates[i]
+GeoInterphase.ncoord(g::LineString) = length(first(g.coordinates))
+GeoInterphase.npoint(g::LineString) = length(g.coordinates)
+GeoInterphase.getpoint(g::LineString, i) = g.coordinates[i]
 # TODO what to return for length 0 and 1?
 # TODO should this be an approximate equals for floating point?
-GeoInterphase.isclosed(::GeoInterphase.LineString, g::JSON3.Object, i) = first(g.coordinates) == last(g.coordinates)
+GeoInterphase.isclosed(g::LineString, i) = first(g.coordinates) == last(g.coordinates)
 
-GeoInterphase.ncoord(::GeoInterphase.Polygon, g::JSON3.Object) = length(first(first(g.coordinates)))
+GeoInterphase.ncoord(g::Polygon) = length(first(first(g.coordinates)))
 # TODO this should return a "LineString" according to GeoInterphase, but this cannot directly
 # be identified as such, is that a problem?
-GeoInterphase.getexterior(::GeoInterphase.Polygon, g::JSON3.Object) = first(g.coordinates)
-GeoInterphase.nhole(::GeoInterphase.Polygon, g::JSON3.Object) = length(g.coordinates) - 1
-GeoInterphase.gethole(::GeoInterphase.Polygon, g::JSON3.Object, i) = g.coordinates[i + 1]
+GeoInterphase.getexterior(g::Polygon) = first(g.coordinates)
+GeoInterphase.nhole(g::Polygon) = length(g.coordinates) - 1
+GeoInterphase.gethole(g::Polygon, i) = g.coordinates[i + 1]
 
-GeoInterphase.ncoord(::GeoInterphase.GeometryCollection, g::JSON3.Object) = GeoInterphase.ncoord(first(g.geometries))
-GeoInterphase.ngeom(::GeoInterphase.GeometryCollection, g::JSON3.Object) = length(g.geometries)
-GeoInterphase.getgeom(::GeoInterphase.GeometryCollection, g::JSON3.Object, i) = g.geometries[i]
+GeoInterphase.ncoord(g::GeometryCollection) = GeoInterphase.ncoord(first(g.geometries))
+GeoInterphase.ngeom(g::GeometryCollection) = length(g.geometries)
+GeoInterphase.getgeom(g::GeometryCollection, i) = g.geometries[i]
 
-GeoInterphase.ncoord(::GeoInterphase.MultiPoint, g::JSON3.Object) = length(first(g.coordinates))
-GeoInterphase.npoint(::GeoInterphase.MultiPoint, g::JSON3.Object) = length(g.coordinates)
-GeoInterphase.getpoint(::GeoInterphase.MultiPoint, g::JSON3.Object, i) = g.coordinates[i]
+GeoInterphase.ncoord(g::MultiPoint) = length(first(g.coordinates))
+GeoInterphase.npoint(g::MultiPoint) = length(g.coordinates)
+GeoInterphase.getpoint(g::MultiPoint, i) = g.coordinates[i]
 
-GeoInterphase.ncoord(::GeoInterphase.MultiLineString, g::JSON3.Object) = length(first(first(g.coordinates)))
-GeoInterphase.nlinestring(::GeoInterphase.MultiLineString, g::JSON3.Object) = length(g.coordinates)
-GeoInterphase.getlinestring(::GeoInterphase.MultiLineString, g::JSON3.Object, i) = g.coordinates[i]
+GeoInterphase.ncoord(g::MultiLineString) = length(first(first(g.coordinates)))
+GeoInterphase.nlinestring(g::MultiLineString) = length(g.coordinates)
+GeoInterphase.getlinestring(g::MultiLineString, i) = g.coordinates[i]
 
-GeoInterphase.ncoord(::GeoInterphase.MultiPolygon, g::JSON3.Object) = length(first(first(first(g.coordinates))))
-GeoInterphase.npolygon(::GeoInterphase.MultiPolygon, g::JSON3.Object) = length(g.coordinates)
-GeoInterphase.getpolygon(::GeoInterphase.MultiPolygon, g::JSON3.Object, i) = g.coordinates[i]
+GeoInterphase.ncoord(g::MultiPolygon) = length(first(first(first(g.coordinates))))
+GeoInterphase.npolygon(g::MultiPolygon) = length(g.coordinates)
+GeoInterphase.getpolygon(g::MultiPolygon, i) = g.coordinates[i]
