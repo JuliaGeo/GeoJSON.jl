@@ -1,30 +1,30 @@
-abstract type Geometry end
+abstract type Geometry{T} <: AbstractVector{T} end
 
-struct Point{T, S, TT} <: Geometry
+struct Point{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 
-struct LineString{T, S, TT} <: Geometry
+struct LineString{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 
-struct Polygon{T, S, TT} <: Geometry
+struct Polygon{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 
-struct MultiPoint{T, S, TT} <: Geometry
+struct MultiPoint{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 
-struct MultiLineString{T, S, TT} <: Geometry
+struct MultiLineString{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 
-struct MultiPolygon{T, S, TT} <: Geometry
+struct MultiPolygon{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 
-struct GeometryCollection{T, S, TT} <: Geometry
+struct GeometryCollection{T, S, TT} <: Geometry{T}
     json::JSON3.Array{T, S, TT}
 end
 

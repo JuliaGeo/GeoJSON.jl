@@ -41,20 +41,24 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
         @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
         @test f1 == t[1]
-        @test GeoJSONTables.geometry(f1) isa GeoJSONTables.MultiPolygon
-        @test GeoJSONTables.geometry(f1).json isa JSON3.Array
-        @test length(GeoJSONTables.geometry(f1).json[1][1]) == 4
-        @test length(GeoJSONTables.geometry(f1)[1][1]) == 4
-        @test GeoJSONTables.geometry(f1)[1][1][1] == [-117.913883,33.96657]
-        @test GeoJSONTables.geometry(f1)[1][1][2] == [-117.907767,33.967747]
-        @test GeoJSONTables.geometry(f1)[1][1][3] == [-117.912919,33.96445]
-        @test GeoJSONTables.geometry(f1)[1][1][4] == [-117.913883,33.96657]
+        geom = GeoJSONTables.geometry(f1)
+        @test geom isa GeoJSONTables.MultiPolygon
+        @test geom isa GeoJSONTables.Geometry
+        @test geom isa AbstractVector
+        @test geom.json isa JSON3.Array
+        @test length(geom.json[1][1]) == 4
+        @test length(geom[1][1]) == 4
+        @test geom[1][1][1] == [-117.913883,33.96657]
+        @test geom[1][1][2] == [-117.907767,33.967747]
+        @test geom[1][1][3] == [-117.912919,33.96445]
+        @test geom[1][1][4] == [-117.913883,33.96657]
 
         @testset "GeoInterphase" begin
             # Feature and FeatureCollection are not part of the GeoInterphase
             @test_throws ErrorException GeoInterphase.geomtype(t)
+            geom = GeoJSONTables.geometry(f1)
             @test GeoInterphase.geomtype(f1) === GeoInterphase.MultiPolygon()
-            @test GeoInterphase.geomtype(GeoJSONTables.geometry(f1)) === GeoInterphase.MultiPolygon()
+            @test GeoInterphase.geomtype(geom) === GeoInterphase.MultiPolygon()
             properties = GeoJSONTables.properties(f1)
             @test properties isa JSON3.Object
             @test properties["addr2"] === "Rowland Heights"
