@@ -1,31 +1,36 @@
 abstract type Geometry end
 
-struct Point{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct Point{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-struct LineString{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct LineString{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-struct Polygon{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct Polygon{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-struct MultiPoint{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct MultiPoint{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-struct MultiLineString{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct MultiLineString{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-struct MultiPolygon{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct MultiPolygon{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-struct GeometryCollection{S, TT} <: Geometry
-    json::JSON3.Object{S, TT}
+struct GeometryCollection{T, S, TT} <: Geometry
+    json::JSON3.Array{T, S, TT}
 end
 
-Base.getproperty(g::Geometry, nm::Symbol) = getproperty(getfield(g, :json), nm)
+# read only partial array interface like JSON3.Array
+Base.size(g::Geometry) = size(g.json)
+Base.getindex(g::Geometry, i::Int) = getindex(g.json, i::Int)
+Base.IndexStyle(::Type{<:Geometry}) = Base.IndexLinear()
+Base.iterate(g::Geometry, st=(1, 3)) = iterate(g.json, st)
+Base.length(g::Geometry) = length(g.json)

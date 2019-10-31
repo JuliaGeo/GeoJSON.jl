@@ -55,20 +55,21 @@ Convert a GeoJSON geometry from JSON object to a struct specific
 to that geometry type.
 """
 function geometry(g::JSON3.Object)
-    if g.type == "Point"
-        Point(g)
-    elseif g.type == "LineString"
-        LineString(g)
-    elseif g.type == "Polygon"
-        Polygon(g)
-    elseif g.type == "MultiPoint"
-        MultiPoint(g)
-    elseif g.type == "MultiLineString"
-        MultiLineString(g)
-    elseif g.type == "MultiPolygon"
-        MultiPolygon(g)
-    elseif g.type == "GeometryCollection"
-        GeometryCollection(g)
+    t = g.type
+    if t == "Point"
+        Point(g.coordinates)
+    elseif t == "LineString"
+        LineString(g.coordinates)
+    elseif t == "Polygon"
+        Polygon(g.coordinates)
+    elseif t == "MultiPoint"
+        MultiPoint(g.coordinates)
+    elseif t == "MultiLineString"
+        MultiLineString(g.coordinates)
+    elseif t == "MultiPolygon"
+        MultiPolygon(g.coordinates)
+    elseif t == "GeometryCollection"
+        GeometryCollection(g.geometries)
     else
         throw(ArgumentError("Unknown geometry type"))
     end
