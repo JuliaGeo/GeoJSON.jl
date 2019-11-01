@@ -18,7 +18,7 @@ GeoInterphase.getcoord(g::Point, i) = g[i]
 
 GeoInterphase.ncoord(g::LineString) = length(first(g))
 GeoInterphase.npoint(g::LineString) = length(g)
-GeoInterphase.getpoint(g::LineString, i) = g[i]
+GeoInterphase.getpoint(g::LineString, i) = Point(g[i])
 # TODO what to return for length 0 and 1?
 # TODO should this be an approximate equals for floating point?
 GeoInterphase.isclosed(g::LineString, i) = first(g) == last(g)
@@ -26,22 +26,22 @@ GeoInterphase.isclosed(g::LineString, i) = first(g) == last(g)
 GeoInterphase.ncoord(g::Polygon) = length(first(first(g)))
 # TODO this should return a "LineString" according to GeoInterphase, but this cannot directly
 # be identified as such, is that a problem?
-GeoInterphase.getexterior(g::Polygon) = first(g)
+GeoInterphase.getexterior(g::Polygon) = LineString(first(g))
 GeoInterphase.nhole(g::Polygon) = length(g) - 1
-GeoInterphase.gethole(g::Polygon, i) = g[i + 1]
+GeoInterphase.gethole(g::Polygon, i) = LineString(g[i + 1])
 
 GeoInterphase.ncoord(g::MultiPoint) = length(first(g))
 GeoInterphase.npoint(g::MultiPoint) = length(g)
-GeoInterphase.getpoint(g::MultiPoint, i) = g[i]
+GeoInterphase.getpoint(g::MultiPoint, i) = Point(g[i])
 
 GeoInterphase.ncoord(g::MultiLineString) = length(first(first(g)))
 GeoInterphase.nlinestring(g::MultiLineString) = length(g)
-GeoInterphase.getlinestring(g::MultiLineString, i) = g[i]
+GeoInterphase.getlinestring(g::MultiLineString, i) = LineString(g[i])
 
 GeoInterphase.ncoord(g::MultiPolygon) = length(first(first(first(g))))
 GeoInterphase.npolygon(g::MultiPolygon) = length(g)
-GeoInterphase.getpolygon(g::MultiPolygon, i) = g[i]
+GeoInterphase.getpolygon(g::MultiPolygon, i) = LineString(g[i])
 
 GeoInterphase.ncoord(g::GeometryCollection) = GeoInterphase.ncoord(first(g))
 GeoInterphase.ngeom(g::GeometryCollection) = length(g)
-GeoInterphase.getgeom(g::GeometryCollection, i) = g[i]
+GeoInterphase.getgeom(g::GeometryCollection, i) = geometry(g[i])
