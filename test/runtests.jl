@@ -1,6 +1,6 @@
 using GeoJSONTables
 using JSON3
-import GeoInterphase
+import GeoInterfaceRFC
 using Tables
 using Test
 
@@ -53,12 +53,12 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test geom[1][1][3] == [-117.912919,33.96445]
         @test geom[1][1][4] == [-117.913883,33.96657]
 
-        @testset "GeoInterphase" begin
-            # Feature and FeatureCollection are not part of the GeoInterphase
-            @test_throws ErrorException GeoInterphase.geomtype(t)
+        @testset "GeoInterfaceRFC" begin
+            # Feature and FeatureCollection are not part of the GeoInterfaceRFC
+            @test_throws ErrorException GeoInterfaceRFC.geomtype(t)
             geom = GeoJSONTables.geometry(f1)
-            @test GeoInterphase.geomtype(f1) === GeoInterphase.MultiPolygon()
-            @test GeoInterphase.geomtype(geom) === GeoInterphase.MultiPolygon()
+            @test GeoInterfaceRFC.geomtype(f1) === GeoInterfaceRFC.MultiPolygon()
+            @test GeoInterfaceRFC.geomtype(geom) === GeoInterfaceRFC.MultiPolygon()
             properties = GeoJSONTables.properties(f1)
             @test properties isa JSON3.Object
             @test properties["addr2"] === "Rowland Heights"

@@ -1,6 +1,6 @@
 module GeoJSONTables
 
-import JSON3, Tables, GeoInterphase
+import JSON3, Tables, GeoInterfaceRFC
 
 struct FeatureCollection{T} <: AbstractVector{eltype(T)}
     json::T
