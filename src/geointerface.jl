@@ -21,7 +21,7 @@ GeoInterfaceRFC.npoint(g::LineString) = length(g)
 GeoInterfaceRFC.getpoint(g::LineString, i::Int) = Point(g[i])
 # TODO what to return for length 0 and 1?
 # TODO should this be an approximate equals for floating point?
-GeoInterfaceRFC.isclosed(g::LineString, i::Int) = first(g) == last(g)
+GeoInterfaceRFC.isclosed(g::LineString) = first(g) == last(g)
 
 GeoInterfaceRFC.ncoord(g::Polygon) = length(first(first(g)))
 # TODO this should return a "LineString" according to GeoInterfaceRFC, but this cannot directly
