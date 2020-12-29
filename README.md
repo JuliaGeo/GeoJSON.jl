@@ -1,7 +1,6 @@
 # GeoJSON.jl
 
-[![Build Status](https://travis-ci.com/JuliaGeo/GeoJSON.jl.svg)](https://travis-ci.com/JuliaGeo/GeoJSON.jl)
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/JuliaGeo/GeoJSON.jl?svg=true&branch=master)](https://ci.appveyor.com/project/JuliaGeo/GeoJSON-jl/branch/master)
+[![CI](https://github.com/JuliaGeo/GeoJSON.jl/workflows/CI/badge.svg)](https://github.com/JuliaGeo/GeoJSON.jl/actions?query=workflow%3ACI)
 [![Coverage Status](https://coveralls.io/repos/JuliaGeo/GeoJSON.jl/badge.svg)](https://coveralls.io/r/JuliaGeo/GeoJSON.jl)
 [![Latest Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageo.github.io/GeoJSON.jl/dev/)
 
