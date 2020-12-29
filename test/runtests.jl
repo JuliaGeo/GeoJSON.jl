@@ -4,6 +4,9 @@ using Test
 include(joinpath(@__DIR__, "geojson_samples.jl"))
 
 @testset "GeoJSON" begin
+
+include("readwrite.jl")
+#=
 @testset "A: CRS link" begin
     feature = GeoJSON.read(a)
     @test feature isa GeoInterface.Feature
@@ -349,5 +352,5 @@ end
     @test (@test_deprecated repr(GeoJSON.parse(g))) == repr(dict)
     @test (@test_deprecated GeoJSON.geojson(dict)) == GeoJSON.write(dict)
 end
-
+=#
 end # testset "GeoJSON"
