@@ -12,6 +12,14 @@ Read a GeoJSON string or IO stream into a GeoInterface object.
 
 To read a file, use `GeoJSON.read(read(path))`.
 
+!!! note
+    GeoJSON.jl loads features into the GeoInterface.jl format and that this differs from GeoJSON in the following ways:
+
+    - Julia Geometries do not provide a `bbox` and `crs` method. If you wish to provide a `bbox` or `crs` attribute, wrap the geometry into a `Feature` or `FeatureCollection`.
+    - Features do not have special fields for `id`, `bbox`, and `crs`. These are to be provided (or found) in the `properties` field, under the keys `featureid`, `bbox`, and `crs` respectively (if they exist).
+
+    When saving GeoJSON, these transformations will be reversed: if `properties` has a key `featureid`, that will be removed from `properties` and a matching member `id` will be added to the Feature; similarly for `crs` and `bbox`.
+
 # Examples
 ```julia
 julia> GeoJSON.read("{\"type\": \"Point\", \"coordinates\": [30, 10]}")
@@ -25,6 +33,14 @@ read(input) = dict2geo(JSON3.read(input))
 
 Create a GeoJSON string from an object that implements the GeoInterface, either
 `AbstractGeometry`, `AbstractFeature` or `AbstractFeatureCollection`.
+
+!!! note
+    GeoJSON.jl loads features into the GeoInterface.jl format and that this differs from GeoJSON in the following ways:
+
+    - Julia Geometries do not provide a `bbox` and `crs` method. If you wish to provide a `bbox` or `crs` attribute, wrap the geometry into a `Feature` or `FeatureCollection`.
+    - Features do not have special fields for `id`, `bbox`, and `crs`. These are to be provided (or found) in the `properties` field, under the keys `featureid`, `bbox`, and `crs` respectively (if they exist).
+
+    When saving GeoJSON, these transformations will be reversed: if `properties` has a key `featureid`, that will be removed from `properties` and a matching member `id` will be added to the Feature; similarly for `crs` and `bbox`.
 
 # Examples
 ```julia
