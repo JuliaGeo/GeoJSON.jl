@@ -83,6 +83,28 @@ h = """{
     "properties": {"title": "Dict 1", "bbox": [-180.0, -90.0, 180.0, 90.0]}
 }"""
 
+# Examples from https://datatracker.ietf.org/doc/html/rfc7946#section-1.3
+
+multi = """
+{
+    "type": "MultiPolygon",
+    "coordinates": [
+        [
+            [
+                [180.0, 40.0], [180.0, 50.0], [170.0, 50.0],
+                [170.0, 40.0], [180.0, 40.0]
+            ]
+        ],
+        [
+            [
+                [-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0],
+                [-180.0, 40.0], [-170.0, 40.0]
+            ]
+        ]
+    ]
+}
+"""
+
 # Examples from https://github.com/Esri/geojson-utils/blob/master/tests/geojson.js
 
 multipolygon = """{

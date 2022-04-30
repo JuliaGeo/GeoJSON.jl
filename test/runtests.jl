@@ -10,15 +10,38 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
     poly, polyhole, collection, osm_buildings]
 
 @testset "GeoJSONTables.jl" begin
-    # only FeatureCollection supported for now
-    @testset "Not FeatureCollections" begin
-        @test_throws ArgumentError GeoJSONTables.read(a)
-        @test_throws ArgumentError GeoJSONTables.read(b)
-        @test_throws ArgumentError GeoJSONTables.read(c)
-        @test_throws ArgumentError GeoJSONTables.read(d)
-        @test_throws ArgumentError GeoJSONTables.read(e)
-        @test_throws ArgumentError GeoJSONTables.read(f)
-        @test_throws ArgumentError GeoJSONTables.read(h)
+
+    @testset "Features" begin
+        json = (a, b, c, d, e, f, h)
+        geometries = (
+            nothing,
+            [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]],
+            nothing,
+            [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]],
+            [53, -4],
+            nothing,
+            [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]],
+        )
+        properties = (
+            [:Ã => "Ã"],
+            [:type => "é"],
+            [:type => "meow"],
+            [:title => "Dict 1"],
+            [:link => "http://example.org/features/1", :summary => "The first feature", :title => "Feature 1"],
+            [:foo => "bar"],
+            [:title => "Dict 1", :bbox => [-180.0, -90.0, 180.0, 90.0]],
+        )
+        foreach(samples, properties) do s, p
+            @test collect(GeoJSONTables.properties(GeoJSONTables.read(s))) == p
+        end
+        foreach(samples, geometries) do s, g
+            @test GeoJSONTables.geometry(GeoJSONTables.read(s)) == g
+        end
+    end
+
+    @testset "Geometries" begin
+        @test GeoJSONTables.read(multi) == [[[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
+                                           [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]]]
     end
 
     @testset "Read not crash" begin

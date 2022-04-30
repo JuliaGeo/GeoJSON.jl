@@ -7,12 +7,18 @@ struct FeatureCollection{T} <: AbstractVector{eltype(T)}
 end
 
 function read(source)
-    fc = JSON3.read(source)
-    features = get(fc, :features, nothing)
-    if get(fc, :type, nothing) == "FeatureCollection" && features isa JSON3.Array
+    object = JSON3.read(source)
+    object_type = get(object, :type, nothing)
+    if object_type == "FeatureCollection"
+        features = get(object, :features, nothing)
+        features isa JSON3.Array || error("GeoJSON field \"features\" is not an array")
         FeatureCollection{typeof(features)}(features)
+    elseif object_type == "Feature"
+        Feature(object)
+    elseif object_type == nothing
+        error("String does not follow the GeoJSON specification: must have a \"features\" field")
     else
-        throw(ArgumentError("input source is not a GeoJSON FeatureCollection"))
+        geometry(object)
     end
 end
 
@@ -74,6 +80,7 @@ function geometry(g::JSON3.Object)
         throw(ArgumentError("Unknown geometry type"))
     end
 end
+geometry(g::Nothing) = nothing
 
 
 """
@@ -105,7 +112,13 @@ end
 
 Base.show(io::IO, fc::FeatureCollection) = println(io, "FeatureCollection with $(length(fc)) Features")
 function Base.show(io::IO, f::Feature)
-    println(io, "Feature with geometry type $(json(f).geometry.type) and properties $(propertynames(f))")
+    geom = json(f).geometry
+    if isnothing(geom)
+        print(io, "Feature without geometry")
+    else
+        print(io, "Feature with geometry type $(json(f).geometry.type)")
+    end
+    print(io, ", and properties: $(propertynames(f))")
 end
 Base.show(io::IO, ::MIME"text/plain", fc::FeatureCollection) = show(io, fc)
 Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
