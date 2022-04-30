@@ -1,6 +1,6 @@
 module GeoJSONTables
 
-import JSON3, Tables, GeoInterfaceRFC
+import JSON3, Tables, GeoInterface
 
 struct FeatureCollection{T} <: AbstractVector{eltype(T)}
     json::T
@@ -85,7 +85,7 @@ it should in some sense be defined.
 """
 function Base.getproperty(f::Feature, nm::Symbol)
     props = properties(f)
-    val = get(props, nm, missing)
+    val = nm in keys(props) ? getproperty(props, nm) : missing
     miss(val)
 end
 

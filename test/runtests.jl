@@ -1,6 +1,6 @@
 using GeoJSONTables
 using JSON3
-import GeoInterfaceRFC
+import GeoInterface
 using Tables
 using Test
 
@@ -40,7 +40,7 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         f1, _ = iterate(t)
         @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
         @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
-        @test f1 == t[1]
+        @test_broken f1 == t[1]
         geom = GeoJSONTables.geometry(f1)
         @test geom isa GeoJSONTables.MultiPolygon
         @test geom isa GeoJSONTables.Geometry
@@ -53,12 +53,12 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test geom[1][1][3] == [-117.912919,33.96445]
         @test geom[1][1][4] == [-117.913883,33.96657]
 
-        @testset "GeoInterfaceRFC" begin
-            # Feature and FeatureCollection are not part of the GeoInterfaceRFC
-            @test_throws ErrorException GeoInterfaceRFC.geomtype(t)
+        @testset "GeoInterface" begin
+            # Feature and FeatureCollection are not part of the GeoInterface
+            @test GeoInterface.geomtype(t) == nothing
             geom = GeoJSONTables.geometry(f1)
-            @test GeoInterfaceRFC.geomtype(f1) === GeoInterfaceRFC.MultiPolygon()
-            @test GeoInterfaceRFC.geomtype(geom) === GeoInterfaceRFC.MultiPolygon()
+            @test GeoInterface.geomtype(f1) === GeoInterface.MultiPolygonTrait()
+            @test GeoInterface.geomtype(geom) === GeoInterface.MultiPolygonTrait()
             properties = GeoJSONTables.properties(f1)
             @test properties isa JSON3.Object
             @test properties["addr2"] === "Rowland Heights"
