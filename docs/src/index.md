@@ -69,6 +69,18 @@ buildings
 
 Use `GeoJSON.read(read("tech_square.geojson"))` to read GeoJSON files from disk.
 
+### Create a GeoInterface object and write to disk as a GeoJSON
+```@example write2disk
+using GeoJSON
+using Pkg; Pkg.add("GeoInterface"); using GeoInterface
+
+# create a polygon
+obj = GeoInterface.Polygon([[[13.42634, 52.49533], [13.4263, 52.49529], [13.4264, 52.49525], [13.42611, 52.49494], [13.4259, 52.49501], [13.42583, 52.49495], [13.42619, 52.49483], [13.4266, 52.49524], [13.42634, 52.49533]]])
+
+# write to disk as a geojson 
+write("filename.json", GeoJSON.write(obj))
+```
+
 ### Transforms a GeoInterface object into a nested Array or Dict
 
 ```@example basic
@@ -90,8 +102,6 @@ dict2geo(dict)
 ```@example basic
 GeoJSON.read(osm_buildings) # the original object (for comparison)
 ```
-
-*Writing back GeoJSON strings is not yet implemented.*
 
 ## GeoInterface
 This library implements the [GeoInterface](https://github.com/JuliaGeo/GeoInterface.jl).
