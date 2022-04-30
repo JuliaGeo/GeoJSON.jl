@@ -92,7 +92,7 @@ it should in some sense be defined.
 """
 function Base.getproperty(f::Feature, nm::Symbol)
     props = properties(f)
-    val = nm in keys(props) ? getproperty(props, nm) : missing
+    val = get(props, nm, missing)
     miss(val)
 end
 

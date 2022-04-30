@@ -64,6 +64,9 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         f1, _ = iterate(t)
         @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
         @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
+        @test all(propertynames(f1)) do pn
+            getproperty(f1, pn) == getproperty(t[1], pn)
+        end
         @test_broken f1 == t[1]
         geom = GeoJSONTables.geometry(f1)
         @test geom isa GeoJSONTables.MultiPolygon
