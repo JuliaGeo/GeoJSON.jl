@@ -12,7 +12,7 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
 @testset "GeoJSONTables.jl" begin
 
     @testset "Features" begin
-        json = (a, b, c, d, e, f, h)
+        samples = (a, b, c, d, e, f, h)
         geometries = (
             nothing,
             [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]],
