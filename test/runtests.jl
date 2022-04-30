@@ -40,6 +40,7 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
     end
 
     @testset "Geometries" begin
+        @test GeoJSONTables.read(multi) isa GeoJSONTables.MultiPolygon
         @test GeoJSONTables.read(multi) == [[[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
                                            [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]]]
     end
