@@ -1,6 +1,8 @@
 using GeoJSONTables
-using JSON3
 import GeoInterface
+import GeoFormatTypes
+using Extents
+using JSON3
 using Tables
 using Test
 
@@ -43,6 +45,15 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test GeoJSONTables.read(multi) isa GeoJSONTables.MultiPolygon
         @test GeoJSONTables.read(multi) == [[[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
                                            [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]]]
+    end
+
+    @testset "bbox" begin
+        @test GeoInterface.extent(GeoJSONTables.read(d)) == Extent(X=(-180.0, 180.0), Y=(-90.0, 90.0))
+        @test GeoInterface.extent(GeoJSONTables.read(e)) == nothing
+        @test GeoInterface.extent(GeoJSONTables.read(g)) == Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
+    end
+    @testset "crs" begin
+        @test GeoInterface.crs(GeoJSONTables.read(g)) == GeoFormatTypes.EPSG(4326)
     end
 
     @testset "Read not crash" begin
