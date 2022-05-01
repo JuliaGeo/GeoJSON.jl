@@ -47,13 +47,15 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
                                            [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]]]
     end
 
-    @testset "bbox" begin
+    @testset "extent" begin
         @test GeoInterface.extent(GeoJSONTables.read(d)) == Extent(X=(-180.0, 180.0), Y=(-90.0, 90.0))
         @test GeoInterface.extent(GeoJSONTables.read(e)) == nothing
         @test GeoInterface.extent(GeoJSONTables.read(g)) == Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
     end
     @testset "crs" begin
+        @test GeoInterface.crs(GeoJSONTables.read(a)) == GeoFormatTypes.EPSG(4326)
         @test GeoInterface.crs(GeoJSONTables.read(g)) == GeoFormatTypes.EPSG(4326)
+        @test GeoInterface.crs(GeoJSONTables.read(multi)) == GeoFormatTypes.EPSG(4326)
     end
 
     @testset "Read not crash" begin
@@ -67,8 +69,8 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test Tables.istable(t)
         @test Tables.rows(t) === t
         @test Tables.columns(t) isa Tables.CopiedColumns
-        @test t isa GeoJSONTables.FeatureCollection{<:JSON3.Array{JSON3.Object}}
-        @test Base.propertynames(t) == (:json,)  # override this?
+        @test t isa GeoJSONTables.FeatureCollection{<:JSON3.Object,<:JSON3.Array{JSON3.Object}}
+        @test Base.propertynames(t) == (:object, :array)  # override this?
         @test Tables.rowtable(t) isa Vector{<:NamedTuple}
         @test Tables.columntable(t) isa NamedTuple
 
@@ -100,8 +102,6 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
             properties = GeoJSONTables.properties(f1)
             @test properties isa JSON3.Object
             @test properties["addr2"] === "Rowland Heights"
-            @test_throws MethodError GeoJSONTables.bbox(t)
-            @test GeoJSONTables.bbox(f1) === nothing
         end
     end
 end

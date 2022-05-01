@@ -2,6 +2,8 @@ module GeoJSONTables
 
 import JSON3, Tables, GeoFormatTypes, GeoInterface, Extents
 
+include("geomtypes.jl")
+
 struct FeatureCollection{O,A} <: AbstractVector{eltype(A)}
     object::O
     array::A
@@ -12,6 +14,7 @@ object(f::FeatureCollection) = f.object
 
 "Access the JSON3.Array that represents the FeatureCollection"
 array(f::FeatureCollection) = f.array
+
 
 read(source::GeoFormatTypes.GeoJSON) = read(GeoFormatTypes.val(source))
 function read(source)
@@ -147,7 +150,6 @@ function GeoInterface.extent(f::Union{Feature,FeatureCollection})
 end
 GeoInterface.crs(f::Union{Feature,FeatureCollection,Geometry}) = GeoFormatTypes.EPSG(4326)
 
-include("geomtypes.jl")
 include("geointerface.jl")
 
 end # module
