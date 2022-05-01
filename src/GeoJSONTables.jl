@@ -144,7 +144,7 @@ function GeoInterface.extent(f::Union{Feature,FeatureCollection})
         elseif length(bb) == 6
             return Extents.Extent(X=(bb[1], bb[4]), Y=(bb[2], bb[5]), Z=(bb[3], bb[6]))
         else
-            error("Intcorrently specified bbox: must have 4 or 6 values")
+            error("Incorrectly specified bbox: must have 4 or 6 values")
         end
     end
 end
