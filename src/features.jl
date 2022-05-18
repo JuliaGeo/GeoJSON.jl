@@ -89,7 +89,7 @@ function geometry(g::JSON3.Object)
     elseif t == "GeometryCollection"
         GeometryCollection(g.geometries)
     else
-        throw(ArgumentError("Unknown geometry type"))
+        throw(ArgumentError("Unknown geometry type $t"))
     end
 end
 geometry(g::Nothing) = nothing
@@ -137,11 +137,11 @@ end
 
 Base.show(io::IO, fc::FeatureCollection) = println(io, "FeatureCollection with $(length(fc)) Features")
 function Base.show(io::IO, f::Feature)
-    geom = geometry(object(f))
+    geom = geometry(f)
     if isnothing(geom)
         print(io, "Feature without geometry")
     else
-        print(io, "Feature with geometry type $(object(f).geometry.type)")
+        print(io, "Feature with geometry type $(geometry(f))")
     end
     print(io, ", and properties: $(propertynames(f))")
 end

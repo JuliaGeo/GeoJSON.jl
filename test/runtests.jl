@@ -94,14 +94,22 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test geom[1][1][4] == [-117.913883,33.96657]
 
         @testset "GeoInterface" begin
+            
             # Feature and FeatureCollection are not part of the GeoInterface
-            @test GeoInterface.geomtype(t) == nothing
+            @test GeoInterface.geomtrait(t) == nothing
             geom = GeoJSONTables.geometry(f1)
-            @test GeoInterface.geomtype(f1) === GeoInterface.MultiPolygonTrait()
-            @test GeoInterface.geomtype(geom) === GeoInterface.MultiPolygonTrait()
+            @test GeoInterface.geomtrait(f1) === GeoInterface.MultiPolygonTrait()
+            @test GeoInterface.geomtrait(geom) === GeoInterface.MultiPolygonTrait()
             properties = GeoJSONTables.properties(f1)
             @test properties isa JSON3.Object
             @test properties["addr2"] === "Rowland Heights"
+
+            geoms = [multi]
+            @test all(s -> GeoInterface.testgeometry(s), GeoJSONTables.read.(geoms))
+            features = [a, b, c, d, e, f, h]
+            @test all(s -> GeoInterface.testfeature(s), GeoJSONTables.read.(features))
+            featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointnull, poly, polyhole, collection, osm_buildings]
+            @test all(s -> GeoInterface.testfeature(s), first.(GeoJSONTables.read.(featurecollections)))
         end
     end
 end
