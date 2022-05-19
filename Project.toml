@@ -8,7 +8,7 @@ GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 
 [compat]
-GeoInterface = "0.4, 0.5"
+GeoInterface = "0.4, 0.5, 1"
 JSON3 = "0.1.5, 1.0"
 julia = "1"
 
