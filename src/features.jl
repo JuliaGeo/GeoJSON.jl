@@ -44,12 +44,9 @@ A feature collection wrapping both a lazy JSON object and an array of features.
 Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly 
 the GeoInterface.jl interface.
 """
-struct FeatureCollection{T,O,A} <: AbstractVector{T}
+struct FeatureCollection{O,A} <: AbstractVector{eltype(A)}
     object::O
     array::A
-end
-function FeatureCollection(object::O, array::A) where {O,A<:AbstractVector{T}} where T
-    FeatureCollection{Feature{T},O,A}(object, array)
 end
 
 "Access the JSON3.Object that represents the FeatureCollection"
@@ -69,7 +66,7 @@ Base.IteratorEltype(::Type{<:FeatureCollection}) = Base.HasEltype()
 
 # read only AbstractVector
 Base.size(fc::FeatureCollection) = size(array(fc))
-Base.getindex(fc::FeatureCollection, i) = Feature(array(fc)[i])
+Base.getindex(fc::FeatureCollection, i) = array(fc)[i]
 Base.IndexStyle(::Type{<:FeatureCollection}) = IndexLinear()
 
 """
