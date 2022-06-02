@@ -23,7 +23,14 @@ object(f::Feature) = getfield(f, :object)
 "Access the JSON3.Object that represents the Feature's geometry"
 geometry(f::Feature) = geometry(object(f).geometry)
 
-bbox(f::Feature) = get(object(f), :bbox, nothing)
+function bbox(f::Feature)
+    bbox = get(object(f), :bbox, nothing)
+    isnothing(bbox) ? get(properties(f), :bbox, nothing) : bbox
+end
+function crs(f::Feature)
+    crs = get(object(f), :crs, nothing)
+    isnothing(crs) ? get(properties(f), :crs, nothing) : crs
+end
 
 # Base methods
 Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
@@ -37,9 +44,12 @@ A feature collection wrapping both a lazy JSON object and an array of features.
 Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly 
 the GeoInterface.jl interface.
 """
-struct FeatureCollection{O,A} <: AbstractVector{eltype(A)}
+struct FeatureCollection{T,O,A} <: AbstractVector{T}
     object::O
     array::A
+end
+function FeatureCollection(object::O, array::A) where {O,A<:AbstractVector{T}} where T
+    FeatureCollection{Feature{T},O,A}(object, array)
 end
 
 "Access the JSON3.Object that represents the FeatureCollection"
@@ -48,54 +58,8 @@ object(f::FeatureCollection) = f.object
 "Access the JSON3.Array that represents the FeatureCollection"
 array(f::FeatureCollection) = f.array
 
-
-read(source::GeoFormatTypes.GeoJSON) = read(GeoFormatTypes.val(source))
-function read(source)
-    object = JSON3.read(source)
-    object_type = get(object, :type, nothing)
-    if object_type == "FeatureCollection"
-        features = get(object, :features, nothing)
-        features isa JSON3.Array || error("GeoJSON field \"features\" is not an array")
-        FeatureCollection(object, features)
-    elseif object_type == "Feature"
-        Feature(object)
-    elseif object_type == nothing
-        error("String does not follow the GeoJSON specification: must have a \"features\" field")
-    else
-        geometry(object)
-    end
-end
-
-miss(x) = ifelse(x === nothing, missing, x)
-
-"""
-Convert a GeoJSON geometry from JSON object to a struct specific
-to that geometry type.
-"""
-function geometry(g::JSON3.Object)
-    t = g.type
-    if t == "Point"
-        Point(g.coordinates)
-    elseif t == "LineString"
-        LineString(g.coordinates)
-    elseif t == "Polygon"
-        Polygon(g.coordinates)
-    elseif t == "MultiPoint"
-        MultiPoint(g.coordinates)
-    elseif t == "MultiLineString"
-        MultiLineString(g.coordinates)
-    elseif t == "MultiPolygon"
-        MultiPolygon(g.coordinates)
-    elseif t == "GeometryCollection"
-        GeometryCollection(g.geometries)
-    else
-        throw(ArgumentError("Unknown geometry type $t"))
-    end
-end
-geometry(g::Nothing) = nothing
-
 bbox(f::FeatureCollection) = get(object(f), :bbox, nothing)
-
+crs(f::FeatureCollection) = get(object(f), :crs, nothing)
 
 # Base methods
 

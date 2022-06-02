@@ -1,5 +1,11 @@
 # Geometry
 GeoInterface.isgeometry(g::Type{<:Geometry}) = true
+GeoInterface.crs(f::Geometry) = GeoFormatTypes.EPSG(4326) 
+
+GeoInterface.getgeom(::GI.AbstractGeometryTrait, geom::Geometry, i::Integer) = GeoInterface.ngeom(geom)
+GeoInterface.ngeom(::GI.AbstractGeometryTrait, geom::Geometry) = GeoInterface.ngeom(geom)
+GeoInterface.getcoord(::GI.AbstractGeometryTrait, geom::Geometry, i::Integer) = GeoInterface.getcoord(geom)
+GeoInterface.ncoord(::GI.AbstractGeometryTrait, geom::Geometry) = GeoInterface.ncoord(geom)
 
 GeoInterface.geomtrait(g::Point) = GeoInterface.PointTrait()
 GeoInterface.geomtrait(g::LineString) = GeoInterface.LineStringTrait()
@@ -43,7 +49,7 @@ GeoInterface.getgeom(g::MultiPolygon, i::Int) = Polygon(g[i])
 
 GeoInterface.ncoord(g::GeometryCollection) = GeoInterface.ncoord(first(g))
 GeoInterface.ngeom(g::GeometryCollection) = length(g)
-GeoInterface.getgeom(g::GeometryCollection, i::Int) = geometry(g[i])
+GeoInterface.getgeom(g::GeometryCollection, i::Int) = g[i]
 
 # Features
 function GeoInterface.extent(f::Union{Feature,FeatureCollection})
@@ -60,6 +66,21 @@ function GeoInterface.extent(f::Union{Feature,FeatureCollection})
         end
     end
 end
-GeoInterface.crs(f::Union{Feature,FeatureCollection,Geometry}) = GeoFormatTypes.EPSG(4326)
-GeoInterface.isfeature(::Union{Feature,FeatureCollection}) = true
-GeoInterface.geometry(f::Union{Feature,FeatureCollection}) = geometry(f)
+function GeoInterface.crs(f::Union{Feature,FeatureCollection}) 
+    _crs = crs(f)
+    if !isnothing(crs) && _crs != "urn:ogc:def:crs:EPSG::4326" 
+        @warn "GeoJSON object contains crs other than EPSG 4326: $_crs. As of the 2016 GeoJSON specification this is no longer supported"
+    end
+    return GeoFormatTypes.EPSG(4326)
+end
+GeoInterface.isfeature(::Type{<:Feature}) = true
+GeoInterface.geomtrait(fc::Feature) = FeatureTrait()
+GeoInterface.geometry(f::Feature) = geometry(f)
+GeoInterface.properties(f::Feature) = properties(f)
+GeoInterface.isfeature(::Feature) = true
+
+GeoInterface.isfeaturecollection(::Type{<:FeatureCollection}) = true
+GeoInterface.geomtrait(fc::FeatureCollection) = FeatureCollectionTrait()
+GeoInterface.getfeature(fc::FeatureCollection, i::Integer) = fc[i]
+GeoInterface.getfeature(fc::FeatureCollection) = fc
+GeoInterface.nfeature(fc::FeatureCollection, i::Integer) = length(i)

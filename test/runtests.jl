@@ -52,16 +52,43 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test GeoInterface.extent(GeoJSONTables.read(e)) == nothing
         @test GeoInterface.extent(GeoJSONTables.read(g)) == Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
     end
+
     @testset "crs" begin
         @test GeoInterface.crs(GeoJSONTables.read(a)) == GeoFormatTypes.EPSG(4326)
         @test GeoInterface.crs(GeoJSONTables.read(g)) == GeoFormatTypes.EPSG(4326)
         @test GeoInterface.crs(GeoJSONTables.read(multi)) == GeoFormatTypes.EPSG(4326)
     end
 
-    @testset "Read not crash" begin
+    @testset "read not crash" begin
         for featurecollection in featurecollections
             GeoJSONTables.read(featurecollection)
         end
+    end
+
+    @testset "write" begin
+        # Round trip read/write and compare prettified output to prettified original
+        foreach((a, b, c, d, e, f, h)) do json
+            f = GeoJSONTables.read(json) 
+            f1 = GeoJSONTables.read(GeoJSONTables.write(f))
+            @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
+            @test GeoJSONTables.properties(f) == GeoJSONTables.properties(f1)
+            @test GeoInterface.extent(f) == GeoInterface.extent(f1)
+        end
+
+        foreach(featurecollections) do json
+            fs = GeoJSONTables.read(json) 
+            f1s = GeoJSONTables.read(GeoJSONTables.write(fs))
+            foreach(fs, f1s) do f, f1
+                @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
+                @test GeoJSONTables.properties(f) == GeoJSONTables.properties(f1)
+                @test GeoInterface.extent(f) == GeoInterface.extent(f1)
+            end
+            # x = GeoJSONTables.write(
+                                    # GeoInterface.coordinates(GeoJSONTables.read(collection))
+                                   # )
+            # GeoInterface.geometry(GeoInterface.getfeature(GeoJSONTables.read(x), 1))
+        end
+
     end
 
     @testset "FeatureCollection of one MultiPolygon" begin
@@ -93,9 +120,19 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         @test geom[1][1][3] == [-117.912919,33.96445]
         @test geom[1][1][4] == [-117.913883,33.96657]
 
+        @testset "write to disk" begin
+            fc = t
+            GeoJSONTables.write("test.json", fc)
+            fc1 = GeoJSONTables.read(read("test.json", String))
+            @test GeoInterface.extent(fc) == GeoInterface.extent(fc1) == Extent(X=(100, 105), Y=(0, 1))
+            f = GeoInterface.getfeature(fc, 1) 
+            f1 = GeoInterface.getfeature(fc1, 1) 
+            @test GeoInterface.geometry(f) == GeoInterface.geometry(f1)
+            @test GeoInterface.properties(f) == GeoInterface.properties(f1)
+            rm("test.json")
+        end
+
         @testset "GeoInterface" begin
-            
-            # Feature and FeatureCollection are not part of the GeoInterface
             @test GeoInterface.geomtrait(t) == nothing
             geom = GeoJSONTables.geometry(f1)
             @test GeoInterface.geomtrait(f1) === GeoInterface.MultiPolygonTrait()
