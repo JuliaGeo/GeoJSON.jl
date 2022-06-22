@@ -10,8 +10,6 @@ GI.geomtrait(g::MultiPoint) = GI.MultiPointTrait()
 GI.geomtrait(g::MultiLineString) = GI.MultiLineStringTrait()
 GI.geomtrait(g::MultiPolygon) = GI.MultiPolygonTrait()
 GI.geomtrait(g::GeometryCollection) = GI.GeometryCollectionTrait()
-GI.geomtrait(f::Feature) = GI.FeatureTrait()
-GI.geomtrait(f::FeatureCollection) = GI.FeatureCollectionTrait()
 
 # we have to make use of the GI fallbacks that call geomtrait on the input
 GI.ncoord(::GI.PointTrait, g::Point) = length(g)
@@ -72,9 +70,11 @@ function GI.crs(f::Union{<:Feature,<:FeatureCollection})
     return GeoFormatTypes.EPSG(4326)
 end
 GI.isfeature(::Type{<:Feature}) = true
+GI.trait(::Feature) = GI.FeatureTrait()
 GI.geometry(f::Feature) = geometry(f)
 GI.properties(f::Feature) = properties(f)
 
 GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where T = true
+GI.trait(::FeatureCollection) = GI.FeatureCollectionTrait()
 GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) = Feature(fc[i])
 GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)

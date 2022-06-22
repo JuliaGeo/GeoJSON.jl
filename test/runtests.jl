@@ -74,7 +74,6 @@ end
     end
 
     foreach(featurecollections) do json
-        json = featurecollections[1]
         fc = GeoJSONTables.read(json) 
         f1c = GeoJSONTables.read(GeoJSONTables.write(fc))
         foreach(fc, f1c) do f, f1
@@ -127,9 +126,9 @@ end
     end
 
     @testset "GeoInterface" begin
-        @test GeoInterface.geomtrait(t) == GeoInterface.FeatureCollectionTrait()
+        @test GeoInterface.trait(t) == GeoInterface.FeatureCollectionTrait()
         geom = GeoJSONTables.geometry(f1)
-        @test GeoInterface.geomtrait(f1) === GeoInterface.FeatureTrait()
+        @test GeoInterface.trait(f1) === GeoInterface.FeatureTrait()
         @test GeoInterface.geomtrait(geom) === GeoInterface.MultiPolygonTrait()
         properties = GeoJSONTables.properties(f1)
         @test properties isa JSON3.Object
