@@ -28,9 +28,6 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - name: Install custom deps  # remove when new GeoInterface is released
-        run: |
-            julia --project=@. -e 'using Pkg;pkg"add GeoInterface#v1-traits JSON3 Tables"'
       - uses: actions/cache@v1
         env:
           cache-name: cache-artifacts
