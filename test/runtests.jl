@@ -64,7 +64,7 @@ end
 @testset "extent" begin
     @test GeoInterface.extent(GeoJSONTables.read(d)) ==
           Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
-    @test GeoInterface.extent(GeoJSONTables.read(e)) == nothing
+    @test GeoInterface.extent(GeoJSONTables.read(e)) === nothing
     @test GeoInterface.extent(GeoJSONTables.read(g)) ==
           Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
 end

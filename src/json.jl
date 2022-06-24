@@ -7,7 +7,7 @@ Read a GeoJSON string to a GeoInterface.jl compatible feature or geometry object
 read(source::GeoFormatTypes.GeoJSON) = _readjson(GeoFormatTypes.val(source))
 function read(source)
     object = JSON3.read(source)
-    if object == nothing
+    if object === nothing
         error("JSON string is empty")
     end
     object_type = get(object, :type, nothing)
@@ -17,7 +17,7 @@ function read(source)
         return FeatureCollection(object, features)
     elseif object_type == "Feature"
         return Feature(object)
-    elseif object_type == nothing
+    elseif object_type === nothing
         error(
             "String does not follow the GeoJSON specification: must have a \"features\" field",
         )
