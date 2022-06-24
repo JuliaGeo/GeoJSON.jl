@@ -64,8 +64,6 @@ _lower(::GI.AbstractMultiLineStringTrait, obj) =
     (type = "Polygon", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiPolygonTrait, obj) =
     (type = "MultiPolygon", coordinates = collect(GI.coordinates(obj)))
-_lower(::GI.AbstractMultiLineStringTrait, obj) =
-    (type = "MultiLineString", coordinates = collect(GI.coordinates(obj)))
 _lower(::GI.AbstractGeometryCollectionTrait, obj) =
     (type = "GeometryCollection", geometries = _lower.(GI.getgeom(obj)))
 
