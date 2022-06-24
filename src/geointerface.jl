@@ -1,7 +1,7 @@
 # Geometry
 GI.isgeometry(g::Type{<:Geometry}) = true
 GI.coordinates(::GI.AbstractGeometryTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
-GI.crs(f::Geometry) = GeoFormatTypes.EPSG(4326) 
+GI.crs(f::Geometry) = GeoFormatTypes.EPSG(4326)
 
 GI.geomtrait(g::Point) = GI.PointTrait()
 GI.geomtrait(g::LineString) = GI.LineStringTrait()
@@ -28,8 +28,8 @@ GI.ngeom(::GI.PolygonTrait, g::Polygon) = length(g)
 GI.getgeom(::GI.PolygonTrait, g::Polygon, i::Integer) = LineString(g[i])
 GI.ncoord(::GI.PolygonTrait, g::Polygon) = length(first(first(g)))
 GI.getexterior(::GI.PolygonTrait, g::Polygon) = LineString(first(g))
-GI.nhole(::GI.PolygonTrait, g::Polygon) = length(g) - 1 
-GI.gethole(::GI.PolygonTrait, g::Polygon, i::Int) = LineString(g[i + 1])
+GI.nhole(::GI.PolygonTrait, g::Polygon) = length(g) - 1
+GI.gethole(::GI.PolygonTrait, g::Polygon, i::Int) = LineString(g[i+1])
 
 GI.ncoord(::GI.MultiPointTrait, g::MultiPoint) = length(first(g))
 GI.ngeom(::GI.MultiPointTrait, g::MultiPoint) = length(g)
@@ -54,27 +54,34 @@ function GI.extent(f::Union{Feature,FeatureCollection})
         return nothing
     else
         if length(bb) == 4
-            return Extents.Extent(X=(bb[1], bb[3]), Y=(bb[2], bb[4]))
+            return Extents.Extent(X = (bb[1], bb[3]), Y = (bb[2], bb[4]))
         elseif length(bb) == 6
-            return Extents.Extent(X=(bb[1], bb[4]), Y=(bb[2], bb[5]), Z=(bb[3], bb[6]))
+            return Extents.Extent(
+                X = (bb[1], bb[4]),
+                Y = (bb[2], bb[5]),
+                Z = (bb[3], bb[6]),
+            )
         else
             error("Incorrectly specified bbox: must have 4 or 6 values")
         end
     end
 end
-function GI.crs(f::Union{<:Feature,<:FeatureCollection}) 
+
+function GI.crs(f::Union{<:Feature,<:FeatureCollection})
     _crs = crs(f)
-    if !isnothing(crs) && _crs != "urn:ogc:def:crs:EPSG::4326" 
+    if !isnothing(crs) && _crs != "urn:ogc:def:crs:EPSG::4326"
         @warn "GeoJSON object contains crs other than EPSG 4326: $_crs. As of the 2016 GeoJSON specification this is no longer supported"
     end
     return GeoFormatTypes.EPSG(4326)
 end
+
 GI.isfeature(::Type{<:Feature}) = true
 GI.trait(::Feature) = GI.FeatureTrait()
 GI.geometry(f::Feature) = geometry(f)
 GI.properties(f::Feature) = properties(f)
 
-GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where T = true
+GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where {T} = true
 GI.trait(::FeatureCollection) = GI.FeatureCollectionTrait()
-GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) = Feature(fc[i])
+GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) =
+    Feature(fc[i])
 GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)

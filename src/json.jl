@@ -18,7 +18,9 @@ function read(source)
     elseif object_type == "Feature"
         return Feature(object)
     elseif object_type == nothing
-        error("String does not follow the GeoJSON specification: must have a \"features\" field")
+        error(
+            "String does not follow the GeoJSON specification: must have a \"features\" field",
+        )
     else
         return geometry(object)
     end
@@ -36,33 +38,36 @@ write(io, obj) = JSON3.write(io, _lower(obj))
 
 function _lower(obj)
     if GI.isfeaturecollection(obj)
-        base = (type="FeatureCollection", features=_lower.(GI.getfeature(obj)))
+        base = (type = "FeatureCollection", features = _lower.(GI.getfeature(obj)))
         return _add_bbox(GI.extent(obj), base)
     elseif GI.isfeature(obj)
-        base = (type="Feature", geometry=_lower(GI.geometry(obj)), properties=GI.properties(obj))
+        base = (
+            type = "Feature",
+            geometry = _lower(GI.geometry(obj)),
+            properties = GI.properties(obj),
+        )
         return _add_bbox(GI.extent(obj), base)
     elseif GI.isgeometry(obj)
         _lower(GI.geomtrait(obj), obj)
     else
         nothing
-    end 
+    end
 end
-_lower(::GI.AbstractPointTrait, obj) =
-    (type="Point", coordinates=GI.coordinates(obj))
+_lower(::GI.AbstractPointTrait, obj) = (type = "Point", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractLineStringTrait, obj) =
-    (type="LineString", coordinates=GI.coordinates(obj))
+    (type = "LineString", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractPolygonTrait, obj) =
-    (type="Polygon", coordinates=GI.coordinates(obj))
+    (type = "Polygon", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiPointTrait, obj) =
-    (type="MultiPoint", coordinates=GI.coordinates(obj))
+    (type = "MultiPoint", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiLineStringTrait, obj) =
-    (type="Polygon", coordinates=GI.coordinates(obj))
+    (type = "Polygon", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiPolygonTrait, obj) =
-    (type="MultiPolygon", coordinates=collect(GI.coordinates(obj)))
+    (type = "MultiPolygon", coordinates = collect(GI.coordinates(obj)))
 _lower(::GI.AbstractMultiLineStringTrait, obj) =
-    (type="MultiLineString", coordinates=collect(GI.coordinates(obj)))
+    (type = "MultiLineString", coordinates = collect(GI.coordinates(obj)))
 _lower(::GI.AbstractGeometryCollectionTrait, obj) =
-    (type="GeometryCollection", geometries=_lower.(GI.getgeom(obj)))
+    (type = "GeometryCollection", geometries = _lower.(GI.getgeom(obj)))
 
 _add_bbox(::Nothing, nt::NamedTuple) = nt
 function _add_bbox(ext::Extents.Extent, nt::NamedTuple)

@@ -3,7 +3,7 @@
 
 A feature wrapping a lazy JSON object.
 
-Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly 
+Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly
 the GeoInterface.jl interface.
 """
 struct Feature{T}
@@ -41,7 +41,7 @@ Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
 
 A feature collection wrapping both a lazy JSON object and an array of features.
 
-Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly 
+Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly
 the GeoInterface.jl interface.
 """
 struct FeatureCollection{O,A} <: AbstractVector{eltype(A)}
@@ -96,7 +96,9 @@ end
     return Feature(val), state
 end
 
-Base.show(io::IO, fc::FeatureCollection) = println(io, "FeatureCollection with $(length(fc)) Features")
+Base.show(io::IO, fc::FeatureCollection) =
+    println(io, "FeatureCollection with $(length(fc)) Features")
+
 function Base.show(io::IO, f::Feature)
     geom = geometry(f)
     if isnothing(geom)

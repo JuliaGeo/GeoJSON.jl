@@ -8,8 +8,18 @@ using Test
 
 # copied from the GeoJSON.jl test suite
 include("geojson_samples.jl")
-featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointnull,
-    poly, polyhole, collection, osm_buildings]
+featurecollections = [
+    g,
+    multipolygon,
+    realmultipolygon,
+    polyline,
+    point,
+    pointnull,
+    poly,
+    polyhole,
+    collection,
+    osm_buildings,
+]
 
 @testset "Features" begin
     samples = (a, b, c, d, e, f, h)
@@ -27,7 +37,11 @@ featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointn
         [:type => "é"],
         [:type => "meow"],
         [:title => "Dict 1"],
-        [:link => "http://example.org/features/1", :summary => "The first feature", :title => "Feature 1"],
+        [
+            :link => "http://example.org/features/1",
+            :summary => "The first feature",
+            :title => "Feature 1",
+        ],
         [:foo => "bar"],
         [:title => "Dict 1", :bbox => [-180.0, -90.0, 180.0, 90.0]],
     )
@@ -41,14 +55,18 @@ end
 
 @testset "Geometries" begin
     @test GeoJSONTables.read(multi) isa GeoJSONTables.MultiPolygon
-    @test GeoJSONTables.read(multi) == [[[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
-                                       [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]]]
+    @test GeoJSONTables.read(multi) == [
+        [[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
+        [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]],
+    ]
 end
 
 @testset "extent" begin
-    @test GeoInterface.extent(GeoJSONTables.read(d)) == Extent(X=(-180.0, 180.0), Y=(-90.0, 90.0))
+    @test GeoInterface.extent(GeoJSONTables.read(d)) ==
+          Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
     @test GeoInterface.extent(GeoJSONTables.read(e)) == nothing
-    @test GeoInterface.extent(GeoJSONTables.read(g)) == Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
+    @test GeoInterface.extent(GeoJSONTables.read(g)) ==
+          Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
 end
 
 @testset "crs" begin
@@ -66,7 +84,7 @@ end
 @testset "write" begin
     # Round trip read/write and compare prettified output to prettified original
     foreach((a, b, c, d, e, f, h)) do json
-        f = GeoJSONTables.read(json) 
+        f = GeoJSONTables.read(json)
         f1 = GeoJSONTables.read(GeoJSONTables.write(f))
         @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
         @test GeoJSONTables.properties(f) == GeoJSONTables.properties(f1)
@@ -74,7 +92,7 @@ end
     end
 
     foreach(featurecollections) do json
-        fc = GeoJSONTables.read(json) 
+        fc = GeoJSONTables.read(json)
         f1c = GeoJSONTables.read(GeoJSONTables.write(fc))
         foreach(fc, f1c) do f, f1
             @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
@@ -108,18 +126,20 @@ end
     @test geom.json isa JSON3.Array
     @test length(geom.json[1][1]) == 4
     @test length(geom[1][1]) == 4
-    @test geom[1][1][1] == [-117.913883,33.96657]
-    @test geom[1][1][2] == [-117.907767,33.967747]
-    @test geom[1][1][3] == [-117.912919,33.96445]
-    @test geom[1][1][4] == [-117.913883,33.96657]
+    @test geom[1][1][1] == [-117.913883, 33.96657]
+    @test geom[1][1][2] == [-117.907767, 33.967747]
+    @test geom[1][1][3] == [-117.912919, 33.96445]
+    @test geom[1][1][4] == [-117.913883, 33.96657]
 
     @testset "write to disk" begin
         fc = t
         GeoJSONTables.write("test.json", fc)
         fc1 = GeoJSONTables.read(read("test.json", String))
-        @test GeoInterface.extent(fc) == GeoInterface.extent(fc1) == Extent(X=(100, 105), Y=(0, 1))
-        f = GeoInterface.getfeature(fc, 1) 
-        f1 = GeoInterface.getfeature(fc1, 1) 
+        @test GeoInterface.extent(fc) ==
+              GeoInterface.extent(fc1) ==
+              Extent(X = (100, 105), Y = (0, 1))
+        f = GeoInterface.getfeature(fc, 1)
+        f1 = GeoInterface.getfeature(fc1, 1)
         @test GeoInterface.geometry(f) == GeoInterface.geometry(f1)
         @test GeoInterface.properties(f) == GeoInterface.properties(f1)
         rm("test.json")
@@ -154,6 +174,20 @@ end
     # @test GeoInterface.coordinates(GeoJSONTables.read.(geoms)[1])
     features = [a, b, c, d, e, f, h]
     @test all(s -> GeoInterface.testfeature(s), GeoJSONTables.read.(features))
-    featurecollections = [g, multipolygon, realmultipolygon, polyline, point, pointnull, poly, polyhole, collection, osm_buildings]
-    @test all(s -> GeoInterface.testfeaturecollection(s), GeoJSONTables.read.(featurecollections))
+    featurecollections = [
+        g,
+        multipolygon,
+        realmultipolygon,
+        polyline,
+        point,
+        pointnull,
+        poly,
+        polyhole,
+        collection,
+        osm_buildings,
+    ]
+    @test all(
+        s -> GeoInterface.testfeaturecollection(s),
+        GeoJSONTables.read.(featurecollections),
+    )
 end
