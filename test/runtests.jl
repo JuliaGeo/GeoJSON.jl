@@ -21,6 +21,8 @@ featurecollections = [
     osm_buildings,
 ]
 
+@testset "GeoJSONTables" begin
+
 @testset "Features" begin
     samples = (a, b, c, d, e, f, h)
     geometries = (
@@ -191,3 +193,16 @@ end
         GeoJSONTables.read.(featurecollections),
     )
 end
+
+@testset "GeoFormatTypes" begin
+    gft_str = GeoFormatTypes.GeoJSON(b)
+    f = GeoJSONTables.read(gft_str)
+    @test f isa GeoJSONTables.Feature
+
+    dict = Dict{String, Any}("type" => "Point", "coordinates" => [-105.0, 39.5])
+    gft_dict = GeoFormatTypes.GeoJSON(dict)
+    p = GeoJSONTables.read(gft_dict)
+    @test p isa GeoJSONTables.Point
+end
+
+end  # testset "GeoJSONTables"

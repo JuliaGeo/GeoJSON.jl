@@ -4,7 +4,6 @@
 
 Read a GeoJSON string to a GeoInterface.jl compatible feature or geometry object.
 """
-read(source::GeoFormatTypes.GeoJSON) = _readjson(GeoFormatTypes.val(source))
 function read(source)
     object = JSON3.read(source)
     if object === nothing
@@ -24,6 +23,14 @@ function read(source)
     else
         return geometry(object)
     end
+end
+
+read(source::GeoFormatTypes.GeoJSON) = read(GeoFormatTypes.val(source))
+
+function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict})
+    dict = GeoFormatTypes.val(source)
+    str = JSON3.write(dict)
+    return read(str)
 end
 
 """
