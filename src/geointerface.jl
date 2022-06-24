@@ -1,6 +1,8 @@
 # Geometry
 GI.isgeometry(g::Type{<:Geometry}) = true
 GI.coordinates(::GI.AbstractGeometryTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
+# resolve ambiguity with GeoInterface fallback
+GI.coordinates(::GI.AbstractPointTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
 GI.crs(f::Geometry) = GeoFormatTypes.EPSG(4326)
 
 GI.geomtrait(g::Point) = GI.PointTrait()
