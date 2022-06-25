@@ -84,6 +84,5 @@ GI.properties(f::Feature) = properties(f)
 
 GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where {T} = true
 GI.trait(::FeatureCollection) = GI.FeatureCollectionTrait()
-GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) =
-    Feature(fc[i])
+GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) = fc[i]
 GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)

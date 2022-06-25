@@ -120,7 +120,7 @@ end
     @test all(propertynames(f1)) do pn
         getproperty(f1, pn) == getproperty(GeoInterface.getfeature(t, 1), pn)
     end
-    @test_broken f1 == t[1]
+    @test f1 == t[1]
     geom = GeoJSONTables.geometry(f1)
     @test geom isa GeoJSONTables.MultiPolygon
     @test geom isa GeoJSONTables.Geometry

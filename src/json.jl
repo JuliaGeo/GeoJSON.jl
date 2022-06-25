@@ -57,6 +57,7 @@ function _lower(obj)
     elseif GI.isgeometry(obj)
         _lower(GI.geomtrait(obj), obj)
     else
+        # null geometry
         nothing
     end
 end

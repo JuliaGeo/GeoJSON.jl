@@ -34,7 +34,7 @@ end
 
 # Base methods
 Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
-
+Base.:(==)(f1::Feature, f2::Feature) = object(f1) == object(f2)
 
 """
     FeatureCollection <: AbstractVector
@@ -52,7 +52,7 @@ end
 "Access the JSON3.Object that represents the FeatureCollection"
 object(f::FeatureCollection) = f.object
 
-"Access the JSON3.Array that represents the FeatureCollection"
+"Access the JSON3.Array of Features in the FeatureCollection"
 array(f::FeatureCollection) = f.array
 
 bbox(f::FeatureCollection) = get(object(f), :bbox, nothing)
@@ -66,7 +66,7 @@ Base.IteratorEltype(::Type{<:FeatureCollection}) = Base.HasEltype()
 
 # read only AbstractVector
 Base.size(fc::FeatureCollection) = size(array(fc))
-Base.getindex(fc::FeatureCollection, i) = array(fc)[i]
+Base.getindex(fc::FeatureCollection, i) = Feature(array(fc)[i])
 Base.IndexStyle(::Type{<:FeatureCollection}) = IndexLinear()
 
 """
