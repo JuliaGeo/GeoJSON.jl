@@ -3,7 +3,6 @@ GI.isgeometry(g::Type{<:Geometry}) = true
 GI.coordinates(::GI.AbstractGeometryTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
 # resolve ambiguity with GeoInterface fallback
 GI.coordinates(::GI.AbstractPointTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
-GI.crs(f::Geometry) = GeoFormatTypes.EPSG(4326)
 
 GI.geomtrait(g::Point) = GI.PointTrait()
 GI.geomtrait(g::LineString) = GI.LineStringTrait()
@@ -69,13 +68,7 @@ function GI.extent(f::Union{Feature,FeatureCollection})
     end
 end
 
-function GI.crs(f::Union{<:Feature,<:FeatureCollection})
-    _crs = crs(f)
-    if !isnothing(crs) && _crs != "urn:ogc:def:crs:EPSG::4326"
-        @warn "GeoJSON object contains crs other than EPSG 4326: $_crs. As of the 2016 GeoJSON specification this is no longer supported"
-    end
-    return GeoFormatTypes.EPSG(4326)
-end
+GI.crs(::GeoJSONObject) = GeoFormatTypes.EPSG(4326)
 
 GI.isfeature(::Type{<:Feature}) = true
 GI.trait(::Feature) = GI.FeatureTrait()

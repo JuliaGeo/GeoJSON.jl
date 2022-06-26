@@ -27,10 +27,6 @@ function bbox(f::Feature)
     bbox = get(object(f), :bbox, nothing)
     isnothing(bbox) ? get(properties(f), :bbox, nothing) : bbox
 end
-function crs(f::Feature)
-    crs = get(object(f), :crs, nothing)
-    isnothing(crs) ? get(properties(f), :crs, nothing) : crs
-end
 
 # Base methods
 Base.show(io::IO, ::MIME"text/plain", f::Feature) = show(io, f)
@@ -56,7 +52,6 @@ object(f::FeatureCollection) = f.object
 array(f::FeatureCollection) = f.array
 
 bbox(f::FeatureCollection) = get(object(f), :bbox, nothing)
-crs(f::FeatureCollection) = get(object(f), :crs, nothing)
 
 # Base methods
 
@@ -114,3 +109,6 @@ Base.show(io::IO, ::MIME"text/plain", fc::FeatureCollection) = show(io, fc)
 Tables.istable(::Type{<:FeatureCollection}) = true
 Tables.rowaccess(::Type{<:FeatureCollection}) = true
 Tables.rows(fc::FeatureCollection) = fc
+
+const GeoJSONObject = Union{Geometry, Feature, FeatureCollection}
+
