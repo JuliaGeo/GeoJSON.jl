@@ -1,8 +1,8 @@
 # Geometry
 GI.isgeometry(g::Type{<:Geometry}) = true
-GI.coordinates(::GI.AbstractGeometryTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
+GI.coordinates(::GI.AbstractGeometryTrait, g::Geometry) = collect(coordinates(g))
 # resolve ambiguity with GeoInterface fallback
-GI.coordinates(::GI.AbstractPointTrait, g::Geometry) = GI.coordinates.(GI.getgeom(g))
+GI.coordinates(::GI.AbstractPointTrait, g::Geometry) = collect(coordinates(g))
 
 GI.geomtrait(g::Point) = GI.PointTrait()
 GI.geomtrait(g::LineString) = GI.LineStringTrait()
@@ -15,7 +15,6 @@ GI.geomtrait(g::GeometryCollection) = GI.GeometryCollectionTrait()
 # we have to make use of the GI fallbacks that call geomtrait on the input
 GI.ncoord(::GI.PointTrait, g::Point) = length(g)
 GI.getcoord(::GI.PointTrait, g::Point, i::Int) = g[i]
-GI.coordinates(::GI.PointTrait, g::Point) = collect(g)
 
 GI.ncoord(::GI.LineStringTrait, g::LineString) = length(first(g))
 GI.ngeom(::GI.LineStringTrait, g::LineString) = length(g)
@@ -48,9 +47,21 @@ GI.ncoord(::GI.GeometryCollectionTrait, g::GeometryCollection) = GI.ncoord(first
 GI.ngeom(::GI.GeometryCollectionTrait, g::GeometryCollection) = length(g)
 GI.getgeom(::GI.GeometryCollectionTrait, g::GeometryCollection, i::Int) = geometry(g[i])
 
-# Features
-function GI.extent(f::Union{Feature,FeatureCollection})
-    bb = bbox(f)
+# Feature
+GI.isfeature(::Type{<:Feature}) = true
+GI.trait(::Feature) = GI.FeatureTrait()
+GI.geometry(f::Feature) = geometry(f)
+GI.properties(f::Feature) = properties(f)
+
+# FeatureCollection
+GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where {T} = true
+GI.trait(::FeatureCollection) = GI.FeatureCollectionTrait()
+GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) = fc[i]
+GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)
+
+# Any GeoJSON Object
+function GI.extent(x::GeoJSONObject)
+    bb = bbox(x)
     if isnothing(bb)
         return nothing
     else
@@ -69,13 +80,3 @@ function GI.extent(f::Union{Feature,FeatureCollection})
 end
 
 GI.crs(::GeoJSONObject) = GeoFormatTypes.EPSG(4326)
-
-GI.isfeature(::Type{<:Feature}) = true
-GI.trait(::Feature) = GI.FeatureTrait()
-GI.geometry(f::Feature) = geometry(f)
-GI.properties(f::Feature) = properties(f)
-
-GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where {T} = true
-GI.trait(::FeatureCollection) = GI.FeatureCollectionTrait()
-GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) = fc[i]
-GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)

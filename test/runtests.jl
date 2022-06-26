@@ -1,5 +1,5 @@
 using GeoJSONTables
-import GeoInterface
+import GeoInterface as GI
 import GeoFormatTypes
 using Extents
 using JSON3
@@ -20,8 +20,6 @@ featurecollections = [
     collection,
     osm_buildings,
 ]
-
-@testset "GeoJSONTables" begin
 
 @testset "Features" begin
     samples = (a, b, c, d, e, f, h)
@@ -56,25 +54,33 @@ featurecollections = [
 end
 
 @testset "Geometries" begin
-    @test GeoJSONTables.read(multi) isa GeoJSONTables.MultiPolygon
-    @test GeoJSONTables.read(multi) == [
+    geom = GeoJSONTables.read(multi)
+    @test geom isa GeoJSONTables.MultiPolygon
+    @test geom == [
         [[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
         [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]],
     ]
+
+    geom = GeoJSONTables.read(geom_bbox)
+    @test geom isa GeoJSONTables.LineString
+    @test geom == [[-35.1, -6.6], [8.1, 3.8]]
+    @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
+    @test GeoJSONTables.bbox(geom) == [-35.1, -6.6, 8.1, 3.8]
+    @test GI.extent(geom) == Extent(X = (-35.1, 8.1), Y = (-6.6, 3.8))
 end
 
 @testset "extent" begin
-    @test GeoInterface.extent(GeoJSONTables.read(d)) ==
+    @test GI.extent(GeoJSONTables.read(d)) ==
           Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
-    @test GeoInterface.extent(GeoJSONTables.read(e)) === nothing
-    @test GeoInterface.extent(GeoJSONTables.read(g)) ==
+    @test GI.extent(GeoJSONTables.read(e)) === nothing
+    @test GI.extent(GeoJSONTables.read(g)) ==
           Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
 end
 
 @testset "crs" begin
-    @test GeoInterface.crs(GeoJSONTables.read(a)) == GeoFormatTypes.EPSG(4326)
-    @test GeoInterface.crs(GeoJSONTables.read(g)) == GeoFormatTypes.EPSG(4326)
-    @test GeoInterface.crs(GeoJSONTables.read(multi)) == GeoFormatTypes.EPSG(4326)
+    @test GI.crs(GeoJSONTables.read(a)) == GeoFormatTypes.EPSG(4326)
+    @test GI.crs(GeoJSONTables.read(g)) == GeoFormatTypes.EPSG(4326)
+    @test GI.crs(GeoJSONTables.read(multi)) == GeoFormatTypes.EPSG(4326)
 end
 
 @testset "read not crash" begin
@@ -90,7 +96,7 @@ end
         f1 = GeoJSONTables.read(GeoJSONTables.write(f))
         @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
         @test GeoJSONTables.properties(f) == GeoJSONTables.properties(f1)
-        @test GeoInterface.extent(f) == GeoInterface.extent(f1)
+        @test GI.extent(f) == GI.extent(f1)
     end
 
     foreach(featurecollections) do json
@@ -99,7 +105,7 @@ end
         foreach(fc, f1c) do f, f1
             @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
             @test GeoJSONTables.properties(f) == GeoJSONTables.properties(f1)
-            @test GeoInterface.extent(f) == GeoInterface.extent(f1)
+            @test GI.extent(f) == GI.extent(f1)
         end
     end
 end
@@ -109,8 +115,8 @@ end
     @test Tables.istable(t)
     @test Tables.rows(t) === t
     @test Tables.columns(t) isa Tables.CopiedColumns
-    @test t isa GeoJSONTables.FeatureCollection{<:JSON3.Object,<:JSON3.Array{JSON3.Object}}
-    @test Base.propertynames(t) == (:object, :array)  # override this?
+    @test t isa GeoJSONTables.FeatureCollection{<:JSON3.Object}
+    @test Base.propertynames(t) == (:object,)  # override this?
     @test Tables.rowtable(t) isa Vector{<:NamedTuple}
     @test Tables.columntable(t) isa NamedTuple
 
@@ -118,15 +124,17 @@ end
     @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
     @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
     @test all(propertynames(f1)) do pn
-        getproperty(f1, pn) == getproperty(GeoInterface.getfeature(t, 1), pn)
+        getproperty(f1, pn) == getproperty(GI.getfeature(t, 1), pn)
     end
     @test f1 == t[1]
     geom = GeoJSONTables.geometry(f1)
-    @test geom isa GeoJSONTables.MultiPolygon
+    @test geom isa GeoJSONTables.MultiPolygon{<:JSON3.Object}
     @test geom isa GeoJSONTables.Geometry
     @test geom isa AbstractVector
-    @test geom.json isa JSON3.Array
-    @test length(geom.json[1][1]) == 4
+    @test GeoJSONTables.object(geom) isa JSON3.Object
+    @test GeoJSONTables.coordinates(geom) isa JSON3.Array
+    @test GI.coordinates(geom) isa Vector
+    @test GeoJSONTables.coordinates(geom)[1][1] == geom[1][1]
     @test length(geom[1][1]) == 4
     @test geom[1][1][1] == [-117.913883, 33.96657]
     @test geom[1][1][2] == [-117.907767, 33.967747]
@@ -137,21 +145,21 @@ end
         fc = t
         GeoJSONTables.write("test.json", fc)
         fc1 = GeoJSONTables.read(read("test.json", String))
-        @test GeoInterface.extent(fc) ==
-              GeoInterface.extent(fc1) ==
+        @test GI.extent(fc) ==
+              GI.extent(fc1) ==
               Extent(X = (100, 105), Y = (0, 1))
-        f = GeoInterface.getfeature(fc, 1)
-        f1 = GeoInterface.getfeature(fc1, 1)
-        @test GeoInterface.geometry(f) == GeoInterface.geometry(f1)
-        @test GeoInterface.properties(f) == GeoInterface.properties(f1)
+        f = GI.getfeature(fc, 1)
+        f1 = GI.getfeature(fc1, 1)
+        @test GI.geometry(f) == GI.geometry(f1)
+        @test GI.properties(f) == GI.properties(f1)
         rm("test.json")
     end
 
     @testset "GeoInterface" begin
-        @test GeoInterface.trait(t) == GeoInterface.FeatureCollectionTrait()
+        @test GI.trait(t) == GI.FeatureCollectionTrait()
         geom = GeoJSONTables.geometry(f1)
-        @test GeoInterface.trait(f1) === GeoInterface.FeatureTrait()
-        @test GeoInterface.geomtrait(geom) === GeoInterface.MultiPolygonTrait()
+        @test GI.trait(f1) === GI.FeatureTrait()
+        @test GI.geomtrait(geom) === GI.MultiPolygonTrait()
         properties = GeoJSONTables.properties(f1)
         @test properties isa JSON3.Object
         @test properties["addr2"] === "Rowland Heights"
@@ -160,22 +168,21 @@ end
 
 @testset "FeatureCollection of one GeometryCollection" begin
     fc = GeoJSONTables.read(collection)
-    gc = GeoJSONTables.geometry(GeoInterface.getfeature(fc, 1))
-    @test GeoInterface.geomtrait(gc) isa GeoInterface.GeometryCollectionTrait
+    gc = GeoJSONTables.geometry(GI.getfeature(fc, 1))
+    @test GI.geomtrait(gc) isa GI.GeometryCollectionTrait
 
     @testset "Mixed geometry types are returned" begin
-        @test GeoInterface.getgeom(gc, 1) isa GeoJSONTables.Polygon
-        @test GeoInterface.getgeom(gc, 2) isa GeoJSONTables.Polygon
-        @test GeoInterface.getgeom(gc, 3) isa GeoJSONTables.Point
+        @test GI.getgeom(gc, 1) isa GeoJSONTables.Polygon
+        @test GI.getgeom(gc, 2) isa GeoJSONTables.Polygon
+        @test GI.getgeom(gc, 3) isa GeoJSONTables.Point
     end
 end
 
 @testset "GeoInterface tests" begin
     geoms = [multi]
-    @test all(s -> GeoInterface.testgeometry(s), GeoJSONTables.read.(geoms))
-    # @test GeoInterface.coordinates(GeoJSONTables.read.(geoms)[1])
+    @test all(s -> GI.testgeometry(s), GeoJSONTables.read.(geoms))
     features = [a, b, c, d, e, f, h]
-    @test all(s -> GeoInterface.testfeature(s), GeoJSONTables.read.(features))
+    @test all(s -> GI.testfeature(s), GeoJSONTables.read.(features))
     featurecollections = [
         g,
         multipolygon,
@@ -189,7 +196,7 @@ end
         osm_buildings,
     ]
     @test all(
-        s -> GeoInterface.testfeaturecollection(s),
+        s -> GI.testfeaturecollection(s),
         GeoJSONTables.read.(featurecollections),
     )
 end
@@ -199,10 +206,8 @@ end
     f = GeoJSONTables.read(gft_str)
     @test f isa GeoJSONTables.Feature
 
-    dict = Dict{String, Any}("type" => "Point", "coordinates" => [-105.0, 39.5])
+    dict = Dict{String,Any}("type" => "Point", "coordinates" => [-105.0, 39.5])
     gft_dict = GeoFormatTypes.GeoJSON(dict)
     p = GeoJSONTables.read(gft_dict)
     @test p isa GeoJSONTables.Point
 end
-
-end  # testset "GeoJSONTables"

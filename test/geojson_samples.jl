@@ -105,6 +105,10 @@ multi = """
 }
 """
 
+geom_bbox = """
+{"type":"LineString","coordinates":[[-35.1,-6.6],[8.1,3.8]],"bbox":[-35.1,-6.6,8.1,3.8]}
+"""
+
 # Examples from https://github.com/Esri/geojson-utils/blob/master/tests/geojson.js
 
 multipolygon = """{

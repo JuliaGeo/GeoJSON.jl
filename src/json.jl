@@ -13,7 +13,7 @@ function read(source)
     if object_type == "FeatureCollection"
         features = get(object, :features, nothing)
         features isa JSON3.Array || error("GeoJSON field \"features\" is not an array")
-        return FeatureCollection(object, features)
+        return FeatureCollection(object)
     elseif object_type == "Feature"
         return Feature(object)
     elseif object_type === nothing
@@ -92,21 +92,21 @@ to that geometry type.
 function geometry(g::JSON3.Object)
     t = g.type
     if t == "Point"
-        Point(g.coordinates)
+        Point(g)
     elseif t == "LineString"
-        LineString(g.coordinates)
+        LineString(g)
     elseif t == "Polygon"
-        Polygon(g.coordinates)
+        Polygon(g)
     elseif t == "MultiPoint"
-        MultiPoint(g.coordinates)
+        MultiPoint(g)
     elseif t == "MultiLineString"
-        MultiLineString(g.coordinates)
+        MultiLineString(g)
     elseif t == "MultiPolygon"
-        MultiPolygon(g.coordinates)
+        MultiPolygon(g)
     elseif t == "GeometryCollection"
-        GeometryCollection(g.geometries)
+        GeometryCollection(g)
     else
         throw(ArgumentError("Unknown geometry type $t"))
     end
 end
-geometry(g::Nothing) = nothing
+geometry(::Nothing) = nothing
