@@ -71,11 +71,9 @@ end
 end
 
 @testset "extent" begin
-    @test GI.extent(GeoJSONTables.read(d)) ==
-          Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
+    @test GI.extent(GeoJSONTables.read(d)) == Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
     @test GI.extent(GeoJSONTables.read(e)) === nothing
-    @test GI.extent(GeoJSONTables.read(g)) ==
-          Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
+    @test GI.extent(GeoJSONTables.read(g)) == Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
 end
 
 @testset "crs" begin
@@ -151,9 +149,7 @@ end
         fc = t
         GeoJSONTables.write("test.json", fc)
         fc1 = GeoJSONTables.read(read("test.json", String))
-        @test GI.extent(fc) ==
-              GI.extent(fc1) ==
-              Extent(X = (100, 105), Y = (0, 1))
+        @test GI.extent(fc) == GI.extent(fc1) == Extent(X = (100, 105), Y = (0, 1))
         f = GI.getfeature(fc, 1)
         f1 = GI.getfeature(fc1, 1)
         @test GI.geometry(f) == GI.geometry(f1)
@@ -201,10 +197,7 @@ end
         collection,
         osm_buildings,
     ]
-    @test all(
-        s -> GI.testfeaturecollection(s),
-        GeoJSONTables.read.(featurecollections),
-    )
+    @test all(s -> GI.testfeaturecollection(s), GeoJSONTables.read.(featurecollections))
 end
 
 @testset "GeoFormatTypes" begin
