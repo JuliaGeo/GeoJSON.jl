@@ -1,61 +1,10 @@
-# Examples from https://github.com/frewsxcv/python-geojson/tree/master/tests
 
-a = """{
-    "properties": {
-        "Ã": "Ã"
-    },
-    "type": "Feature",
-    "geometry": null,
-    "crs": {
-        "type": "link",
-        "properties": {
-            "href": "data.crs",
-            "type": "ogcwkt"
-        }
-    }
-}"""
+module T
 
-b = """{"type": "Feature",
-    "geometry": {"coordinates": [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]], "type": "MultiPoint"},
-    "id": 1,
-    "properties": {"type": "é"}
-}"""
+# There are 3 sections, FeatureCollection, Feature, Geometry.
+# When adding a sample, also add it to the list at the end of the section.
 
-c = """{"type": "Feature",
-    "geometry": null,
-    "id": 1,
-    "properties": {"type": "meow"},
-    "crs": {"properties": {"name": "urn:ogc:def:crs:EPSG::3785"},
-            "type": "name"}
-}"""
-
-d = """{
-    "type": "Feature",
-    "id": "1",
-    "bbox": [-180.0, -90.0, 180.0, 90.0],
-    "geometry": {"type": "MultiLineString", "coordinates": [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]]},
-    "properties": {"title": "Dict 1"}
-}"""
-
-e = """{"geometry": {"coordinates": [53, -4],
-                     "type": "Point",
-                     "crs": {
-                         "type": "link",
-                         "properties": {
-                           "href": "http://example.com/crs/42",
-                           "type": "proj4"
-                           }
-                     }},
-    "id": "1",
-    "properties": {"link": "http://example.org/features/1",
-                   "summary": "The first feature",
-                   "title": "Feature 1"},
-    "type": "Feature"
-}"""
-
-f = """{"geometry": null, "id": 12, "properties": {"foo": "bar"}, "type": "Feature"}"""
-
-# Self-Added for test coverage
+## FeatureCollection
 
 g = """{
     "type": "FeatureCollection",
@@ -75,43 +24,6 @@ g = """{
     "bbox": [100.0, 0.0, 105.0, 1.0],
     "crs": {"properties": {"name": "urn:ogc:def:crs:EPSG::3785"},
             "type": "name"}
-}"""
-
-h = """{
-    "type": "Feature",
-    "geometry": {"type": "MultiLineString", "coordinates": [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]]},
-    "properties": {"title": "Dict 1", "bbox": [-180.0, -90.0, 180.0, 90.0]}
-}"""
-
-# Examples from https://datatracker.ietf.org/doc/html/rfc7946#section-1.3
-
-multi = """
-{
-    "type": "MultiPolygon",
-    "coordinates": [
-        [
-            [
-                [180.0, 40.0], [180.0, 50.0], [170.0, 50.0],
-                [170.0, 40.0], [180.0, 40.0]
-            ]
-        ],
-        [
-            [
-                [-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0],
-                [-180.0, 40.0], [-170.0, 40.0]
-            ]
-        ]
-    ]
-}
-"""
-
-geom_bbox = """
-{"type":"LineString","coordinates":[[-35.1,-6.6],[8.1,3.8]],"bbox":[-35.1,-6.6,8.1,3.8]}
-"""
-
-empty_featurecollection = """{
-    "type": "FeatureCollection",
-    "features": []
 }"""
 
 # Examples from https://github.com/Esri/geojson-utils/blob/master/tests/geojson.js
@@ -415,4 +327,128 @@ osm_buildings = """{
       "height": 140
     }
   }]
-}""";
+}"""
+
+empty_featurecollection = """{
+    "type": "FeatureCollection",
+    "features": []
+}"""
+
+featurecollections = [
+    g,
+    multipolygon,
+    realmultipolygon,
+    polyline,
+    point,
+    pointnull,
+    poly,
+    polyhole,
+    collection,
+    osm_buildings,
+    empty_featurecollection,
+]
+
+
+## Feature
+
+# Examples from https://github.com/frewsxcv/python-geojson/tree/master/tests
+
+a = """{
+    "properties": {
+        "Ã": "Ã"
+    },
+    "type": "Feature",
+    "geometry": null,
+    "crs": {
+        "type": "link",
+        "properties": {
+            "href": "data.crs",
+            "type": "ogcwkt"
+        }
+    }
+}"""
+
+b = """{"type": "Feature",
+    "geometry": {"coordinates": [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]], "type": "MultiPoint"},
+    "id": 1,
+    "properties": {"type": "é"}
+}"""
+
+c = """{"type": "Feature",
+    "geometry": null,
+    "id": 1,
+    "properties": {"type": "meow"},
+    "crs": {"properties": {"name": "urn:ogc:def:crs:EPSG::3785"},
+            "type": "name"}
+}"""
+
+d = """{
+    "type": "Feature",
+    "id": "1",
+    "bbox": [-180.0, -90.0, 180.0, 90.0],
+    "geometry": {"type": "MultiLineString", "coordinates": [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]]},
+    "properties": {"title": "Dict 1"}
+}"""
+
+e = """{"geometry": {"coordinates": [53, -4],
+                     "type": "Point",
+                     "crs": {
+                         "type": "link",
+                         "properties": {
+                           "href": "http://example.com/crs/42",
+                           "type": "proj4"
+                           }
+                     }},
+    "id": "1",
+    "properties": {"link": "http://example.org/features/1",
+                   "summary": "The first feature",
+                   "title": "Feature 1"},
+    "type": "Feature"
+}"""
+
+f = """{"geometry": null, "id": 12, "properties": {"foo": "bar"}, "type": "Feature"}"""
+
+h = """{
+    "type": "Feature",
+    "geometry": {"type": "MultiLineString", "coordinates": [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]]},
+    "properties": {"title": "Dict 1", "bbox": [-180.0, -90.0, 180.0, 90.0]}
+}"""
+
+features = [a, b, c, d, e, f, h]
+
+
+## Geometry
+
+# Examples from https://datatracker.ietf.org/doc/html/rfc7946#section-1.3
+
+multi = """
+{
+    "type": "MultiPolygon",
+    "coordinates": [
+        [
+            [
+                [180.0, 40.0], [180.0, 50.0], [170.0, 50.0],
+                [170.0, 40.0], [180.0, 40.0]
+            ]
+        ],
+        [
+            [
+                [-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0],
+                [-180.0, 40.0], [-170.0, 40.0]
+            ]
+        ]
+    ]
+}
+"""
+
+bbox = """
+{"type":"LineString","coordinates":[[-35.1,-6.6],[8.1,3.8]],"bbox":[-35.1,-6.6,8.1,3.8]}
+"""
+
+bermuda_triangle = """
+{"type":"LineString","coordinates":[[-64.73,32.31],[-80.19,25.76],[-66.09,18.43],[-64.73,32.31]]}
+"""
+
+geometries = [multi, bbox, bermuda_triangle]
+
+end  # module test

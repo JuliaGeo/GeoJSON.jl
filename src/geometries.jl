@@ -54,7 +54,7 @@ MultiLineString(c::AbstractVector; kwargs...) =
 MultiPolygon(c::AbstractVector; kwargs...) =
     MultiPolygon(merge((type = "MultiPolygon", coordinates = c), kwargs))
 GeometryCollection(g::AbstractVector; kwargs...) =
-    GeometryCollection(merge((type = "GeometryCollection", geometries = c), kwargs))
+    GeometryCollection(merge((type = "GeometryCollection", geometries = g), kwargs))
 
 coordinates(g::Geometry) = object(g).coordinates
 coordinates(g::GeometryCollection) = geometries(g)

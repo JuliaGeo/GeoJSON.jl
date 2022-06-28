@@ -85,7 +85,7 @@ function Base.show(io::IO, f::Feature)
     geom = geometry(f)
     propnames = propertynames(f)
     n = length(propnames)
-    if isnothing(geom)
+    if geom === nothing
         print(io, "Feature with null geometry")
     else
         print(io, "Feature with a ", type(geom))

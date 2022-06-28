@@ -62,7 +62,7 @@ GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)
 # Any GeoJSON Object
 function GI.extent(x::GeoJSONObject)
     bb = bbox(x)
-    if isnothing(bb)
+    if bb === nothing
         return nothing
     else
         if length(bb) == 4

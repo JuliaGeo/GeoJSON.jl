@@ -1,30 +1,17 @@
 using GeoJSONTables
 import GeoInterface as GI
 import GeoFormatTypes
+import Aqua
 using Extents
 using JSON3
 using Tables
 using Test
 
-# copied from the GeoJSON.jl test suite
+# samples and collections thereof defined under module T
 include("geojson_samples.jl")
-featurecollections = [
-    g,
-    multipolygon,
-    realmultipolygon,
-    polyline,
-    point,
-    pointnull,
-    poly,
-    polyhole,
-    collection,
-    osm_buildings,
-    empty_featurecollection,
-]
 
 @testset "Features" begin
-    samples = (a, b, c, d, e, f, h)
-    geometries = (
+    geometries = [
         nothing,
         [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]],
         nothing,
@@ -32,8 +19,8 @@ featurecollections = [
         [53, -4],
         nothing,
         [[[3.75, 9.25], [-130.95, 1.52]], [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]]],
-    )
-    properties = (
+    ]
+    properties = [
         [:Ã => "Ã"],
         [:type => "é"],
         [:type => "meow"],
@@ -45,24 +32,22 @@ featurecollections = [
         ],
         [:foo => "bar"],
         [:title => "Dict 1", :bbox => [-180.0, -90.0, 180.0, 90.0]],
-    )
-    foreach(samples, properties) do s, p
+    ]
+    foreach(T.features, geometries, properties) do s, g, p
         @test collect(GeoJSONTables.properties(GeoJSONTables.read(s))) == p
-    end
-    foreach(samples, geometries) do s, g
         @test GeoJSONTables.geometry(GeoJSONTables.read(s)) == g
     end
 end
 
 @testset "Geometries" begin
-    geom = GeoJSONTables.read(multi)
+    geom = GeoJSONTables.read(T.multi)
     @test geom isa GeoJSONTables.MultiPolygon
     @test geom == [
         [[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
         [[[-170.0, 40.0], [-170.0, 50.0], [-180.0, 50.0], [-180.0, 40.0], [-170.0, 40.0]]],
     ]
 
-    geom = GeoJSONTables.read(geom_bbox)
+    geom = GeoJSONTables.read(T.bbox)
     @test geom isa GeoJSONTables.LineString
     @test geom == [[-35.1, -6.6], [8.1, 3.8]]
     @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
@@ -71,26 +56,27 @@ end
 end
 
 @testset "extent" begin
-    @test GI.extent(GeoJSONTables.read(d)) == Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
-    @test GI.extent(GeoJSONTables.read(e)) === nothing
-    @test GI.extent(GeoJSONTables.read(g)) == Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
+    @test GI.extent(GeoJSONTables.read(T.d)) ==
+          Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
+    @test GI.extent(GeoJSONTables.read(T.e)) === nothing
+    @test GI.extent(GeoJSONTables.read(T.g)) == Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
 end
 
 @testset "crs" begin
-    @test GI.crs(GeoJSONTables.read(a)) == GeoFormatTypes.EPSG(4326)
-    @test GI.crs(GeoJSONTables.read(g)) == GeoFormatTypes.EPSG(4326)
-    @test GI.crs(GeoJSONTables.read(multi)) == GeoFormatTypes.EPSG(4326)
+    @test GI.crs(GeoJSONTables.read(T.a)) == GeoFormatTypes.EPSG(4326)
+    @test GI.crs(GeoJSONTables.read(T.collection)) == GeoFormatTypes.EPSG(4326)
+    @test GI.crs(GeoJSONTables.read(T.multi)) == GeoFormatTypes.EPSG(4326)
 end
 
 @testset "read not crash" begin
-    for featurecollection in featurecollections
-        GeoJSONTables.read(featurecollection)
+    for str in vcat(T.featurecollections, T.features, T.geometries)
+        GeoJSONTables.read(str)
     end
 end
 
 @testset "write" begin
     # Round trip read/write and compare prettified output to prettified original
-    foreach((a, b, c, d, e, f, h)) do json
+    foreach(T.features) do json
         f = GeoJSONTables.read(json)
         f1 = GeoJSONTables.read(GeoJSONTables.write(f))
         @test GeoJSONTables.geometry(f) == GeoJSONTables.geometry(f1)
@@ -98,7 +84,7 @@ end
         @test GI.extent(f) == GI.extent(f1)
     end
 
-    foreach(featurecollections) do json
+    foreach(T.featurecollections) do json
         fc = GeoJSONTables.read(json)
         f1c = GeoJSONTables.read(GeoJSONTables.write(fc))
         foreach(fc, f1c) do f, f1
@@ -110,7 +96,7 @@ end
 end
 
 @testset "FeatureCollection of one MultiPolygon" begin
-    t = GeoJSONTables.read(g)
+    t = GeoJSONTables.read(T.g)
     @test Tables.istable(t)
     @test Tables.rows(t) === t
     @test Tables.columns(t) isa Tables.CopiedColumns
@@ -165,11 +151,13 @@ end
         properties = GeoJSONTables.properties(f1)
         @test properties isa JSON3.Object
         @test properties["addr2"] === "Rowland Heights"
+        @test !GI.isclosed(GeoJSONTables.read(T.bbox))
+        @test GI.isclosed(GeoJSONTables.read(T.bermuda_triangle))
     end
 end
 
 @testset "FeatureCollection of one GeometryCollection" begin
-    fc = GeoJSONTables.read(collection)
+    fc = GeoJSONTables.read(T.collection)
     gc = GeoJSONTables.geometry(GI.getfeature(fc, 1))
     @test GI.geomtrait(gc) isa GI.GeometryCollectionTrait
 
@@ -181,27 +169,13 @@ end
 end
 
 @testset "GeoInterface tests" begin
-    geoms = [multi]
-    @test all(s -> GI.testgeometry(s), GeoJSONTables.read.(geoms))
-    features = [a, b, c, d, e, f, h]
-    @test all(s -> GI.testfeature(s), GeoJSONTables.read.(features))
-    featurecollections = [
-        g,
-        multipolygon,
-        realmultipolygon,
-        polyline,
-        point,
-        pointnull,
-        poly,
-        polyhole,
-        collection,
-        osm_buildings,
-    ]
-    @test all(s -> GI.testfeaturecollection(s), GeoJSONTables.read.(featurecollections))
+    @test all(GI.testgeometry, GeoJSONTables.read.(T.geometries))
+    @test all(GI.testfeature, GeoJSONTables.read.(T.features))
+    @test all(GI.testfeaturecollection, GeoJSONTables.read.(T.featurecollections))
 end
 
 @testset "GeoFormatTypes" begin
-    gft_str = GeoFormatTypes.GeoJSON(b)
+    gft_str = GeoFormatTypes.GeoJSON(T.b)
     f = GeoJSONTables.read(gft_str)
     @test f isa GeoJSONTables.Feature
 
@@ -210,3 +184,5 @@ end
     p = GeoJSONTables.read(gft_dict)
     @test p isa GeoJSONTables.Point
 end
+
+Aqua.test_all(GeoJSONTables)

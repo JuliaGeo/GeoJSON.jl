@@ -1,8 +1,7 @@
 module GeoJSONTables
 
-import JSON3, Tables, GeoFormatTypes, GeoInterface, Extents
-
-const GI = GeoInterface
+import JSON3, Tables, GeoFormatTypes, Extents
+import GeoInterface as GI
 
 include("geometries.jl")
 include("features.jl")
