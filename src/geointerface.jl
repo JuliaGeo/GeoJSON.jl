@@ -54,7 +54,7 @@ GI.geometry(f::Feature) = geometry(f)
 GI.properties(f::Feature) = properties(f)
 
 # FeatureCollection
-GI.isfeaturecollection(::Type{<:FeatureCollection{T}}) where {T} = true
+GI.isfeaturecollection(::Type{<:FeatureCollection}) = true
 GI.trait(::FeatureCollection) = GI.FeatureCollectionTrait()
 GI.getfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection, i::Integer) = fc[i]
 GI.nfeature(::GI.FeatureCollectionTrait, fc::FeatureCollection) = length(fc)

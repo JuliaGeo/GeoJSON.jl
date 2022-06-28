@@ -13,7 +13,15 @@ function read(source)
     if object_type == "FeatureCollection"
         features = get(object, :features, nothing)
         features isa JSON3.Array || error("GeoJSON field \"features\" is not an array")
-        return FeatureCollection(object)
+        feature_object_type = isempty(features) ? Any : typeof(first(features))
+        return FeatureCollection{
+            Feature{feature_object_type},
+            typeof(object),
+            typeof(features),
+        }(
+            object,
+            features,
+        )
     elseif object_type == "Feature"
         return Feature(object)
     elseif object_type === nothing

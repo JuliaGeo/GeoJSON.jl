@@ -31,13 +31,13 @@ A feature collection wrapping, wrapping the JSON object.
 Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly
 the GeoInterface.jl interface.
 """
-struct FeatureCollection{T} <: AbstractVector{Feature}
-    object::T
+struct FeatureCollection{T,O,A} <: AbstractVector{T}
+    object::O
+    features::A
 end
 
-"Access the JSON3.Array of Features in the FeatureCollection"
-features(f::FeatureCollection) = object(f).features
-
+"Access the vector of features in the FeatureCollection"
+features(f::FeatureCollection) = getfield(f, :features)
 
 # Base methods
 
@@ -47,7 +47,8 @@ Base.IteratorEltype(::Type{<:FeatureCollection}) = Base.HasEltype()
 
 # read only AbstractVector
 Base.size(fc::FeatureCollection) = size(features(fc))
-Base.getindex(fc::FeatureCollection, i) = Feature(features(fc)[i])
+Base.eltype(::FeatureCollection{T}) where {T<:Feature} = T
+Base.getindex(fc::FeatureCollection{T}, i) where {T<:Feature} = T(features(fc)[i])
 Base.IndexStyle(::Type{<:FeatureCollection}) = IndexLinear()
 
 """
@@ -63,18 +64,18 @@ function Base.getproperty(f::Feature, nm::Symbol)
     miss(val)
 end
 
-@inline function Base.iterate(fc::FeatureCollection)
+@inline function Base.iterate(fc::FeatureCollection{T}) where {T<:Feature}
     st = iterate(features(fc))
     st === nothing && return nothing
     val, state = st
-    return Feature(val), state
+    return T(val), state
 end
 
-@inline function Base.iterate(fc::FeatureCollection, st)
+@inline function Base.iterate(fc::FeatureCollection{T}, st) where {T<:Feature}
     st = iterate(features(fc), st)
     st === nothing && return nothing
     val, state = st
-    return Feature(val), state
+    return T(val), state
 end
 
 Base.show(io::IO, fc::FeatureCollection) =
@@ -110,7 +111,7 @@ correctly back to GeoJSON strings.
 """
 object(x::GeoJSONObject) = getfield(x, :object)
 
-type(x::GeoJSONObject) = object(x).type
+type(x::GeoJSONObject) = String(object(x).type)
 bbox(x::GeoJSONObject) = get(object(x), :bbox, nothing)
 
 Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)

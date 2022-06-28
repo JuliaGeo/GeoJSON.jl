@@ -19,6 +19,7 @@ featurecollections = [
     polyhole,
     collection,
     osm_buildings,
+    empty_featurecollection,
 ]
 
 @testset "Features" begin
@@ -115,17 +116,22 @@ end
     @test Tables.istable(t)
     @test Tables.rows(t) === t
     @test Tables.columns(t) isa Tables.CopiedColumns
-    @test t isa GeoJSONTables.FeatureCollection{<:JSON3.Object}
-    @test Base.propertynames(t) == (:object,)  # override this?
+    @test t isa GeoJSONTables.FeatureCollection{
+        <:GeoJSONTables.Feature,
+        <:JSON3.Object,
+        <:JSON3.Array,
+    }
+    @test Base.propertynames(t) == (:object, :features)  # override this?
     @test Tables.rowtable(t) isa Vector{<:NamedTuple}
     @test Tables.columntable(t) isa NamedTuple
-
+    @inferred first(t)
     f1, _ = iterate(t)
     @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
     @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
     @test all(propertynames(f1)) do pn
         getproperty(f1, pn) == getproperty(GI.getfeature(t, 1), pn)
     end
+    @inferred t[1]
     @test f1 == t[1]
     geom = GeoJSONTables.geometry(f1)
     @test geom isa GeoJSONTables.MultiPolygon{<:JSON3.Object}
