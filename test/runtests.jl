@@ -10,6 +10,8 @@ using Test
 # samples and collections thereof defined under module T
 include("geojson_samples.jl")
 
+# @testset "GeoJSONTables" begin
+
 @testset "Features" begin
     geometries = [
         nothing,
@@ -59,6 +61,54 @@ end
     @test geom == [[-35.1, -6.6, 5.5], [8.1, 3.8, 6.5]]
     @test GeoJSONTables.bbox(geom) == [-35.1, -6.6, 5.5, 8.1, 3.8, 6.5]
     @test GI.extent(geom) == Extent(X = (-35.1, 8.1), Y = (-6.6, 3.8), Z = (5.5, 6.5))
+end
+
+@testset "Construct from NamedTuple" begin
+    # Geometry
+    p = GeoJSONTables.Point(coordinates = [1.1, 2.2])
+    @test propertynames(p) === (:type, :coordinates)
+    @test p.type === GeoJSONTables.type(p) === "Point"
+    @test p.coordinates === GeoJSONTables.coordinates(p) == [1.1, 2.2]
+
+    # Feature
+    # properties named "geometry" are shadowed by the geometry
+    f = GeoJSONTables.Feature(p; properties = (a = 1, geometry = "g", b = 2))
+    @test GeoJSONTables.coordinates(f) == [1.1, 2.2]
+    @test propertynames(f) === (:geometry, :a, :b)
+    @test GeoJSONTables.geometry(f) === f.geometry === p
+    @test f.a === 1
+    @test f.b === 2
+    @test_throws ErrorException f.not_a_col
+    @test_throws MethodError iterate(f)
+    @test_throws MethodError f[1]
+    # but can still be retrieved from the properties directly
+    @test GeoJSONTables.properties(f).geometry === "g"
+    @test GeoJSONTables.object(f) isa NamedTuple{
+        (:type, :geometry, :properties),
+        Tuple{
+            String,
+            GeoJSONTables.Point{
+                NamedTuple{(:type, :coordinates),Tuple{String,Vector{Float64}}},
+            },
+            NamedTuple{(:a, :geometry, :b),Tuple{Int64,String,Int64}},
+        },
+    }
+
+    # FeatureCollection
+    features = [f]
+    fc = GeoJSONTables.FeatureCollection(features)
+    @test GeoJSONTables.features(fc) === features
+    @test propertynames(fc) === Tables.columnnames(fc) === (:geometry, :a, :b)
+    @test GeoJSONTables.geometry.(fc) == [p]
+    @test iterate(p) === (1.1, 2)
+    @test iterate(p, 2) === (2.2, 3)
+    @test iterate(p, 3) === nothing
+
+    # other constructors
+    GeoJSONTables.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))
+    GeoJSONTables.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))
+    GeoJSONTables.FeatureCollection(; features)
+    GeoJSONTables.FeatureCollection((type = "FeatureCollection", features = [f]))
 end
 
 @testset "extent" begin
@@ -111,13 +161,13 @@ end
         <:JSON3.Object,
         <:JSON3.Array,
     }
-    @test Base.propertynames(t) == (:object, :features)  # override this?
+    @test propertynames(t) == (:geometry, :park, :cartodb_id, :addr1, :addr2)
     @test Tables.rowtable(t) isa Vector{<:NamedTuple}
     @test Tables.columntable(t) isa NamedTuple
     @inferred first(t)
     f1, _ = iterate(t)
     @test f1 isa GeoJSONTables.Feature{<:JSON3.Object}
-    @test all(Base.propertynames(f1) .== [:cartodb_id, :addr1, :addr2, :park])
+    @test propertynames(f1) === (:geometry, :park, :cartodb_id, :addr1, :addr2)
     @test all(propertynames(f1)) do pn
         getproperty(f1, pn) == getproperty(GI.getfeature(t, 1), pn)
     end
@@ -162,6 +212,28 @@ end
     end
 end
 
+@testset "Tables with missings" begin
+    t = GeoJSONTables.read(T.tablenull)
+    @test t[1] isa GeoJSONTables.Feature
+    @test t.geometry isa Vector{Union{T,Missing}} where {T<:GeoJSONTables.Point}
+    @test ismissing(t.geometry[3])
+    @test t.a isa Vector{Union{Int,Missing}}
+    @test isequal(t.a, [1, missing, 3])
+    @test t.b isa Vector{Missing}
+    @test Tables.columntable(t) isa NamedTuple
+
+    t = GeoJSONTables.read(T.table_not_present)
+    @test propertynames(t) === propertynames(t[1]) === (:geometry, :a, :b, :c)
+    @test propertynames(t[2]) === (:geometry, :a, :b)
+    # "c" is only present in the properyies of the first row
+    # We don't support automatically setting these to missing in the tables interface.
+    # They have to be explicitly set to null.
+    # We could support it by having getproperty(f::Feature, :not_present) return missing
+    # if needed, but then you always get missing instead of KeyError.
+    @test_throws KeyError t.c
+    @test_throws KeyError Tables.columntable(t)
+end
+
 @testset "FeatureCollection of one GeometryCollection" begin
     fc = GeoJSONTables.read(T.collection)
     gc = GeoJSONTables.geometry(GI.getfeature(fc, 1))
@@ -192,3 +264,5 @@ end
 end
 
 Aqua.test_all(GeoJSONTables)
+
+# end  # testset "GeoJSONTables"

@@ -334,6 +334,24 @@ empty_featurecollection = """{
     "features": []
 }"""
 
+# nulls in both geometries in properties
+tablenull = """{
+    "type":"FeatureCollection",
+    "features":[
+        {"type":"Feature","properties":{"a":1,"b":null},"geometry":null},
+        {"type":"Feature","properties":{"a":null,"b":null},"geometry":{"type":"Point","coordinates":[-24.2,31.6]}},
+        {"type":"Feature","properties":{"a":3,"b":null},"geometry":null}
+]}"""
+
+# property c is not always present
+table_not_present = """{
+    "type":"FeatureCollection",
+    "features":[
+        {"type":"Feature","properties":{"a":1,"b":null,"c":"only-here"},"geometry":null},
+        {"type":"Feature","properties":{"a":null,"b":null},"geometry":null},
+        {"type":"Feature","properties":{"a":3,"b":null},"geometry":null}
+]}"""
+
 featurecollections = [
     g,
     multipolygon,
@@ -346,6 +364,8 @@ featurecollections = [
     collection,
     osm_buildings,
     empty_featurecollection,
+    tablenull,
+    table_not_present,
 ]
 
 
@@ -453,6 +473,20 @@ bermuda_triangle = """
 {"type":"LineString","coordinates":[[-64.73,32.31],[-80.19,25.76],[-66.09,18.43],[-64.73,32.31]]}
 """
 
-geometries = [multi, bbox, bbox_z, bermuda_triangle]
+geom_collection = """{
+    "type" : "GeometryCollection",
+    "geometries" : [{
+        "type" : "Polygon",
+        "coordinates" : [[[-95, 43], [-95, 50], [-90, 50], [-91, 42], [-95, 43]]]
+    }, {
+        "type" : "Polygon",
+        "coordinates" : [[[-89, 42], [-89, 50], [-80, 50], [-80, 42], [-89, 42]]]
+    }, {
+        "type" : "Point",
+        "coordinates" : [-94, 46]
+    }]
+}"""
+
+geometries = [multi, bbox, bbox_z, bermuda_triangle, geom_collection]
 
 end  # module test

@@ -18,30 +18,31 @@ GI.getcoord(::GI.PointTrait, g::Point, i::Int) = g[i]
 
 GI.ncoord(::GI.LineStringTrait, g::LineString) = length(first(g))
 GI.ngeom(::GI.LineStringTrait, g::LineString) = length(g)
-GI.getgeom(::GI.LineStringTrait, g::LineString, i::Integer) = Point(g[i])
-GI.getpoint(::GI.LineStringTrait, g::LineString, i::Int) = Point(g[i])
+GI.getgeom(::GI.LineStringTrait, g::LineString, i::Integer) = Point(coordinates = g[i])
+GI.getpoint(::GI.LineStringTrait, g::LineString, i::Int) = Point(coordinates = g[i])
 # TODO what to return for length 0 and 1?
 # TODO should this be an approximate equals for floating point?
 GI.isclosed(::GI.LineStringTrait, g::LineString) = first(g) == last(g)
 
 GI.ngeom(::GI.PolygonTrait, g::Polygon) = length(g)
-GI.getgeom(::GI.PolygonTrait, g::Polygon, i::Integer) = LineString(g[i])
+GI.getgeom(::GI.PolygonTrait, g::Polygon, i::Integer) = LineString(coordinates = g[i])
 GI.ncoord(::GI.PolygonTrait, g::Polygon) = length(first(first(g)))
-GI.getexterior(::GI.PolygonTrait, g::Polygon) = LineString(first(g))
+GI.getexterior(::GI.PolygonTrait, g::Polygon) = LineString(coordinates = first(g))
 GI.nhole(::GI.PolygonTrait, g::Polygon) = length(g) - 1
-GI.gethole(::GI.PolygonTrait, g::Polygon, i::Int) = LineString(g[i+1])
+GI.gethole(::GI.PolygonTrait, g::Polygon, i::Int) = LineString(coordinates = g[i+1])
 
 GI.ncoord(::GI.MultiPointTrait, g::MultiPoint) = length(first(g))
 GI.ngeom(::GI.MultiPointTrait, g::MultiPoint) = length(g)
-GI.getgeom(::GI.MultiPointTrait, g::MultiPoint, i::Int) = Point(g[i])
+GI.getgeom(::GI.MultiPointTrait, g::MultiPoint, i::Int) = Point(coordinates = g[i])
 
 GI.ncoord(::GI.MultiLineStringTrait, g::MultiLineString) = length(first(first(g)))
 GI.ngeom(::GI.MultiLineStringTrait, g::MultiLineString) = length(g)
-GI.getgeom(::GI.MultiLineStringTrait, g::MultiLineString, i::Int) = LineString(g[i])
+GI.getgeom(::GI.MultiLineStringTrait, g::MultiLineString, i::Int) =
+    LineString(coordinates = g[i])
 
 GI.ncoord(::GI.MultiPolygonTrait, g::MultiPolygon) = length(first(first(first(g))))
 GI.ngeom(::GI.MultiPolygonTrait, g::MultiPolygon) = length(g)
-GI.getgeom(::GI.MultiPolygonTrait, g::MultiPolygon, i::Int) = Polygon(g[i])
+GI.getgeom(::GI.MultiPolygonTrait, g::MultiPolygon, i::Int) = Polygon(coordinates = g[i])
 
 GI.ncoord(::GI.GeometryCollectionTrait, g::GeometryCollection) = GI.ncoord(first(g))
 GI.ngeom(::GI.GeometryCollectionTrait, g::GeometryCollection) = length(g)
