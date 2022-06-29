@@ -85,7 +85,11 @@ _lower(::GI.AbstractGeometryCollectionTrait, obj) =
 
 _add_bbox(::Nothing, nt::NamedTuple) = nt
 function _add_bbox(ext::Extents.Extent, nt::NamedTuple)
-    bbox = [ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
+    if haskey(ext, :Z)
+        bbox = [ext.X[1], ext.Y[1], ext.Z[1], ext.X[2], ext.Y[2], ext.Z[2]]
+    else
+        bbox = [ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
+    end
     merge(nt, (; bbox))
 end
 

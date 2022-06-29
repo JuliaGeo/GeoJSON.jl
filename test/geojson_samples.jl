@@ -445,10 +445,14 @@ bbox = """
 {"type":"LineString","coordinates":[[-35.1,-6.6],[8.1,3.8]],"bbox":[-35.1,-6.6,8.1,3.8]}
 """
 
+bbox_z = """
+{"type":"LineString","coordinates":[[-35.1,-6.6,5.5],[8.1,3.8,6.5]],"bbox":[-35.1,-6.6,5.5,8.1,3.8,6.5]}
+"""
+
 bermuda_triangle = """
 {"type":"LineString","coordinates":[[-64.73,32.31],[-80.19,25.76],[-66.09,18.43],[-64.73,32.31]]}
 """
 
-geometries = [multi, bbox, bermuda_triangle]
+geometries = [multi, bbox, bbox_z, bermuda_triangle]
 
 end  # module test

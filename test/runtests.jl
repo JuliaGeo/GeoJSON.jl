@@ -53,6 +53,12 @@ end
     @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
     @test GeoJSONTables.bbox(geom) == [-35.1, -6.6, 8.1, 3.8]
     @test GI.extent(geom) == Extent(X = (-35.1, 8.1), Y = (-6.6, 3.8))
+
+    geom = GeoJSONTables.read(T.bbox_z)
+    @test geom isa GeoJSONTables.LineString
+    @test geom == [[-35.1, -6.6, 5.5], [8.1, 3.8, 6.5]]
+    @test GeoJSONTables.bbox(geom) == [-35.1, -6.6, 5.5, 8.1, 3.8, 6.5]
+    @test GI.extent(geom) == Extent(X = (-35.1, 8.1), Y = (-6.6, 3.8), Z = (5.5, 6.5))
 end
 
 @testset "extent" begin
