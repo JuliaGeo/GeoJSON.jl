@@ -1,4 +1,4 @@
-module GeoJSONTables
+module GeoJSON
 
 import JSON3, Tables, GeoFormatTypes, Extents
 import GeoInterface as GI
