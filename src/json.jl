@@ -13,15 +13,7 @@ function read(source)
     if object_type == "FeatureCollection"
         features = get(object, :features, nothing)
         features isa JSON3.Array || error("GeoJSON field \"features\" is not an array")
-        feature_object_type = isempty(features) ? Any : typeof(first(features))
-        return FeatureCollection{
-            Feature{feature_object_type},
-            typeof(object),
-            typeof(features),
-        }(
-            object,
-            features,
-        )
+        return FeatureCollection(object)
     elseif object_type == "Feature"
         return Feature(object)
     elseif object_type === nothing
@@ -85,20 +77,22 @@ _lower(::GI.AbstractGeometryCollectionTrait, obj) =
 
 _add_bbox(::Nothing, nt::NamedTuple) = nt
 function _add_bbox(ext::Extents.Extent, nt::NamedTuple)
-    bbox = [ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
+    if haskey(ext, :Z)
+        bbox = [ext.X[1], ext.Y[1], ext.Z[1], ext.X[2], ext.Y[2], ext.Z[2]]
+    else
+        bbox = [ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
+    end
     merge(nt, (; bbox))
 end
 
-miss(x) = ifelse(x === nothing, missing, x)
-
 """
-    geometry(g::JSON3.Object)
+    geometry(g)
 
-Convert a GeoJSON geometry from JSON object to a struct specific
+Convert a GeoJSON geometry from JSON style object to a struct specific
 to that geometry type.
 """
-function geometry(g::JSON3.Object)
-    t = g.type
+function geometry(g)
+    t = type(g)
     if t == "Point"
         Point(g)
     elseif t == "LineString"
@@ -117,4 +111,5 @@ function geometry(g::JSON3.Object)
         throw(ArgumentError("Unknown geometry type $t"))
     end
 end
+geometry(g::Geometry) = g
 geometry(::Nothing) = nothing

@@ -7,9 +7,28 @@ struct Feature{T}
     object::T
 end
 
-# these features always have type="Feature", so exclude that
+Feature{T}(f::Feature{T}) where {T} = f
+Feature(; geometry::Geometry, kwargs...) =
+    Feature(merge((type = "Feature", geometry), kwargs))
+Feature(geometry::Geometry; kwargs...) =
+    Feature(merge((type = "Feature", geometry), kwargs))
+
 # the keys in properties are added here for direct access
-Base.propertynames(f::Feature) = keys(properties(f))
+function Base.propertynames(f::Feature)
+    propnames = keys(properties(f))
+    # properties named "geometry" are shadowed by the geometry
+    return (:geometry, filter(!=(:geometry), propnames)...)
+end
+
+function Base.getproperty(f::Feature, nm::Symbol)
+    x = if nm == :geometry
+        geometry(f)
+    else
+        props = properties(f)
+        getproperty(props, nm)
+    end
+    return ifelse(x === nothing, missing, x)
+end
 
 "Access the properties JSON3.Object of a Feature"
 properties(f::Feature) = object(f).properties
@@ -36,10 +55,40 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
     features::A
 end
 
+function FeatureCollection(object::O) where {O}
+    features = object.features
+    T = isempty(features) ? Feature{Any} : typeof(Feature(first(features)))
+    return FeatureCollection{T,O,typeof(features)}(object, features)
+end
+
+function FeatureCollection(; features::AbstractVector{T}, kwargs...) where {T}
+    FT = ifelse(T <: Feature, T, Feature{T})
+    object = merge((type = "FeatureCollection", features), kwargs)
+    return FeatureCollection{FT,typeof(object),typeof(features)}(object, features)
+end
+
+function FeatureCollection(features::AbstractVector{T}; kwargs...) where {T}
+    FT = ifelse(T <: Feature, T, Feature{T})
+    object = merge((type = "FeatureCollection", features), kwargs)
+    return FeatureCollection{FT,typeof(object),typeof(features)}(object, features)
+end
+
 "Access the vector of features in the FeatureCollection"
-features(f::FeatureCollection) = getfield(f, :features)
+features(fc::FeatureCollection) = getfield(fc, :features)
 
 # Base methods
+
+function Base.propertynames(fc::FeatureCollection)
+    # get the propertynames from the first feature, if it exists
+    return if isempty(fc)
+        (:geometry,)
+    else
+        f = first(fc)
+        propertynames(f)
+    end
+end
+
+Base.getproperty(fc::FeatureCollection, nm::Symbol) = getproperty.(fc, nm)
 
 Base.IteratorSize(::Type{<:FeatureCollection}) = Base.HasLength()
 Base.length(fc::FeatureCollection) = length(features(fc))
@@ -51,30 +100,17 @@ Base.eltype(::FeatureCollection{T}) where {T<:Feature} = T
 Base.getindex(fc::FeatureCollection{T}, i) where {T<:Feature} = T(features(fc)[i])
 Base.IndexStyle(::Type{<:FeatureCollection}) = IndexLinear()
 
-"""
-Get a specific property of the Feature
-
-Returns missing for null/nothing or not present, to work nicely with
-properties that are not defined for every feature. If it is a table,
-it should in some sense be defined.
-"""
-function Base.getproperty(f::Feature, nm::Symbol)
-    props = properties(f)
-    val = get(props, nm, missing)
-    miss(val)
-end
-
-@inline function Base.iterate(fc::FeatureCollection{T}) where {T<:Feature}
-    st = iterate(features(fc))
-    st === nothing && return nothing
-    val, state = st
+function Base.iterate(fc::FeatureCollection{T}) where {T<:Feature}
+    x = iterate(features(fc))
+    x === nothing && return nothing
+    val, state = x
     return T(val), state
 end
 
-@inline function Base.iterate(fc::FeatureCollection{T}, st) where {T<:Feature}
-    st = iterate(features(fc), st)
-    st === nothing && return nothing
-    val, state = st
+function Base.iterate(fc::FeatureCollection{T}, state) where {T<:Feature}
+    x = iterate(features(fc), state)
+    x === nothing && return nothing
+    val, state = x
     return T(val), state
 end
 
@@ -85,7 +121,7 @@ function Base.show(io::IO, f::Feature)
     geom = geometry(f)
     propnames = propertynames(f)
     n = length(propnames)
-    if isnothing(geom)
+    if geom === nothing
         print(io, "Feature with null geometry")
     else
         print(io, "Feature with a ", type(geom))
@@ -112,6 +148,7 @@ correctly back to GeoJSON strings.
 object(x::GeoJSONObject) = getfield(x, :object)
 
 type(x::GeoJSONObject) = String(object(x).type)
+type(x) = String(x.type)
 bbox(x::GeoJSONObject) = get(object(x), :bbox, nothing)
 
 Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
