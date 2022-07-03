@@ -13,13 +13,13 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.0'
+          - '1.6'
           - '1'
           - 'nightly'
         os:
           - ubuntu-latest
           - macOS-latest
-          - windows-latest
+          # - windows-latest  # re-enable when new GeoInterface is released
         arch:
           - x64
     steps:

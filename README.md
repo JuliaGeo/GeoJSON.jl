@@ -1,22 +1,33 @@
-# GeoJSON.jl
+# GeoJSONTables
 
-[![CI](https://github.com/JuliaGeo/GeoJSON.jl/workflows/CI/badge.svg)](https://github.com/JuliaGeo/GeoJSON.jl/actions?query=workflow%3ACI)
-[![Coverage Status](https://coveralls.io/repos/JuliaGeo/GeoJSON.jl/badge.svg)](https://coveralls.io/r/JuliaGeo/GeoJSON.jl)
-[![Latest Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageo.github.io/GeoJSON.jl/dev/)
+Read [GeoJSON](https://geojson.org/) [FeatureCollections](https://tools.ietf.org/html/rfc7946#section-3.3) using [JSON3.jl](https://github.com/quinnj/JSON3.jl), and provide the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface.
 
-This library is developed independently of, but is heavily influenced in design by the [python-geojson](https://github.com/frewsxcv/python-geojson) package. It contains:
+This package is unregistered and in development, so expect changes. It only supports reading, and only of FeatureCollections.
 
-- Functions for encoding and decoding GeoJSON formatted data
-- a type hierarchy (according to the [GeoJSON specification](http://geojson.org/geojson-spec.html))
-- An implementation of the [\__geo_interface\__](https://gist.github.com/sgillies/2217756), a GeoJSON-like protocol for geo-spatial (GIS) vector data.
+This package is heavily inspired by, and borrows code from, [JSONTables.jl](https://github.com/JuliaData/JSONTables.jl), which
+does the same thing for the general JSON format. GeoJSONTables puts the geometry in a `geometry` column, and adds all
+properties in the columns individually. The geometry and non-scalar properties are kept as JSON3.Object and JSON3.Array.
+Right now that means the geometries are hard to use, but at least parsing is fast.
 
-Note that GeoJSON.jl loads features into the GeoInterface.jl format and that this differs from GeoJSON in the following ways:
+Going forward, it would be nice to try developing a GeoTables.jl, similarly to Tables.jl, but with special support
+for a geometry column, that supports a diverse set of geometries, such as those of [LibGEOS](https://github.com/JuliaGeo/LibGEOS.jl), [Shapefile](https://github.com/JuliaGeo/Shapefile.jl), [ArchGDAL.jl](https://github.com/yeesian/ArchGDAL.jl/), [GeometryBasics](https://github.com/SimonDanisch/GeometryBasics.jl) and of course this package.
 
-- Julia Geometries do not provide a `bbox` and `crs` method. If you wish to provide a `bbox` or `crs` attribute, wrap the geometry into a `Feature` or `FeatureCollection`.
-- Features do not have special fields for `id`, `bbox`, and `crs`. These are to be provided (or found) in the `properties` field, under the keys `featureid`, `bbox`, and `crs` respectively (if they exist).
+It would also be good to explore integrating this code into [GeoJSON.jl](https://github.com/JuliaGeo/GeoJSON.jl) and
+archiving this package. See [GeoJSON.jl#23](https://github.com/JuliaGeo/GeoJSON.jl/pull/23) for discussion.
 
-When saving GeoJSON, these transformations will be reversed: if `properties` has a key `featureid`, that will be removed from `properties` and a matching member `id` will be added to the Feature; similarly for `crs` and `bbox`.
+## Usage
 
-## Documentation
+```julia
+julia> using GeoJSONTables, DataFrames
 
-Documentation for GeoJSON.jl can be found at https://juliageo.github.io/GeoJSON.jl/dev/.
+julia> jsonbytes = read("path/to/a.geojson");
+
+julia> fc = GeoJSONTables.read(jsonbytes)
+FeatureCollection with 171 Features
+
+julia> first(fc)
+Feature with geometry type Polygon and properties Symbol[:geometry, :timestamp, :version, :changeset, :user, :uid, :area, :highway, :type, :id]
+
+# use the Tables interface to convert the format, extract data, or iterate over the rows
+julia> df = DataFrame(fc)
+```
