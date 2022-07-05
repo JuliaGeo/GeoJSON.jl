@@ -13,6 +13,24 @@ Feature(; geometry::Geometry, kwargs...) =
 Feature(geometry::Geometry; kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
 
+"""
+    properties(f::Union{Feature,FeatureCollection})
+
+Access the properties JSON3.Object of a Feature
+"""
+properties(f::Feature) = object(f).properties
+
+"""
+    geometry(f::Feature)
+
+Access the JSON3.Object that represents the Feature's geometry
+"""
+geometry(f::Feature) = geometry(object(f).geometry)
+
+coordinates(f::Feature) = coordinates(geometry(object(f).geometry))
+
+# Base methods
+
 # the keys in properties are added here for direct access
 function Base.propertynames(f::Feature)
     propnames = keys(properties(f))
@@ -30,25 +48,15 @@ function Base.getproperty(f::Feature, nm::Symbol)
     return ifelse(x === nothing, missing, x)
 end
 
-"Access the properties JSON3.Object of a Feature"
-properties(f::Feature) = object(f).properties
-
-"Access the JSON3.Object that represents the Feature's geometry"
-geometry(f::Feature) = geometry(object(f).geometry)
-
-coordinates(f::Feature) = coordinates(geometry(object(f).geometry))
-
-
-# Base methods
 Base.:(==)(f1::Feature, f2::Feature) = object(f1) == object(f2)
 
 """
     FeatureCollection <: AbstractVector{Feature}
 
-A feature collection wrapping, wrapping the JSON object.
+A feature collection wrapping a JSON object.
 
-Follows the julia `AbstractArray` interface as a lazy vector of `Feature`, and similarly
-the GeoInterface.jl interface.
+Follows the julia `AbstractArray` interface as a lazy vector of `Feature`,
+and similarly the GeoInterface.jl interface.
 """
 struct FeatureCollection{T,O,A} <: AbstractVector{T}
     object::O
@@ -73,7 +81,11 @@ function FeatureCollection(features::AbstractVector{T}; kwargs...) where {T}
     return FeatureCollection{FT,typeof(object),typeof(features)}(object, features)
 end
 
-"Access the vector of features in the FeatureCollection"
+"""
+    features(fc::FeatureCollection)
+
+Access the vector of features in the FeatureCollection
+"""
 features(fc::FeatureCollection) = getfield(fc, :features)
 
 # Base methods
