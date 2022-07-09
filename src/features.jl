@@ -16,14 +16,14 @@ Feature(geometry::Geometry; kwargs...) =
 """
     properties(f::Union{Feature,FeatureCollection})
 
-Access the properties JSON3.Object of a Feature
+Access the properties JSON object of a Feature
 """
 properties(f::Feature) = object(f).properties
 
 """
     geometry(f::Feature)
 
-Access the JSON3.Object that represents the Feature's geometry
+Access the JSON object that represents the Feature's geometry
 """
 geometry(f::Feature) = geometry(object(f).geometry)
 
