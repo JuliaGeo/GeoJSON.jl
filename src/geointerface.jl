@@ -81,3 +81,5 @@ function GI.extent(x::GeoJSONObject)
 end
 
 GI.crs(::GeoJSONObject) = GeoFormatTypes.EPSG(4326)
+
+GeoInterfaceRecipes.@enable_geo_plots GeoJSON.Geometry

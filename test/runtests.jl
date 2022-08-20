@@ -6,6 +6,7 @@ using Extents
 using JSON3
 using Tables
 using Test
+using Plots
 
 # samples and collections thereof defined under module T
 include("geojson_samples.jl")
@@ -43,7 +44,9 @@ include("geojson_samples.jl")
         ]
         foreach(T.features, geometries, properties) do s, g, p
             @test collect(GeoJSON.properties(GeoJSON.read(s))) == p
-            @test GeoJSON.geometry(GeoJSON.read(s)) == g
+            geom = GeoJSON.geometry(GeoJSON.read(s))
+            @test  geom == g
+            isnothing(geom) || plot(geom)
         end
     end
 
@@ -62,6 +65,7 @@ include("geojson_samples.jl")
         ]
 
         geom = GeoJSON.read(T.bbox)
+        plot(geom)
         @test geom isa GeoJSON.LineString
         @test geom == [[-35.1, -6.6], [8.1, 3.8]]
         @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
