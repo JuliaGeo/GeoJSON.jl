@@ -43,7 +43,7 @@ function Base.getproperty(f::Feature, nm::Symbol)
         geometry(f)
     else
         props = properties(f)
-        getproperty(props, nm)
+        get(props, nm, nothing)
     end
     return ifelse(x === nothing, missing, x)
 end
