@@ -178,7 +178,7 @@ include("geojson_samples.jl")
             <:JSON3.Object,
             <:JSON3.Array,
         }
-        @test propertynames(t) == (:geometry, :park, :cartodb_id, :addr1, :addr2)
+        @test propertynames(t) == [:geometry, :cartodb_id, :addr1, :addr2, :park]
         @test Tables.rowtable(t) isa Vector{<:NamedTuple}
         @test Tables.columntable(t) isa NamedTuple
         @inferred first(t)

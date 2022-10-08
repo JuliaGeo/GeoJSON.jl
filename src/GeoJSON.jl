@@ -6,7 +6,7 @@ module GeoJSON
     Base.read(path, String)
 end GeoJSON
 
-import JSON3, Tables, GeoFormatTypes, Extents, GeoInterfaceRecipes
+import Extents, GeoFormatTypes, GeoInterfaceRecipes, JSON3, JSONTables, Tables 
 import GeoInterface as GI
 
 include("geometries.jl")

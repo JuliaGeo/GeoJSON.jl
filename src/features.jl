@@ -50,6 +50,8 @@ end
 
 Base.:(==)(f1::Feature, f2::Feature) = object(f1) == object(f2)
 
+
+
 """
     FeatureCollection <: AbstractVector{Feature}
 
@@ -61,24 +63,32 @@ and similarly the GeoInterface.jl interface.
 struct FeatureCollection{T,O,A} <: AbstractVector{T}
     object::O
     features::A
+    names::Vector{Symbol}
+    types::Dict{Symbol,Type}
 end
 
 function FeatureCollection(object::O) where {O}
     features = object.features
-    T = isempty(features) ? Feature{Any} : typeof(Feature(first(features)))
-    return FeatureCollection{T,O,typeof(features)}(object, features)
+    if isempty(features) 
+        T = Feature{Any} 
+        names = Symbol[:geometry]
+        types = Dict{Symbol,Type}(:geometry => Geometry)
+    else
+        T = typeof(Feature(first(features)))
+        names, types = property_schema(features)
+        insert!(names, 1, :geometry)
+        types[:geometry] = Geometry
+        @show names
+    end
+    return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
 end
 
 function FeatureCollection(; features::AbstractVector{T}, kwargs...) where {T}
     FT = ifelse(T <: Feature, T, Feature{T})
     object = merge((type = "FeatureCollection", features), kwargs)
-    return FeatureCollection{FT,typeof(object),typeof(features)}(object, features)
-end
-
-function FeatureCollection(features::AbstractVector{T}; kwargs...) where {T}
-    FT = ifelse(T <: Feature, T, Feature{T})
-    object = merge((type = "FeatureCollection", features), kwargs)
-    return FeatureCollection{FT,typeof(object),typeof(features)}(object, features)
+    names = Symbol[propertynames(first(features))...]
+    types = map(_ -> Any, names) # TODO: get the actual types
+    return FeatureCollection{FT,typeof(object),typeof(features)}(object, features, names, types)
 end
 
 """
@@ -90,16 +100,7 @@ features(fc::FeatureCollection) = getfield(fc, :features)
 
 # Base methods
 
-function Base.propertynames(fc::FeatureCollection)
-    # get the propertynames from the first feature, if it exists
-    return if isempty(fc)
-        (:geometry,)
-    else
-        f = first(fc)
-        propertynames(f)
-    end
-end
-
+Base.propertynames(fc::FeatureCollection) = getfield(fc, :names)
 Base.getproperty(fc::FeatureCollection, nm::Symbol) = getproperty.(fc, nm)
 
 Base.IteratorSize(::Type{<:FeatureCollection}) = Base.HasLength()
@@ -145,6 +146,8 @@ end
 Tables.istable(::Type{<:FeatureCollection}) = true
 Tables.rowaccess(::Type{<:FeatureCollection}) = true
 Tables.rows(fc::FeatureCollection) = fc
+Tables.schema(fc::FeatureCollection) =
+    Tables.Schema(getfield(fc, :names), [getfield(fc, :types)[nm] for nm in getfield(fc, :names)])
 
 # methods that apply to all GeoJSON Objects
 const GeoJSONObject = Union{Geometry,Feature,FeatureCollection}
@@ -164,3 +167,45 @@ type(x) = String(x.type)
 bbox(x::GeoJSONObject) = get(object(x), :bbox, nothing)
 
 Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
+
+# Adapted from JSONTables.jl jsontable method
+# We can simply use their method as we need the key/valu pairs
+# of the properties field, rather than the main object
+function property_schema(x::JSON3.Array{JSON3.Object})
+    names = Symbol[]
+    seen = Set{Symbol}()
+    types = Dict{Symbol, Type}()
+    for row in x
+        props = row.properties
+        if isempty(names)
+            for (k, v) in props
+                push!(names, k)
+                types[k] = missT(typeof(v))
+            end
+            seen = Set(names)
+        else
+            for nm in names
+                if haskey(props, nm)
+                    T = types[nm]
+                    v = props[nm]
+                    if !(missT(typeof(v)) <: T)
+                        types[nm] = Union{T, missT(typeof(v))}
+                    end
+                else
+                    types[nm] = Union{Missing, types[nm]}
+                end
+            end
+            for (k, v) in props
+                if !(k in seen)
+                    push!(seen, k)
+                    push!(names, k)
+                    types[k] = Union{Missing, missT(typeof(v))}
+                end
+            end
+        end
+    end
+    return names, types
+end
+
+missT(::Type{Nothing}) = Missing
+missT(::Type{T}) where {T} = T
