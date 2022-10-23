@@ -8,6 +8,7 @@ struct Feature{T}
 end
 
 Feature{T}(f::Feature{T}) where {T} = f
+Feature(f::Feature) = f
 Feature(; geometry::Geometry, kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
 Feature(geometry::Geometry; kwargs...) =
@@ -18,7 +19,10 @@ Feature(geometry::Geometry; kwargs...) =
 
 Access the properties JSON object of a Feature
 """
-properties(f::Feature) = object(f).properties
+properties(obj::JSON3.Object) = obj.properties
+properties(f::Feature{<:JSON3.Object}) = object(f).properties
+properties(f::Feature{<:NamedTuple}) =
+    haskey(object(f), :properties) ? object(f).properties : nothing
 
 """
     geometry(f::Feature)
@@ -66,30 +70,27 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
 end
-
 function FeatureCollection(object::O) where {O}
     features = object.features
     if isempty(features) 
         T = Feature{Any} 
         names = Symbol[:geometry]
-        types = Dict{Symbol,Type}(:geometry => Geometry)
+        types = Dict{Symbol,Type}(:geometry => Union{Missing,Geometry})
     else
         T = typeof(Feature(first(features)))
         names, types = property_schema(features)
         insert!(names, 1, :geometry)
-        types[:geometry] = Geometry
-        @show names
+        types[:geometry] = Union{Missing,Geometry}
     end
     return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
 end
 
 function FeatureCollection(; features::AbstractVector{T}, kwargs...) where {T}
-    FT = ifelse(T <: Feature, T, Feature{T})
     object = merge((type = "FeatureCollection", features), kwargs)
-    names = Symbol[propertynames(first(features))...]
-    types = map(_ -> Any, names) # TODO: get the actual types
-    return FeatureCollection{FT,typeof(object),typeof(features)}(object, features, names, types)
+    return FeatureCollection(object)
 end
+FeatureCollection(features::AbstractVector; kwargs...) =
+    FeatureCollection(; features, kwargs...)
 
 """
     features(fc::FeatureCollection)
@@ -171,21 +172,23 @@ Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
 # Adapted from JSONTables.jl jsontable method
 # We can simply use their method as we need the key/valu pairs
 # of the properties field, rather than the main object
-function property_schema(x::JSON3.Array{JSON3.Object})
+function property_schema(features)
     names = Symbol[]
     seen = Set{Symbol}()
     types = Dict{Symbol, Type}()
-    for row in x
-        props = row.properties
+    for feature in features
+        props = properties(feature)
+        isnothing(props) && continue
         if isempty(names)
-            for (k, v) in props
+            for k in propertynames(props)
+                k === :geometry && continue
                 push!(names, k)
-                types[k] = missT(typeof(v))
+                types[k] = missT(typeof(props[k]))
             end
             seen = Set(names)
         else
             for nm in names
-                if haskey(props, nm)
+                if hasproperty(props, nm)
                     T = types[nm]
                     v = props[nm]
                     if !(missT(typeof(v)) <: T)
@@ -195,7 +198,8 @@ function property_schema(x::JSON3.Array{JSON3.Object})
                     types[nm] = Union{Missing, types[nm]}
                 end
             end
-            for (k, v) in props
+            for k in propertynames(props)
+                k === :geometry && continue
                 if !(k in seen)
                     push!(seen, k)
                     push!(names, k)
@@ -206,6 +210,8 @@ function property_schema(x::JSON3.Array{JSON3.Object})
     end
     return names, types
 end
+
+# Handle JSON where the properties are always in .properties
 
 missT(::Type{Nothing}) = Missing
 missT(::Type{T}) where {T} = T

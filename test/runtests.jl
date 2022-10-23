@@ -114,17 +114,17 @@ include("geojson_samples.jl")
         features = [f]
         fc = GeoJSON.FeatureCollection(features)
         @test GeoJSON.features(fc) === features
-        @test propertynames(fc) === Tables.columnnames(fc) === (:geometry, :a, :b)
+        @test propertynames(fc) == Tables.columnnames(fc) == [:geometry, :a, :b]
         @test GeoJSON.geometry.(fc) == [p]
         @test iterate(p) === (1.1, 2)
         @test iterate(p, 2) === (2.2, 3)
         @test iterate(p, 3) === nothing
 
         # other constructors
-        GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))
-        GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))
-        GeoJSON.FeatureCollection(; features)
-        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f]))
+        @test DataFrame([GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))]) ==
+              DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
+              DataFrame(GeoJSON.FeatureCollection((type="FeatureCollection", features=[f]))) ==
+              DataFrame(GeoJSON.FeatureCollection(; features))
     end
 
     @testset "extent" begin
@@ -240,8 +240,8 @@ include("geojson_samples.jl")
         @test Tables.columntable(t) isa NamedTuple
 
         t = GeoJSON.read(T.table_not_present)
-        @test propertynames(t) === propertynames(t[1]) === (:geometry, :a, :b, :c)
-        @test propertynames(t[2]) === (:geometry, :a, :b)
+        @test propertynames(t) == collect(propertynames(t[1])) == [:geometry, :a, :b, :c]
+        @test propertynames(t[2]) == (:geometry, :a, :b)
         # "c" is only present in the properyies of the first row
         # We don't support automatically setting these to missing in the tables interface.
         # They have to be explicitly set to null.
