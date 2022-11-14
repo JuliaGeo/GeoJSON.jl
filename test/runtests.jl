@@ -248,12 +248,7 @@ include("geojson_samples.jl")
         @test propertynames(t) == collect(propertynames(t[1])) == [:geometry, :a, :b, :c]
         @test propertynames(t[2]) == (:geometry, :a, :b)
         # "c" is only present in the properyies of the first row
-        # We don't support automatically setting these to missing in the tables interface.
-        # They have to be explicitly set to null.
-        # We could support it by having getproperty(f::Feature, :not_present) return missing
-        # if needed, but then you always get missing instead of KeyError.
-        # @test_throws KeyError t.c
-        # @test_throws KeyError Tables.columntable(t)
+        @test all(t.c .=== ["only-here", missing, missing])
     end
 
     @testset "FeatureCollection of one GeometryCollection" begin
