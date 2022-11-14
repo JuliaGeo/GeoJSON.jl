@@ -53,7 +53,7 @@ function Base.getproperty(f::Feature, nm::Symbol)
         if hasproperty(props, nm)
             getproperty(props, nm)
         else
-            if nm in object.parent_properties
+            if nm in getfield(f, :parent_properties)
                 missing
             else
                 error("property `$nm` is not part of Feature or parent FeatureCollection")
