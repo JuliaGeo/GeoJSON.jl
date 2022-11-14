@@ -5,10 +5,14 @@ A feature wrapping the JSON object.
 """
 struct Feature{T}
     object::T
+    parent_properties::Vector{Symbol}
 end
 
-Feature{T}(f::Feature{T}) where {T} = f
 Feature(f::Feature) = f
+Feature(f::Feature, names::Vector{Symbol}) = Feature(object(f), names)
+Feature{T}(f::Feature, names::Vector{Symbol}) where T = Feature(object(f), names)
+Feature{T}(f::Feature) where {T} = f
+Feature(object) = Feature(object, Symbol[])
 Feature(; geometry::Geometry, kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
 Feature(geometry::Geometry; kwargs...) =
@@ -21,8 +25,7 @@ Access the properties JSON object of a Feature
 """
 properties(obj::JSON3.Object) = obj.properties
 properties(f::Feature{<:JSON3.Object}) = object(f).properties
-properties(f::Feature{<:NamedTuple}) =
-    haskey(object(f), :properties) ? object(f).properties : nothing
+properties(f::Feature) = haskey(object(f), :properties) ? object(f).properties : nothing
 
 """
     geometry(f::Feature)
@@ -47,7 +50,15 @@ function Base.getproperty(f::Feature, nm::Symbol)
         geometry(f)
     else
         props = properties(f)
-        getproperty(props, nm)
+        if hasproperty(props, nm)
+            getproperty(props, nm)
+        else
+            if nm in object.parent_properties
+                missing
+            else
+                error("property `$nm` is not part of Feature or parent FeatureCollection")
+            end
+        end
     end
     return ifelse(x === nothing, missing, x)
 end
@@ -70,27 +81,36 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
 end
-function FeatureCollection(object::O) where {O}
+function FeatureCollection(object::O) where O
     features = object.features
     if isempty(features) 
-        T = Feature{Any} 
         names = Symbol[:geometry]
         types = Dict{Symbol,Type}(:geometry => Union{Missing,Geometry})
+        T = Feature{Any} 
     else
-        T = typeof(Feature(first(features)))
         names, types = property_schema(features)
         insert!(names, 1, :geometry)
         types[:geometry] = Union{Missing,Geometry}
+        f1 = first(features)
+        T = if f1 isa JSON3.Object
+            typeof(Feature(f1, names))
+        elseif f1 isa NamedTuple && isconcretetype(eltype(features))
+            typeof(Feature(f1, names))
+        else
+            T = Feature{Any} 
+        end
     end
     return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
 end
-
 function FeatureCollection(; features::AbstractVector{T}, kwargs...) where {T}
     object = merge((type = "FeatureCollection", features), kwargs)
     return FeatureCollection(object)
 end
 FeatureCollection(features::AbstractVector; kwargs...) =
     FeatureCollection(; features, kwargs...)
+
+names(fc::FeatureCollection) = getfield(fc, :names)
+types(fc::FeatureCollection) = getfield(fc, :types)
 
 """
     features(fc::FeatureCollection)
@@ -111,21 +131,28 @@ Base.IteratorEltype(::Type{<:FeatureCollection}) = Base.HasEltype()
 # read only AbstractVector
 Base.size(fc::FeatureCollection) = size(features(fc))
 Base.eltype(::FeatureCollection{T}) where {T<:Feature} = T
-Base.getindex(fc::FeatureCollection{T}, i) where {T<:Feature} = T(features(fc)[i])
 Base.IndexStyle(::Type{<:FeatureCollection}) = IndexLinear()
+function Base.getindex(fc::FeatureCollection{T}, i) where {T<:Feature}
+    f = features(fc)[i]
+    if f isa Feature
+        return f
+    else
+        return T(f, names(fc))
+    end
+end
 
 function Base.iterate(fc::FeatureCollection{T}) where {T<:Feature}
     x = iterate(features(fc))
     x === nothing && return nothing
     val, state = x
-    return T(val), state
+    return T(val, names(fc)), state
 end
 
 function Base.iterate(fc::FeatureCollection{T}, state) where {T<:Feature}
     x = iterate(features(fc), state)
     x === nothing && return nothing
     val, state = x
-    return T(val), state
+    return T(val, names(fc)), state
 end
 
 Base.show(io::IO, fc::FeatureCollection) =
@@ -173,11 +200,24 @@ Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
 # We can simply use their method as we need the key/valu pairs
 # of the properties field, rather than the main object
 function property_schema(features)
+    # Short cut for concrete eltypes of NamedTuple
+    if features isa AbstractArray{<:NamedTuple} && isconcretetype(eltype(x))
+        f1 = first(x)
+        props = properties(f1)
+        names = [keys(props)...]
+        types = Dict{Symbol,Type}(map((k, v) -> k => typeof(v), keys(props), props)...)
+        return names, types
+    end
+    # Otherwise find the shared names
     names = Symbol[]
     seen = Set{Symbol}()
     types = Dict{Symbol, Type}()
     for feature in features
-        props = properties(feature)
+        props = if features isa JSON3.Array
+            feature.properties
+        else
+            properties(feature)
+        end
         isnothing(props) && continue
         if isempty(names)
             for k in propertynames(props)
@@ -198,7 +238,7 @@ function property_schema(features)
                     types[nm] = Union{Missing, types[nm]}
                 end
             end
-            for k in propertynames(props)
+            for (k, v) in pairs(props)
                 k === :geometry && continue
                 if !(k in seen)
                     push!(seen, k)

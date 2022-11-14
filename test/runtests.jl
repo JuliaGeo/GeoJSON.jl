@@ -7,6 +7,7 @@ using JSON3
 using Tables
 using Test
 using Plots
+using DataFrames
 
 # samples and collections thereof defined under module T
 include("geojson_samples.jl")
@@ -113,7 +114,7 @@ include("geojson_samples.jl")
         # FeatureCollection
         features = [f]
         fc = GeoJSON.FeatureCollection(features)
-        @test GeoJSON.features(fc) === features
+        @test GeoJSON.features(fc) == features
         @test propertynames(fc) == Tables.columnnames(fc) == [:geometry, :a, :b]
         @test GeoJSON.geometry.(fc) == [p]
         @test iterate(p) === (1.1, 2)
@@ -125,6 +126,10 @@ include("geojson_samples.jl")
               DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
               DataFrame(GeoJSON.FeatureCollection((type="FeatureCollection", features=[f]))) ==
               DataFrame(GeoJSON.FeatureCollection(; features))
+
+        # Mixed name vector
+        f2 = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2, c = 3))
+        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f, f2]))
     end
 
     @testset "extent" begin
@@ -247,8 +252,8 @@ include("geojson_samples.jl")
         # They have to be explicitly set to null.
         # We could support it by having getproperty(f::Feature, :not_present) return missing
         # if needed, but then you always get missing instead of KeyError.
-        @test_throws KeyError t.c
-        @test_throws KeyError Tables.columntable(t)
+        # @test_throws KeyError t.c
+        # @test_throws KeyError Tables.columntable(t)
     end
 
     @testset "FeatureCollection of one GeometryCollection" begin
