@@ -487,6 +487,8 @@ geom_collection = """{
     }]
 }"""
 
-geometries = [multi, bbox, bbox_z, bermuda_triangle, geom_collection]
+point_int = """{"type":"Point","coordinates":[1,2]}"""
+
+geometries = [multi, bbox, bbox_z, bermuda_triangle, geom_collection, point_int]
 
 end  # module test

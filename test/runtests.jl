@@ -234,7 +234,7 @@ include("geojson_samples.jl")
         @test t[1] isa GeoJSON.Feature
         @test t.geometry isa Vector{Union{T,Missing}} where {T<:GeoJSON.Point}
         @test ismissing(t.geometry[3])
-        @test t.a isa Vector{Union{Int,Missing}}
+        @test t.a isa Vector{Union{Float64,Missing}}
         @test isequal(t.a, [1, missing, 3])
         @test t.b isa Vector{Missing}
         @test Tables.columntable(t) isa NamedTuple
@@ -278,6 +278,17 @@ include("geojson_samples.jl")
         gft_dict = GeoFormatTypes.GeoJSON(dict)
         p = GeoJSON.read(gft_dict)
         @test p isa GeoJSON.Point
+    end
+
+    @testset "numbertype" begin
+        # all numbers are Float64 since we use numbertype=Float64
+        p = GeoJSON.read(T.point_int)
+        @test p isa GeoJSON.Point
+        coords = GeoJSON.coordinates(p)
+        @test coords isa JSON3.Array
+        @test eltype(coords) == Float64
+        @test coords == [1, 2]
+        @test copy(coords) isa Vector{Float64}
     end
 
     Aqua.test_all(GeoJSON)

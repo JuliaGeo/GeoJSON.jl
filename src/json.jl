@@ -5,7 +5,7 @@
 Read a GeoJSON string to a GeoInterface.jl compatible feature or geometry object.
 """
 function read(source)
-    object = JSON3.read(source)
+    object = JSON3.read(source; numbertype = Float64)
     if object === nothing
         error("JSON string is empty")
     end
