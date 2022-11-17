@@ -197,7 +197,7 @@ bbox(x::GeoJSONObject) = get(object(x), :bbox, nothing)
 Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
 
 # Adapted from JSONTables.jl jsontable method
-# We can simply use their method as we need the key/valu pairs
+# We cannot simply use their method as we need the key/value pairs
 # of the properties field, rather than the main object
 function property_schema(features)
     # Short cut for concrete eltypes of NamedTuple
