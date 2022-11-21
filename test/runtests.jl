@@ -245,7 +245,9 @@ include("geojson_samples.jl")
         @test Tables.columntable(t) isa NamedTuple
 
         t = GeoJSON.read(T.table_not_present)
-        @test propertynames(t) == collect(propertynames(t[1])) == [:geometry, :a, :b, :c, :d]
+        t[1]
+        @test propertynames(t) == [:geometry, :a, :b, :c, :d]
+        @test propertynames(t[1]) == (:geometry, :a, :b, :c)
         @test propertynames(t[2]) == (:geometry, :a, :b, :d)
         # "c" and "d" are only present in the properties of a single row
         @test all(t.c .=== ["only-here", missing, missing])
