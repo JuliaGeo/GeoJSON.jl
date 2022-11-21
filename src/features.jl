@@ -213,11 +213,7 @@ function property_schema(features)
     seen = Set{Symbol}()
     types = Dict{Symbol, Type}()
     for feature in features
-        props = if features isa JSON3.Array
-            feature.properties
-        else
-            properties(feature)
-        end
+        props = properties(feature)
         isnothing(props) && continue
         if isempty(names)
             for k in propertynames(props)
@@ -250,8 +246,6 @@ function property_schema(features)
     end
     return names, types
 end
-
-# Handle JSON where the properties are always in .properties
 
 missT(::Type{Nothing}) = Missing
 missT(::Type{T}) where {T} = T
