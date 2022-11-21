@@ -209,6 +209,16 @@ include("geojson_samples.jl")
         @test geom[1][1][3] == [-117.912919, 33.96445]
         @test geom[1][1][4] == [-117.913883, 33.96657]
 
+        @testset "With NamedTuple feature" begin
+            nt_feature = GeoJSON.Feature(; 
+                geometry=t[1].geometry, 
+                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park),
+            )
+            fc = GeoJSON.FeatureCollection([nt_feature])
+            @test fc isa GeoJSON.FeatureCollection
+            @test occursin("(:geometry, :cartodb_id, :addr1, :addr2, :park)", sprint(show, MIME"text/plain"(), fc[1]))
+        end
+
         @testset "write to disk" begin
             fc = t
             GeoJSON.write("test.json", fc)
@@ -264,8 +274,9 @@ include("geojson_samples.jl")
             features = map(t.geometry, nt_props) do geometry, properties
                 GeoJSON.Feature(; geometry, properties)
             end
-            @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
-            @test GeoJSON.FeatureCollection(features) isa GeoJSON.FeatureCollection
+            fc =  GeoJSON.FeatureCollection(features)
+            @test fc isa GeoJSON.FeatureCollection
+            @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), fc[1]))
         end
     end
 
