@@ -348,7 +348,7 @@ table_not_present = """{
     "type":"FeatureCollection",
     "features":[
         {"type":"Feature","properties":{"a":1,"b":null,"c":"only-here"},"geometry":null},
-        {"type":"Feature","properties":{"a":null,"b":null},"geometry":null},
+        {"type":"Feature","properties":{"a":null,"b":null,"d":"appears-later"},"geometry":null},
         {"type":"Feature","properties":{"a":3,"b":null},"geometry":null}
 ]}"""
 

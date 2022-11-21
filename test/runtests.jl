@@ -245,10 +245,11 @@ include("geojson_samples.jl")
         @test Tables.columntable(t) isa NamedTuple
 
         t = GeoJSON.read(T.table_not_present)
-        @test propertynames(t) == collect(propertynames(t[1])) == [:geometry, :a, :b, :c]
-        @test propertynames(t[2]) == (:geometry, :a, :b)
-        # "c" is only present in the properyies of the first row
+        @test propertynames(t) == collect(propertynames(t[1])) == [:geometry, :a, :b, :c, :d]
+        @test propertynames(t[2]) == (:geometry, :a, :b, :d)
+        # "c" and "d" are only present in the properties of a single row
         @test all(t.c .=== ["only-here", missing, missing])
+        @test all(t.d .=== [missing, "appears-later", missing])
     end
 
     @testset "FeatureCollection of one GeometryCollection" begin

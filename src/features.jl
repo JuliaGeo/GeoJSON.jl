@@ -83,10 +83,10 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
 end
 function FeatureCollection(object::O) where O
     features = object.features
-    if isempty(features) 
+    if isempty(features)
         names = Symbol[:geometry]
         types = Dict{Symbol,Type}(:geometry => Union{Missing,Geometry})
-        T = Feature{Any} 
+        T = Feature{Any}
     else
         names, types = property_schema(features)
         insert!(names, 1, :geometry)
@@ -97,7 +97,7 @@ function FeatureCollection(object::O) where O
         elseif f1 isa NamedTuple && isconcretetype(eltype(features))
             typeof(Feature(f1, names))
         else
-            T = Feature{Any} 
+            T = Feature{Any}
         end
     end
     return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
@@ -197,7 +197,7 @@ bbox(x::GeoJSONObject) = get(object(x), :bbox, nothing)
 Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
 
 # Adapted from JSONTables.jl jsontable method
-# We can simply use their method as we need the key/valu pairs
+# We cannot simply use their method as we need the key/value pairs
 # of the properties field, rather than the main object
 function property_schema(features)
     # Short cut for concrete eltypes of NamedTuple
