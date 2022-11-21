@@ -13,9 +13,9 @@ Feature(f::Feature, names::Vector{Symbol}) = Feature(object(f), names)
 Feature{T}(f::Feature, names::Vector{Symbol}) where T = Feature(object(f), names)
 Feature{T}(f::Feature) where {T} = f
 Feature(object) = Feature(object, Symbol[])
-Feature(; geometry::Geometry, kwargs...) =
+Feature(; geometry::Union{Geometry,Missing}, kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
-Feature(geometry::Geometry; kwargs...) =
+Feature(geometry::Union{Geometry,Missing}; kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
 
 """
@@ -31,7 +31,12 @@ properties(f::Feature) = object(f).properties
 
 Access the JSON object that represents the Feature's geometry
 """
-geometry(f::Feature) = geometry(object(f).geometry)
+function geometry(f::Feature{<:JSON3.Object}) 
+    geom = geometry(object(f).geometry)
+    # Convert `nothing` geoms to `missing` geoms
+    return isnothing(geom) ? missing : geom
+end
+geometry(f::Feature{<:NamedTuple}) = object(f).geometry
 
 coordinates(f::Feature) = coordinates(geometry(object(f).geometry))
 
@@ -154,14 +159,14 @@ function Base.iterate(fc::FeatureCollection{T}, state) where {T<:Feature}
     return T(val, names(fc)), state
 end
 
-Base.show(io::IO, fc::FeatureCollection) =
+Base.show(io::IO, ::MIME"text/plain", fc::FeatureCollection) =
     println(io, "FeatureCollection with $(length(fc)) Features")
 
-function Base.show(io::IO, f::Feature)
+function Base.show(io::IO, ::MIME"text/plain", f::Feature)
     geom = geometry(f)
     propnames = propertynames(f)
     n = length(propnames)
-    if geom === nothing
+    if ismissing(geom)
         print(io, "Feature with null geometry")
     else
         print(io, "Feature with a ", type(geom))

@@ -237,6 +237,9 @@ include("geojson_samples.jl")
     @testset "Tables with missings" begin
         t = GeoJSON.read(T.tablenull)
         @test t[1] isa GeoJSON.Feature
+        @test occursin("(:geometry, :a, :b)", sprint(show, MIME"text/plain"(), t[1]))
+        @test ismissing(t[1].geometry)
+        GeoJSON.geometry(t[1])
         @test t.geometry isa Vector{Union{T,Missing}} where {T<:GeoJSON.Point}
         @test ismissing(t.geometry[3])
         @test t.a isa Vector{Union{Int,Missing}}
@@ -245,13 +248,25 @@ include("geojson_samples.jl")
         @test Tables.columntable(t) isa NamedTuple
 
         t = GeoJSON.read(T.table_not_present)
-        t[1]
+        @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
         @test propertynames(t) == [:geometry, :a, :b, :c, :d]
         @test propertynames(t[1]) == (:geometry, :a, :b, :c)
         @test propertynames(t[2]) == (:geometry, :a, :b, :d)
         # "c" and "d" are only present in the properties of a single row
         @test all(t.c .=== ["only-here", missing, missing])
         @test all(t.d .=== [missing, "appears-later", missing])
+        @testset "With NamedTuple feature" begin
+            nt_props = [
+                (a=t[1].a, b=t[1].b, c=t[1].c),
+                (a=t[2].a, b=t[2].b, d=t[2].d),
+                (a=t[3].a, b=t[3].b),
+            ]
+            features = map(t.geometry, nt_props) do geometry, properties
+                GeoJSON.Feature(; geometry, properties)
+            end
+            @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
+            @test GeoJSON.FeatureCollection(features) isa GeoJSON.FeatureCollection
+        end
     end
 
     @testset "FeatureCollection of one GeometryCollection" begin
