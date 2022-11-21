@@ -24,8 +24,7 @@ Feature(geometry::Geometry; kwargs...) =
 Access the properties JSON object of a Feature
 """
 properties(obj::JSON3.Object) = obj.properties
-properties(f::Feature{<:JSON3.Object}) = object(f).properties
-properties(f::Feature) = haskey(object(f), :properties) ? object(f).properties : nothing
+properties(f::Feature) = object(f).properties
 
 """
     geometry(f::Feature)
