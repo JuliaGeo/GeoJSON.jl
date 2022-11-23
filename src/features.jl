@@ -13,9 +13,9 @@ Feature(f::Feature, names::Vector{Symbol}) = Feature(object(f), names)
 Feature{T}(f::Feature, names::Vector{Symbol}) where T = Feature(object(f), names)
 Feature{T}(f::Feature) where {T} = f
 Feature(object) = Feature(object, Symbol[])
-Feature(; geometry::Union{Geometry,Missing}, kwargs...) =
+Feature(; geometry::Union{Geometry,Missing,Nothing}, kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
-Feature(geometry::Union{Geometry,Missing}; kwargs...) =
+Feature(geometry::Union{Geometry,Missing,Nothing}; kwargs...) =
     Feature(merge((type = "Feature", geometry), kwargs))
 
 """
@@ -33,10 +33,12 @@ Access the JSON object that represents the Feature's geometry
 """
 function geometry(f::Feature{<:JSON3.Object}) 
     geom = geometry(object(f).geometry)
-    # Convert `nothing` geoms to `missing` geoms
-    return isnothing(geom) ? missing : geom
+    return ismissing(geom) ? nothing : geom
 end
-geometry(f::Feature{<:NamedTuple}) = object(f).geometry
+function geometry(f::Feature{<:NamedTuple}) 
+    geom = object(f).geometry
+    return ismissing(geom) ? nothing : geom
+end
 
 coordinates(f::Feature) = coordinates(geometry(object(f).geometry))
 
@@ -166,7 +168,7 @@ function Base.show(io::IO, ::MIME"text/plain", f::Feature)
     geom = geometry(f)
     propnames = propertynames(f)
     n = length(propnames)
-    if ismissing(geom)
+    if ismissing(geom) || isnothing(geom)
         print(io, "Feature with null geometry")
     else
         print(io, "Feature with a ", type(geom))
@@ -205,8 +207,8 @@ Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
 # of the properties field, rather than the main object
 function property_schema(features)
     # Short cut for concrete eltypes of NamedTuple
-    if features isa AbstractArray{<:NamedTuple} && isconcretetype(eltype(x))
-        f1 = first(x)
+    if features isa AbstractArray{<:NamedTuple} && isconcretetype(eltype(features))
+        f1 = first(features)
         props = properties(f1)
         names = [keys(props)...]
         types = Dict{Symbol,Type}(map((k, v) -> k => typeof(v), keys(props), props)...)
