@@ -91,7 +91,7 @@ end
 Convert a GeoJSON geometry from JSON style object to a struct specific
 to that geometry type.
 """
-function geometry(g)
+function geometry(g::JSON3.Object)
     t = type(g)
     if t == "Point"
         Point(g)

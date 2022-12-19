@@ -7,6 +7,7 @@ using JSON3
 using Tables
 using Test
 using Plots
+using DataFrames
 
 # samples and collections thereof defined under module T
 include("geojson_samples.jl")
@@ -113,18 +114,22 @@ include("geojson_samples.jl")
         # FeatureCollection
         features = [f]
         fc = GeoJSON.FeatureCollection(features)
-        @test GeoJSON.features(fc) === features
-        @test propertynames(fc) === Tables.columnnames(fc) === (:geometry, :a, :b)
+        @test GeoJSON.features(fc) == features
+        @test propertynames(fc) == Tables.columnnames(fc) == [:geometry, :a, :b]
         @test GeoJSON.geometry.(fc) == [p]
         @test iterate(p) === (1.1, 2)
         @test iterate(p, 2) === (2.2, 3)
         @test iterate(p, 3) === nothing
 
         # other constructors
-        GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))
-        GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))
-        GeoJSON.FeatureCollection(; features)
-        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f]))
+        @test DataFrame([GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))]) ==
+              DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
+              DataFrame(GeoJSON.FeatureCollection((type="FeatureCollection", features=[f]))) ==
+              DataFrame(GeoJSON.FeatureCollection(; features))
+
+        # Mixed name vector
+        f2 = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2, c = 3))
+        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f, f2]))
     end
 
     @testset "extent" begin
@@ -178,7 +183,7 @@ include("geojson_samples.jl")
             <:JSON3.Object,
             <:JSON3.Array,
         }
-        @test propertynames(t) == (:geometry, :park, :cartodb_id, :addr1, :addr2)
+        @test propertynames(t) == [:geometry, :cartodb_id, :addr1, :addr2, :park]
         @test Tables.rowtable(t) isa Vector{<:NamedTuple}
         @test Tables.columntable(t) isa NamedTuple
         @inferred first(t)
@@ -203,6 +208,16 @@ include("geojson_samples.jl")
         @test geom[1][1][2] == [-117.907767, 33.967747]
         @test geom[1][1][3] == [-117.912919, 33.96445]
         @test geom[1][1][4] == [-117.913883, 33.96657]
+
+        @testset "With NamedTuple feature" begin
+            nt_feature = GeoJSON.Feature(; 
+                geometry=t[1].geometry, 
+                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park),
+            )
+            fc = GeoJSON.FeatureCollection([nt_feature])
+            @test fc isa GeoJSON.FeatureCollection
+            @test occursin("(:geometry, :cartodb_id, :addr1, :addr2, :park)", sprint(show, MIME"text/plain"(), fc[1]))
+        end
 
         @testset "write to disk" begin
             fc = t
@@ -232,6 +247,9 @@ include("geojson_samples.jl")
     @testset "Tables with missings" begin
         t = GeoJSON.read(T.tablenull)
         @test t[1] isa GeoJSON.Feature
+        @test occursin("(:geometry, :a, :b)", sprint(show, MIME"text/plain"(), t[1]))
+        @test ismissing(t[1].geometry)
+        GeoJSON.geometry(t[1])
         @test t.geometry isa Vector{Union{T,Missing}} where {T<:GeoJSON.Point}
         @test ismissing(t.geometry[3])
         @test t.a isa Vector{Union{Float64,Missing}}
@@ -240,15 +258,26 @@ include("geojson_samples.jl")
         @test Tables.columntable(t) isa NamedTuple
 
         t = GeoJSON.read(T.table_not_present)
-        @test propertynames(t) === propertynames(t[1]) === (:geometry, :a, :b, :c)
-        @test propertynames(t[2]) === (:geometry, :a, :b)
-        # "c" is only present in the properyies of the first row
-        # We don't support automatically setting these to missing in the tables interface.
-        # They have to be explicitly set to null.
-        # We could support it by having getproperty(f::Feature, :not_present) return missing
-        # if needed, but then you always get missing instead of KeyError.
-        @test_throws KeyError t.c
-        @test_throws KeyError Tables.columntable(t)
+        @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
+        @test propertynames(t) == [:geometry, :a, :b, :c, :d]
+        @test propertynames(t[1]) == (:geometry, :a, :b, :c)
+        @test propertynames(t[2]) == (:geometry, :a, :b, :d)
+        # "c" and "d" are only present in the properties of a single row
+        @test all(t.c .=== ["only-here", missing, missing])
+        @test all(t.d .=== [missing, "appears-later", missing])
+        @testset "With NamedTuple feature" begin
+            nt_props = [
+                (a=t[1].a, b=t[1].b, c=t[1].c),
+                (a=t[2].a, b=t[2].b, d=t[2].d),
+                (a=t[3].a, b=t[3].b),
+            ]
+            features = map(t.geometry, nt_props) do geometry, properties
+                GeoJSON.Feature(; geometry, properties)
+            end
+            fc =  GeoJSON.FeatureCollection(features)
+            @test fc isa GeoJSON.FeatureCollection
+            @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), fc[1]))
+        end
     end
 
     @testset "FeatureCollection of one GeometryCollection" begin
