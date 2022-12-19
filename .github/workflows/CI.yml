@@ -19,7 +19,7 @@ jobs:
         os:
           - ubuntu-latest
           - macOS-latest
-          # - windows-latest  # re-enable when new GeoInterface is released
+          - windows-latest
         arch:
           - x64
     steps:
