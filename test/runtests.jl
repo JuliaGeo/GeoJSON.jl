@@ -320,6 +320,22 @@ include("geojson_samples.jl")
         @test copy(coords) isa Vector{Float64}
     end
 
+    @testset "NamedTuple point order doesn't matter as long as it's known" begin
+        @test GeoJSON.write((X=1.0, Y=2.0)) == 
+              GeoJSON.write((Y=2.0, X=1.0)) == 
+              "{\"type\":\"Point\",\"coordinates\":[1.0,2.0]}"
+        @test GeoJSON.write((Z=3, X=1.0, Y=2.0)) == 
+              GeoJSON.write((Y=2.0, X=1.0, Z=3)) == 
+              GeoJSON.write((Y=2.0, Z=3, X=1.0)) == 
+              GeoJSON.write((X=1.0, Z=3, Y=2.0)) == 
+              "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
+        @test GeoJSON.write((Z=3, X=1.0, Y=2.0, M=4)) == 
+              GeoJSON.write((Y=2.0, X=1.0, M=4, Z=3)) == 
+              GeoJSON.write((M=4, Y=2.0, Z=3, X=1.0)) == 
+              GeoJSON.write((X=1.0, Z=3, M=4, Y=2.0)) == 
+              "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3,4]}"
+    end
+
     Aqua.test_all(GeoJSON)
 
 end  # testset "GeoJSON"

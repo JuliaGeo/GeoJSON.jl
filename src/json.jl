@@ -61,7 +61,17 @@ function _lower(obj)
         nothing
     end
 end
-_lower(::GI.AbstractPointTrait, obj) = (type = "Point", coordinates = GI.coordinates(obj))
+function _lower(::GI.AbstractPointTrait, obj)
+    if GI.is3d(obj) && GI.ismeasured(obj)
+        (type = "Point", coordinates = (GI.x(obj), GI.y(obj), GI.z(obj), GI.m(obj)))
+    elseif GI.is3d(obj)
+        (type = "Point", coordinates = (GI.x(obj), GI.y(obj), GI.z(obj)))
+    elseif GI.ismeasured(obj)
+        (type = "Point", coordinates = (GI.x(obj), GI.y(obj), GI.m(obj)))
+    else
+        (type = "Point", coordinates = (GI.x(obj), GI.y(obj)))
+    end
+end
 _lower(::GI.AbstractLineStringTrait, obj) =
     (type = "LineString", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractPolygonTrait, obj) =
