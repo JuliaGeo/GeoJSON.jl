@@ -35,3 +35,4 @@ julia> using GeoJSON, HTTP
 julia> resp = HTTP.get("https://path/to/file.json")
 
 julia> fc = GeoJSON.read(resp.body)
+```
