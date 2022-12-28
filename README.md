@@ -27,3 +27,14 @@ Feature with geometry type Polygon and properties Symbol[:geometry, :timestamp, 
 # use the Tables interface to convert the format, extract data, or iterate over the rows
 julia> df = DataFrame(fc)
 ```
+
+## HTTP access 
+To read JSON from a URL, use HTTP.jl
+```julia
+
+julia> using GeoJSON, HTTP
+
+julia> resp = HTTP.get("https://path/to/file.json")
+
+julia> fc = GeoJSON.read(resp.body)
+```
