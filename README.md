@@ -29,7 +29,7 @@ julia> df = DataFrame(fc)
 ```
 
 ## HTTP access 
-# To read JSON from a URL, use HTTP.jl
+To read JSON from a URL, use HTTP.jl
 ```julia
 
 julia> using GeoJSON, HTTP
