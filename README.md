@@ -29,7 +29,9 @@ julia> df = DataFrame(fc)
 ```
 
 ## HTTP access 
+# To read JSON from a URL, use HTTP.jl
 ```julia
+
 julia> using GeoJSON, HTTP
 
 julia> resp = HTTP.get("https://path/to/file.json")
