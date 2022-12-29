@@ -88,25 +88,37 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
     types::Dict{Symbol,Type}
 end
 function FeatureCollection(object::O) where O
-    features = object.features
-    if isempty(features)
-        names = Symbol[:geometry]
-        types = Dict{Symbol,Type}(:geometry => Union{Missing,Geometry})
-        T = Feature{Any}
+    if Tables.istable(object)
+        # Construct a FeatureCollection from a table
+        names = Tables.columnnames(object)
+        geomcolname = first(GI.geometrycolumns(object))
+        othercolnames = Tuple(cn for cn in Tables.columnnames(object) if cn != geomcolname)
+        features = [_feature_from_row(row, geomcolname, othercolnames) for row in Tables.rowtable(object)]
+        return FeatureCollection(features)
     else
-        names, types = property_schema(features)
-        insert!(names, 1, :geometry)
-        types[:geometry] = Union{Missing,Geometry}
-        f1 = first(features)
-        T = if f1 isa JSON3.Object
-            typeof(Feature(f1, names))
-        elseif f1 isa NamedTuple && isconcretetype(eltype(features))
-            typeof(Feature(f1, names))
-        else
+        # Construct a FeatureCollection from other objects
+        features = object.features
+        if isempty(features)
+            # FeatureCollection without features, get the type for an untyped feature without properties
+            names = Symbol[:geometry]
+            types = Dict{Symbol,Type}(:geometry => Union{Missing,Geometry})
             T = Feature{Any}
+        else
+            # FeatureCollection with features, get the names and field types of all features
+            names, types = property_schema(features)
+            insert!(names, 1, :geometry)
+            types[:geometry] = Union{Missing,Geometry}
+            f1 = first(features)
+            T = if f1 isa JSON3.Object
+                typeof(Feature(f1, names))
+            elseif f1 isa NamedTuple && isconcretetype(eltype(features))
+                typeof(Feature(f1, names))
+            else
+                T = Feature{Any}
+            end
         end
+        return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
     end
-    return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
 end
 function FeatureCollection(; features::AbstractVector{T}, kwargs...) where {T}
     object = merge((type = "FeatureCollection", features), kwargs)
@@ -117,6 +129,14 @@ FeatureCollection(features::AbstractVector; kwargs...) =
 
 names(fc::FeatureCollection) = getfield(fc, :names)
 types(fc::FeatureCollection) = getfield(fc, :types)
+
+function _feature_from_row(row, geomcolname::Symbol, othercolnames::Tuple)
+    geometry = Tables.getcolumn(row, geomcolname)
+    properties = map(othercolnames) do cn
+        cn => Tables.getcolumn(row, cn)
+    end |> NamedTuple
+    Feature(; geometry, properties)
+end
 
 """
     features(fc::FeatureCollection)
