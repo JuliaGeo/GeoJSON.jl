@@ -93,7 +93,7 @@ function FeatureCollection(object::O) where O
         names = Tables.columnnames(object)
         geomcolname = first(GI.geometrycolumns(object))
         colnames = Tables.columnnames(object)
-        geomcolname in columnnames || throw(ArgumentError("Table does not contain a `:geometry` column"))
+        geomcolname in colnames || throw(ArgumentError("Table does not contain a `:geometry` column"))
         othercolnames = Tuple(cn for cn in colnames if cn != geomcolname)
         features = [_feature_from_row(row, geomcolname, othercolnames) for row in Tables.rowtable(object)]
         return FeatureCollection(features)

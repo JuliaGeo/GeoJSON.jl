@@ -128,8 +128,8 @@ include("geojson_samples.jl")
               DataFrame(GeoJSON.FeatureCollection(; features))
 
         # Round trip DataFrame -> FeatureCollection -> DataFrame 
-        features = [GeoJSON.Feature(geometry = p, properties = (a = 1, b = 2)), GeoJSON.Feature(geometry = p, properties = (a = 1,))] 
-        GeoJSON.FeatureCollection(features) 
+        features = [GeoJSON.Feature(geometry = p, properties = (a = 1, b = 2)), GeoJSON.Feature(geometry = p, properties = (a = 5, b = 10))] 
+        df = DataFrame(GeoJSON.FeatureCollection(features))
         @test df == DataFrame(GeoJSON.FeatureCollection(df))
 
         # Mixed name vector
