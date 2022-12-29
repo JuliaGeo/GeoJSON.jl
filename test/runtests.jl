@@ -129,10 +129,11 @@ include("geojson_samples.jl")
     @testset "Tables" begin
         p = GeoJSON.Point(coordinates = [1.1, 2.2])
         f = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2))
+        features = [f]
         # other constructors
         @test DataFrame([GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))]) ==
               DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
-              DataFrame(GeoJSON.FeatureCollection((type="FeatureCollection", features=[f]))) ==
+              DataFrame(GeoJSON.FeatureCollection((; type="FeatureCollection", features))) ==
               DataFrame(GeoJSON.FeatureCollection(; features))
 
         # Round trip DataFrame -> FeatureCollection -> DataFrame 
