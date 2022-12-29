@@ -121,6 +121,14 @@ include("geojson_samples.jl")
         @test iterate(p, 2) === (2.2, 3)
         @test iterate(p, 3) === nothing
 
+        # Mixed name vector
+        f2 = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2, c = 3))
+        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f, f2]))
+    end
+
+    @testset "Tables" begin
+        f = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2))
+        p = GeoJSON.Point(coordinates = [1.1, 2.2])
         # other constructors
         @test DataFrame([GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))]) ==
               DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
@@ -132,9 +140,12 @@ include("geojson_samples.jl")
         df = DataFrame(GeoJSON.FeatureCollection(features))
         @test df == DataFrame(GeoJSON.FeatureCollection(df))
 
-        # Mixed name vector
-        f2 = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2, c = 3))
-        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f, f2]))
+        @test df == DataFrame(GeoJSON.FeatureCollection(df))
+
+        df_custom_col = DataFrame(:points => [p, p], :x => [1, 2])
+        df_converted = DataFrame(GeoJSON.FeatureCollection(df_custom_col; geometrycolumn=:points))
+        @test df_custom_col.points == df_converted.geometry
+        @test df_custom_col.x == df_converted.x
     end
 
     @testset "extent" begin

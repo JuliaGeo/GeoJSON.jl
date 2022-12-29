@@ -87,11 +87,11 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
 end
-function FeatureCollection(object::O) where O
+function FeatureCollection(object::O; geometrycolumn::Union{Symbol,Nothing}=nothing) where O
     # First check if object is a table
     if Tables.istable(object)
         names = Tables.columnnames(object)
-        geomcolname = first(GI.geometrycolumns(object))
+        geomcolname = isnothing(geometrycolumn) ? first(GI.geometrycolumns(object)) : geometrycolumn
         colnames = Tables.columnnames(object)
         geomcolname in colnames || throw(ArgumentError("Table does not contain a `:geometry` column"))
         othercolnames = Tuple(cn for cn in colnames if cn != geomcolname)
