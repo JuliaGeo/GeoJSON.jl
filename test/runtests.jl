@@ -127,8 +127,8 @@ include("geojson_samples.jl")
     end
 
     @testset "Tables" begin
-        f = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2))
         p = GeoJSON.Point(coordinates = [1.1, 2.2])
+        f = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2))
         # other constructors
         @test DataFrame([GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))]) ==
               DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
