@@ -76,10 +76,20 @@ Base.:(==)(f1::Feature, f2::Feature) = object(f1) == object(f2)
 """
     FeatureCollection <: AbstractVector{Feature}
 
+    FeatureCollection(table; [geometrycolumn])
+    FeatureCollection(features::AstractVector; kw...)
+
 A feature collection wrapping a JSON object.
 
 Follows the julia `AbstractArray` interface as a lazy vector of `Feature`,
 and similarly the GeoInterface.jl interface.
+
+FeatureCollection can be constructed from an `AbstractVector` of
+`GeoJSON.Feature` or from any Tables.jl compatible table.
+
+The first `GeoInterface.geometrycolumns(table)` will be used for geometries
+(usually `:geometry`) but `:geometrycolumn` can be specified manually where
+this does not work and the column name is not `:geometry`.
 """
 struct FeatureCollection{T,O,A} <: AbstractVector{T}
     object::O
@@ -93,7 +103,7 @@ function FeatureCollection(object::O; geometrycolumn::Union{Symbol,Nothing}=noth
         names = Tables.columnnames(object)
         geomcolname = isnothing(geometrycolumn) ? first(GI.geometrycolumns(object)) : geometrycolumn
         colnames = Tables.columnnames(object)
-        geomcolname in colnames || throw(ArgumentError("Table does not contain a `:geometry` column"))
+        geomcolname in colnames || throw(ArgumentError("Table does not contain a `:geometry` column. You may need to specify the column name with the `:geometrycolumn` keyword"))
         othercolnames = Tuple(cn for cn in colnames if cn != geomcolname)
         features = [_feature_from_row(row, geomcolname, othercolnames) for row in Tables.rowtable(object)]
         return FeatureCollection(features)
