@@ -140,8 +140,6 @@ include("geojson_samples.jl")
         df = DataFrame(GeoJSON.FeatureCollection(features))
         @test df == DataFrame(GeoJSON.FeatureCollection(df))
 
-        @test df == DataFrame(GeoJSON.FeatureCollection(df))
-
         df_custom_col = DataFrame(:points => [p, p], :x => [1, 2])
         df_converted = DataFrame(GeoJSON.FeatureCollection(df_custom_col; geometrycolumn=:points))
         @test df_custom_col.points == df_converted.geometry
