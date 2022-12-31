@@ -88,7 +88,7 @@ FeatureCollection can be constructed from an `AbstractVector` of
 `GeoJSON.Feature` or from any Tables.jl compatible table.
 
 The first `GeoInterface.geometrycolumns(table)` will be used for geometries
-(usually `:geometry`) but `:geometrycolumn` can be specified manually where
+(usually `:geometry`) but `geometrycolumn` can be specified manually where
 this does not work and the column name is not `:geometry`.
 """
 struct FeatureCollection{T,O,A} <: AbstractVector{T}
