@@ -61,19 +61,19 @@ function _lower(obj)
         nothing
     end
 end
-_lower(::GI.AbstractPointTrait, obj) = (type="Point", coordinates=coordinates(obj))
+_lower(::GI.AbstractPointTrait, obj) = (type = "Point", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractLineStringTrait, obj) =
-    (type="LineString", coordinates=coordinates(obj))
+    (type = "LineString", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractPolygonTrait, obj) =
-    (type="Polygon", coordinates=coordinates(obj))
+    (type = "Polygon", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiPointTrait, obj) =
-    (type="MultiPoint", coordinates=coordinates(obj))
+    (type = "MultiPoint", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiLineStringTrait, obj) =
-    (type="Polygon", coordinates=coordinates(obj))
+    (type = "Polygon", coordinates = GI.coordinates(obj))
 _lower(::GI.AbstractMultiPolygonTrait, obj) =
-    (type="MultiPolygon", coordinates=collect(coordinates(obj)))
+    (type = "MultiPolygon", coordinates = collect(GI.coordinates(obj)))
 _lower(::GI.AbstractGeometryCollectionTrait, obj) =
-    (type="GeometryCollection", geometries=_lower.(GI.getgeom(obj)))
+    (type = "GeometryCollection", geometries = _lower.(GI.getgeom(obj)))
 
 _add_bbox(::Nothing, nt::NamedTuple) = nt
 function _add_bbox(ext::Extents.Extent, nt::NamedTuple)
