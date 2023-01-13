@@ -1,8 +1,5 @@
 # Geometry
 GI.isgeometry(g::Type{<:Geometry}) = true
-GI.coordinates(::GI.AbstractGeometryTrait, g::Geometry) = collect(coordinates(g))
-# resolve ambiguity with GeoInterface fallback
-GI.coordinates(::GI.AbstractPointTrait, g::Geometry) = collect(coordinates(g))
 
 GI.geomtrait(g::Point) = GI.PointTrait()
 GI.geomtrait(g::LineString) = GI.LineStringTrait()
