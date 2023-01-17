@@ -8,11 +8,11 @@ end GeoJSON
 
 import Extents, GeoFormatTypes, GeoInterfaceRecipes, JSON3, Tables, StructTypes
 import GeoInterface as GI
-using ComputedFieldTypes: @computed
 
 include("geojson_types.jl")
 include("geointerface.jl")
 include("io.jl")
 include("table.jl")
+include("utils.jl")
 
 end # module

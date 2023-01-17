@@ -16,28 +16,28 @@ GI.coordinates(::GI.AbstractGeometryTrait, g::AbstractGeometry) = coordinates(g)
 GI.getcoord(::GI.PointTrait, g::Point, i::Int) = g[i]
 
 GI.ngeom(::GI.LineStringTrait, g::LineString) = length(g)
-GI.getgeom(::GI.LineStringTrait, g::LineString, i::Integer) = Point("Point", g[i])
-GI.getpoint(::GI.LineStringTrait, g::LineString, i::Int) = Point("Point", g[i])
+GI.getgeom(::GI.LineStringTrait, g::LineString, i::Integer) = Point(g[i])
+GI.getpoint(::GI.LineStringTrait, g::LineString, i::Int) = Point(g[i])
 # TODO what to return for length 0 and 1?
 # TODO should this be an approximate equals for floating point?
 GI.isclosed(::GI.LineStringTrait, g::LineString) = first(g) == last(g)
 
 GI.ngeom(::GI.PolygonTrait, g::Polygon) = length(g)
-GI.getgeom(::GI.PolygonTrait, g::Polygon, i::Integer) = LineString("LineString", g[i])
+GI.getgeom(::GI.PolygonTrait, g::Polygon, i::Integer) = LineString(g[i])
 GI.ncoord(::GI.PolygonTrait, g::Polygon) = length(first(first(g)))
-GI.getexterior(::GI.PolygonTrait, g::Polygon) = LineString("LineString", first(g))
+GI.getexterior(::GI.PolygonTrait, g::Polygon) = LineString(first(g))
 GI.nhole(::GI.PolygonTrait, g::Polygon) = length(g) - 1
-GI.gethole(::GI.PolygonTrait, g::Polygon, i::Int) = LineString("LineString", g[i+1])
+GI.gethole(::GI.PolygonTrait, g::Polygon, i::Int) = LineString(g[i+1])
 
 GI.ngeom(::GI.MultiPointTrait, g::MultiPoint) = length(g)
-GI.getgeom(::GI.MultiPointTrait, g::MultiPoint, i::Int) = Point("Point", g[i])
+GI.getgeom(::GI.MultiPointTrait, g::MultiPoint, i::Int) = Point(g[i])
 
 GI.ngeom(::GI.MultiLineStringTrait, g::MultiLineString) = length(g)
 GI.getgeom(::GI.MultiLineStringTrait, g::MultiLineString, i::Int) =
-    LineString("LineString", g[i])
+    LineString(g[i])
 
 GI.ngeom(::GI.MultiPolygonTrait, g::MultiPolygon) = length(g)
-GI.getgeom(::GI.MultiPolygonTrait, g::MultiPolygon, i::Int) = Polygon("Polygon", g[i])
+GI.getgeom(::GI.MultiPolygonTrait, g::MultiPolygon, i::Int) = Polygon(g[i])
 
 GI.ngeom(::GI.GeometryCollectionTrait, g::GeometryCollection) = length(g)
 GI.getgeom(::GI.GeometryCollectionTrait, g::GeometryCollection, i::Int) = g[i]

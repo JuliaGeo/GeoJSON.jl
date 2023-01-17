@@ -31,22 +31,22 @@ include("geojson_samples.jl")
             ],
         ]
         properties = [
-            [:Ã => "Ã"],
-            [:type => "é"],
-            [:type => "meow"],
-            [:title => "Dict 1"],
+            ["Ã" => "Ã"],
+            ["type" => "é"],
+            ["type" => "meow"],
+            ["title" => "Dict 1"],
             [
-                :link => "http://example.org/features/1",
-                :summary => "The first feature",
-                :title => "Feature 1",
+                "summary" => "The first feature",
+                "title" => "Feature 1",
+                "link" => "http:example.org/features/1",
             ],
-            [:foo => "bar"],
-            [:title => "Dict 1", :bbox => [-180.0, -90.0, 180.0, 90.0]],
+            ["foo" => "bar"],
+            ["title" => "Dict 1", "bbox" => [-180.0, -90.0, 180.0, 90.0]],
         ]
         foreach(T.features, geometries, properties) do s, g, p
             @test collect(GeoJSON.properties(GeoJSON.read(s))) == p
             geom = GeoJSON.geometry(GeoJSON.read(s))
-            @test geom == g
+            @test GeoJSON.coordinates(geom) == g
             isnothing(geom) || plot(geom)
         end
     end
@@ -73,7 +73,7 @@ include("geojson_samples.jl")
         @test GeoJSON.bbox(geom) == [-35.1, -6.6, 8.1, 3.8]
         @test GI.extent(geom) == Extent(X=(-35.1, 8.1), Y=(-6.6, 3.8))
 
-        geom = GeoJSON.read(T.bbox_z)
+        geom = GeoJSON.read(T.bbox_z, ndim=3)
         @test geom isa GeoJSON.LineString
         @test geom == [[-35.1, -6.6, 5.5], [8.1, 3.8, 6.5]]
         @test GeoJSON.bbox(geom) == [-35.1, -6.6, 5.5, 8.1, 3.8, 6.5]
@@ -82,19 +82,19 @@ include("geojson_samples.jl")
 
     @testset "Construct from NamedTuple" begin
         # Geometry
-        p = GeoJSON.Point("Point", [1.1, 2.2])
+        p = GeoJSON.Point((1.1, 2.2))
         @test propertynames(p) === (:type, :coordinates)
-        @test p.type === GeoJSON.type(p) === "Point"
-        @test p.coordinates === GeoJSON.coordinates(p) == [1.1, 2.2]
+        @test GeoJSON.type(p) === "Point"
+        @test p.coordinates === GeoJSON.coordinates(p) == (1.1, 2.2)
 
         # Feature
         # properties named "geometry" are shadowed by the geometry
-        f = GeoJSON.Feature(p; properties=(a=1, geometry="g", b=2))
-        @test GeoJSON.coordinates(f) == [1.1, 2.2]
+        f = GeoJSON.Feature(nothing, nothing, p, Dict("a" => 1, "geometry" => "g", "b" => 2))
+        @test GeoJSON.coordinates(f) == (1.1, 2.2)
         @test propertynames(f) === (:geometry, :a, :b)
         @test GeoJSON.geometry(f) === f.geometry === p
-        @test f.a === 1
-        @test f.b === 2
+        @test properties(f)["a"] === 1
+        @test properties(f)["b"] === 2
         @test_throws ErrorException f.not_a_col
         @test_throws MethodError iterate(f)
         @test_throws MethodError f[1]
@@ -136,7 +136,7 @@ include("geojson_samples.jl")
         @test GI.extent(GeoJSON.read(T.d)) ==
               Extent(X=(-180.0, 180.0), Y=(-90.0, 90.0))
         @test GI.extent(GeoJSON.read(T.e)) === nothing
-        @test GI.extent(GeoJSON.read(T.g)) ==
+        @test GI.extent(GeoJSON.read(T.g, ndim=3)) ==
               Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
     end
 
@@ -155,6 +155,7 @@ include("geojson_samples.jl")
     @testset "write" begin
         # Round trip read/write and compare prettified output to prettified original
         foreach(T.features) do json
+            @info json
             f = GeoJSON.read(json)
             f1 = GeoJSON.read(GeoJSON.write(f))
             @test GeoJSON.geometry(f) == GeoJSON.geometry(f1)
@@ -259,7 +260,7 @@ include("geojson_samples.jl")
 
         t = GeoJSON.read(T.table_not_present)
         @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
-        @test propertynames(t) == [:geometry, :a, :b, :c, :d]
+        @test propertynames(t) == (:geometry, :a, :b, :c, :d)
         @test propertynames(t[1]) == (:geometry, :a, :b, :c)
         @test propertynames(t[2]) == (:geometry, :a, :b, :d)
         # "c" and "d" are only present in the properties of a single row
