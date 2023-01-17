@@ -12,6 +12,7 @@ does the same thing for the general JSON format. GeoJSON puts the geometry in a 
 properties in the columns individually.
 
 ## Usage
+GeoJSON only provides simple `read` and `write` methods.
 
 ```julia
 julia> using GeoJSON, DataFrames
@@ -26,9 +27,15 @@ Feature with geometry type Polygon and properties Symbol[:geometry, :timestamp, 
 
 # use the Tables interface to convert the format, extract data, or iterate over the rows
 julia> df = DataFrame(fc)
+
+# write to string
+julia> write(fc)
+"{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-69.99693762899992...
 ```
 
-## HTTP access 
+
+
+### HTTP access 
 To read JSON from a URL, use HTTP.jl
 ```julia
 

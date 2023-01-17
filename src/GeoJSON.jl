@@ -6,12 +6,13 @@ module GeoJSON
     Base.read(path, String)
 end GeoJSON
 
-import Extents, GeoFormatTypes, GeoInterfaceRecipes, JSON3, Tables 
+import Extents, GeoFormatTypes, GeoInterfaceRecipes, JSON3, Tables, StructTypes
 import GeoInterface as GI
+using ComputedFieldTypes: @computed
 
-include("geometries.jl")
-include("features.jl")
+include("geojson_types.jl")
 include("geointerface.jl")
-include("json.jl")
+include("io.jl")
+include("table.jl")
 
 end # module

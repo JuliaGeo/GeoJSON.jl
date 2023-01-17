@@ -46,7 +46,7 @@ include("geojson_samples.jl")
         foreach(T.features, geometries, properties) do s, g, p
             @test collect(GeoJSON.properties(GeoJSON.read(s))) == p
             geom = GeoJSON.geometry(GeoJSON.read(s))
-            @test  geom == g
+            @test geom == g
             isnothing(geom) || plot(geom)
         end
     end
@@ -54,7 +54,7 @@ include("geojson_samples.jl")
     @testset "Geometries" begin
         geom = GeoJSON.read(T.multi)
         @test geom isa GeoJSON.MultiPolygon
-        @test geom == [
+        @test GI.coordinates(geom) == [
             [[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
             [[
                 [-170.0, 40.0],
@@ -71,25 +71,25 @@ include("geojson_samples.jl")
         @test geom == [[-35.1, -6.6], [8.1, 3.8]]
         @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
         @test GeoJSON.bbox(geom) == [-35.1, -6.6, 8.1, 3.8]
-        @test GI.extent(geom) == Extent(X = (-35.1, 8.1), Y = (-6.6, 3.8))
+        @test GI.extent(geom) == Extent(X=(-35.1, 8.1), Y=(-6.6, 3.8))
 
         geom = GeoJSON.read(T.bbox_z)
         @test geom isa GeoJSON.LineString
         @test geom == [[-35.1, -6.6, 5.5], [8.1, 3.8, 6.5]]
         @test GeoJSON.bbox(geom) == [-35.1, -6.6, 5.5, 8.1, 3.8, 6.5]
-        @test GI.extent(geom) == Extent(X = (-35.1, 8.1), Y = (-6.6, 3.8), Z = (5.5, 6.5))
+        @test GI.extent(geom) == Extent(X=(-35.1, 8.1), Y=(-6.6, 3.8), Z=(5.5, 6.5))
     end
 
     @testset "Construct from NamedTuple" begin
         # Geometry
-        p = GeoJSON.Point(coordinates = [1.1, 2.2])
+        p = GeoJSON.Point("Point", [1.1, 2.2])
         @test propertynames(p) === (:type, :coordinates)
         @test p.type === GeoJSON.type(p) === "Point"
         @test p.coordinates === GeoJSON.coordinates(p) == [1.1, 2.2]
 
         # Feature
         # properties named "geometry" are shadowed by the geometry
-        f = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2))
+        f = GeoJSON.Feature(p; properties=(a=1, geometry="g", b=2))
         @test GeoJSON.coordinates(f) == [1.1, 2.2]
         @test propertynames(f) === (:geometry, :a, :b)
         @test GeoJSON.geometry(f) === f.geometry === p
@@ -122,22 +122,22 @@ include("geojson_samples.jl")
         @test iterate(p, 3) === nothing
 
         # other constructors
-        @test DataFrame([GeoJSON.Feature(geometry = p, properties = (a = 1, geometry = "g", b = 2))]) ==
-              DataFrame([GeoJSON.Feature((geometry = p, properties = (a = 1, geometry = "g", b = 2)))]) ==
+        @test DataFrame([GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2))]) ==
+              DataFrame([GeoJSON.Feature((geometry=p, properties=(a=1, geometry="g", b=2)))]) ==
               DataFrame(GeoJSON.FeatureCollection((type="FeatureCollection", features=[f]))) ==
               DataFrame(GeoJSON.FeatureCollection(; features))
 
         # Mixed name vector
-        f2 = GeoJSON.Feature(p; properties = (a = 1, geometry = "g", b = 2, c = 3))
-        GeoJSON.FeatureCollection((type = "FeatureCollection", features = [f, f2]))
+        f2 = GeoJSON.Feature(p; properties=(a=1, geometry="g", b=2, c=3))
+        GeoJSON.FeatureCollection((type="FeatureCollection", features=[f, f2]))
     end
 
     @testset "extent" begin
         @test GI.extent(GeoJSON.read(T.d)) ==
-              Extent(X = (-180.0, 180.0), Y = (-90.0, 90.0))
+              Extent(X=(-180.0, 180.0), Y=(-90.0, 90.0))
         @test GI.extent(GeoJSON.read(T.e)) === nothing
         @test GI.extent(GeoJSON.read(T.g)) ==
-              Extent(X = (100.0, 105.0), Y = (0.0, 1.0))
+              Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
     end
 
     @testset "crs" begin
@@ -210,9 +210,9 @@ include("geojson_samples.jl")
         @test geom[1][1][4] == [-117.913883, 33.96657]
 
         @testset "With NamedTuple feature" begin
-            nt_feature = GeoJSON.Feature(; 
-                geometry=t[1].geometry, 
-                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park),
+            nt_feature = GeoJSON.Feature(;
+                geometry=t[1].geometry,
+                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park)
             )
             fc = GeoJSON.FeatureCollection([nt_feature])
             @test fc isa GeoJSON.FeatureCollection
@@ -223,7 +223,7 @@ include("geojson_samples.jl")
             fc = t
             GeoJSON.write("test.json", fc)
             fc1 = GeoJSON.read(read("test.json", String))
-            @test GI.extent(fc) == GI.extent(fc1) == Extent(X = (100, 105), Y = (0, 1))
+            @test GI.extent(fc) == GI.extent(fc1) == Extent(X=(100, 105), Y=(0, 1))
             f = GI.getfeature(fc, 1)
             f1 = GI.getfeature(fc1, 1)
             @test GI.geometry(f) == GI.geometry(f1)
@@ -274,7 +274,7 @@ include("geojson_samples.jl")
             features = map(t.geometry, nt_props) do geometry, properties
                 GeoJSON.Feature(; geometry, properties)
             end
-            fc =  GeoJSON.FeatureCollection(features)
+            fc = GeoJSON.FeatureCollection(features)
             @test fc isa GeoJSON.FeatureCollection
             @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), fc[1]))
         end
@@ -314,10 +314,9 @@ include("geojson_samples.jl")
         p = GeoJSON.read(T.point_int)
         @test p isa GeoJSON.Point
         coords = GeoJSON.coordinates(p)
-        @test coords isa JSON3.Array
         @test eltype(coords) == Float64
-        @test coords == [1, 2]
-        @test copy(coords) isa Vector{Float64}
+        @test coords == (1.0, 2.0)
+        @test collect(coords) isa Vector{Float64}
     end
 
     Aqua.test_all(GeoJSON)

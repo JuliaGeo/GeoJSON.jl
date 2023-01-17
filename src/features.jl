@@ -10,13 +10,13 @@ end
 
 Feature(f::Feature) = f
 Feature(f::Feature, names::Vector{Symbol}) = Feature(object(f), names)
-Feature{T}(f::Feature, names::Vector{Symbol}) where T = Feature(object(f), names)
+Feature{T}(f::Feature, names::Vector{Symbol}) where {T} = Feature(object(f), names)
 Feature{T}(f::Feature) where {T} = f
 Feature(object) = Feature(object, Symbol[])
 Feature(; geometry::Union{Geometry,Missing,Nothing}, kwargs...) =
-    Feature(merge((type = "Feature", geometry), kwargs))
+    Feature(merge((type="Feature", geometry), kwargs))
 Feature(geometry::Union{Geometry,Missing,Nothing}; kwargs...) =
-    Feature(merge((type = "Feature", geometry), kwargs))
+    Feature(merge((type="Feature", geometry), kwargs))
 
 """
     properties(f::Union{Feature,FeatureCollection})
@@ -31,11 +31,11 @@ properties(f::Feature) = object(f).properties
 
 Access the JSON object that represents the Feature's geometry
 """
-function geometry(f::Feature{<:JSON3.Object}) 
+function geometry(f::Feature{<:JSON3.Object})
     geom = geometry(object(f).geometry)
     return ismissing(geom) ? nothing : geom
 end
-function geometry(f::Feature{<:NamedTuple}) 
+function geometry(f::Feature{<:NamedTuple})
     geom = object(f).geometry
     return ismissing(geom) ? nothing : geom
 end
@@ -87,7 +87,7 @@ struct FeatureCollection{T,O,A} <: AbstractVector{T}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
 end
-function FeatureCollection(object::O) where O
+function FeatureCollection(object::O) where {O}
     features = object.features
     if isempty(features)
         names = Symbol[:geometry]
@@ -109,7 +109,7 @@ function FeatureCollection(object::O) where O
     return FeatureCollection{T,O,typeof(features)}(object, features, names, types)
 end
 function FeatureCollection(; features::AbstractVector{T}, kwargs...) where {T}
-    object = merge((type = "FeatureCollection", features), kwargs)
+    object = merge((type="FeatureCollection", features), kwargs)
     return FeatureCollection(object)
 end
 FeatureCollection(features::AbstractVector; kwargs...) =
@@ -176,32 +176,6 @@ function Base.show(io::IO, ::MIME"text/plain", f::Feature)
     print(io, " and $n properties: ", propnames)
 end
 
-# Tables.jl interface methods
-Tables.istable(::Type{<:FeatureCollection}) = true
-Tables.rowaccess(::Type{<:FeatureCollection}) = true
-Tables.rows(fc::FeatureCollection) = fc
-Tables.schema(fc::FeatureCollection) =
-    Tables.Schema(getfield(fc, :names), [getfield(fc, :types)[nm] for nm in getfield(fc, :names)])
-
-# methods that apply to all GeoJSON Objects
-const GeoJSONObject = Union{Geometry,Feature,FeatureCollection}
-
-"""
-    object(x::GeoJSONObject)
-
-Access the object underlying the GeoJSONObject. This can be any object that meets the
-GeoJSON specification. When reading a file it will generally be a JSON3.Object. When
-constructed in code that can also be a NamedTuple for instance. Either will serialize
-correctly back to GeoJSON strings.
-"""
-object(x::GeoJSONObject) = getfield(x, :object)
-
-type(x::GeoJSONObject) = String(object(x).type)
-type(x) = String(x.type)
-bbox(x::GeoJSONObject) = get(object(x), :bbox, nothing)
-
-Base.show(io::IO, ::MIME"text/plain", x::GeoJSONObject) = show(io, x)
-
 # Adapted from JSONTables.jl jsontable method
 # We cannot simply use their method as we need the key/value pairs
 # of the properties field, rather than the main object
@@ -217,7 +191,7 @@ function property_schema(features)
     # Otherwise find the shared names
     names = Symbol[]
     seen = Set{Symbol}()
-    types = Dict{Symbol, Type}()
+    types = Dict{Symbol,Type}()
     for feature in features
         props = properties(feature)
         isnothing(props) && continue
@@ -234,10 +208,10 @@ function property_schema(features)
                     T = types[nm]
                     v = props[nm]
                     if !(missT(typeof(v)) <: T)
-                        types[nm] = Union{T, missT(typeof(v))}
+                        types[nm] = Union{T,missT(typeof(v))}
                     end
                 else
-                    types[nm] = Union{Missing, types[nm]}
+                    types[nm] = Union{Missing,types[nm]}
                 end
             end
             for (k, v) in pairs(props)
@@ -245,7 +219,7 @@ function property_schema(features)
                 if !(k in seen)
                     push!(seen, k)
                     push!(names, k)
-                    types[k] = Union{Missing, missT(typeof(v))}
+                    types[k] = Union{Missing,missT(typeof(v))}
                 end
             end
         end
