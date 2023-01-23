@@ -17,37 +17,39 @@ include("geojson_samples.jl")
     @testset "Features" begin
         geometries = [
             nothing,
-            [[-155.52, 19.61], [-156.22, 20.74], [-157.97, 21.46]],
+            [(-155.52f0, 19.61f0), (-156.22f0, 20.74f0), (-157.97f0, 21.46f0)],
             nothing,
             [
-                [[3.75, 9.25], [-130.95, 1.52]],
-                [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]],
+                [(3.75f0, 9.25f0), (-130.95f0, 1.52f0)],
+                [(23.15f0, -34.25f0), (-1.35f0, -4.65f0), (3.45f0, 77.95f0)],
             ],
-            [53, -4],
+            (53.0f0, -4.0f0),
             nothing,
             [
-                [[3.75, 9.25], [-130.95, 1.52]],
-                [[23.15, -34.25], [-1.35, -4.65], [3.45, 77.95]],
+                [(3.75f0, 9.25f0), (-130.95f0, 1.52f0)],
+                [(23.15f0, -34.25f0), (-1.35f0, -4.65f0), (3.45f0, 77.95f0)],
             ],
         ]
         properties = [
-            ["Ã" => "Ã"],
-            ["type" => "é"],
-            ["type" => "meow"],
-            ["title" => "Dict 1"],
-            [
-                "summary" => "The first feature",
-                "title" => "Feature 1",
-                "link" => "http:example.org/features/1",
+            [:Ã => "Ã"],
+            [:type => "é"],
+            [:type => "meow"],
+            [:title => "Dict 1"],
+            Pair{Symbol,Any}[
+                :link=>"http://example.org/features/1",
+                :title=>"Feature 1",
+                :summary=>"The first feature",
             ],
-            ["foo" => "bar"],
-            ["title" => "Dict 1", "bbox" => [-180.0, -90.0, 180.0, 90.0]],
+            [:foo => "bar"],
+            Pair{Symbol,Any}[:title=>"Dict 1", :bbox=>[-180.0f0, -90.0f0, 180.0f0, 90.0f0]],
         ]
         foreach(T.features, geometries, properties) do s, g, p
             @test collect(GeoJSON.properties(GeoJSON.read(s))) == p
             geom = GeoJSON.geometry(GeoJSON.read(s))
-            @test GeoJSON.coordinates(geom) == g
-            isnothing(geom) || plot(geom)
+            if !isnothing(geom)
+                @test GeoJSON.coordinates(geom) == g
+                plot(geom)
+            end
         end
     end
 
@@ -55,89 +57,78 @@ include("geojson_samples.jl")
         geom = GeoJSON.read(T.multi)
         @test geom isa GeoJSON.MultiPolygon
         @test GI.coordinates(geom) == [
-            [[[180.0, 40.0], [180.0, 50.0], [170.0, 50.0], [170.0, 40.0], [180.0, 40.0]]],
+            [[(180.0f0, 40.0f0), (180.0f0, 50.0f0), (170.0f0, 50.0f0), (170.0f0, 40.0f0), (180.0f0, 40.0f0)]],
             [[
-                [-170.0, 40.0],
-                [-170.0, 50.0],
-                [-180.0, 50.0],
-                [-180.0, 40.0],
-                [-170.0, 40.0],
+                (-170.0f0, 40.0f0),
+                (-170.0f0, 50.0f0),
+                (-180.0f0, 50.0f0),
+                (-180.0f0, 40.0f0),
+                (-170.0f0, 40.0f0),
             ]],
         ]
 
         geom = GeoJSON.read(T.bbox)
         plot(geom)
         @test geom isa GeoJSON.LineString
-        @test geom == [[-35.1, -6.6], [8.1, 3.8]]
         @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
-        @test GeoJSON.bbox(geom) == [-35.1, -6.6, 8.1, 3.8]
-        @test GI.extent(geom) == Extent(X=(-35.1, 8.1), Y=(-6.6, 3.8))
+        @test GeoJSON.coordinates(geom) == [(-35.1f0, -6.6f0), (8.1f0, 3.8f0)]
+        @test GeoJSON.bbox(geom) == [-35.1f0, -6.6f0, 8.1f0, 3.8f0]
+        @test GI.extent(geom) == Extent(X=(-35.1f0, 8.1f0), Y=(-6.6f0, 3.8f0))
 
         geom = GeoJSON.read(T.bbox_z, ndim=3)
         @test geom isa GeoJSON.LineString
-        @test geom == [[-35.1, -6.6, 5.5], [8.1, 3.8, 6.5]]
-        @test GeoJSON.bbox(geom) == [-35.1, -6.6, 5.5, 8.1, 3.8, 6.5]
-        @test GI.extent(geom) == Extent(X=(-35.1, 8.1), Y=(-6.6, 3.8), Z=(5.5, 6.5))
+        @test GeoJSON.coordinates(geom) == [(-35.1f0, -6.6f0, 5.5f0), (8.1f0, 3.8f0, 6.5f0)]
+        @test GeoJSON.bbox(geom) == [-35.1f0, -6.6f0, 5.5f0, 8.1f0, 3.8f0, 6.5f0]
+        @test GI.extent(geom) == Extent(X=(-35.1f0, 8.1f0), Y=(-6.6f0, 3.8f0), Z=(5.5f0, 6.5f0))
     end
 
     @testset "Construct from NamedTuple" begin
         # Geometry
-        p = GeoJSON.Point((1.1, 2.2))
-        @test propertynames(p) === (:type, :coordinates)
-        @test GeoJSON.type(p) === "Point"
-        @test p.coordinates === GeoJSON.coordinates(p) == (1.1, 2.2)
+        p = GeoJSON.Point(nothing, (1.1f0, 2.2f0))
+        @test propertynames(p) === (:bbox, :coordinates)
+        @test GeoJSON.typestring(typeof(p)) === "Point"
+        @test p.coordinates === GeoJSON.coordinates(p) == (1.1f0, 2.2f0)
 
         # Feature
-        # properties named "geometry" are shadowed by the geometry
-        f = GeoJSON.Feature(nothing, nothing, p, Dict("a" => 1, "geometry" => "g", "b" => 2))
-        @test GeoJSON.coordinates(f) == (1.1, 2.2)
+        # properties named "geometry" are *not* shadowed by the geometry
+        f = GeoJSON.Feature(geometry=p, properties=Dict(:a => 1, :geometry => "g", :b => 2))
+        @test GeoJSON.coordinates(f) == (1.1f0, 2.2f0)
         @test propertynames(f) === (:geometry, :a, :b)
-        @test GeoJSON.geometry(f) === f.geometry === p
-        @test properties(f)["a"] === 1
-        @test properties(f)["b"] === 2
-        @test_throws ErrorException f.not_a_col
-        @test_throws MethodError iterate(f)
+        @test GeoJSON.geometry(f) === p
+
+        @test GeoJSON.properties(f)[:a] === 1
+        @test GeoJSON.properties(f)[:b] === 2
+        @test ismissing(f.not_a_col)
+        @test iterate(f) isa Tuple
         @test_throws MethodError f[1]
         # but can still be retrieved from the properties directly
-        @test GeoJSON.properties(f).geometry === "g"
-        @test GeoJSON.object(f) isa NamedTuple{
-            (:type, :geometry, :properties),
-            Tuple{
-                String,
-                GeoJSON.Point{
-                    NamedTuple{(:type, :coordinates),Tuple{String,Vector{Float64}}},
-                },
-                NamedTuple{(:a, :geometry, :b),Tuple{Int64,String,Int64}},
-            },
-        }
+        @test GeoJSON.properties(f)[:geometry] === "g"
 
         # FeatureCollection
         features = [f]
-        fc = GeoJSON.FeatureCollection(features)
+        fc = GeoJSON.FeatureCollection(features=features)
         @test GeoJSON.features(fc) == features
-        @test propertynames(fc) == Tables.columnnames(fc) == [:geometry, :a, :b]
+        @test propertynames(fc) == Tables.columnnames(fc) == [:a, :b, :geometry]
         @test GeoJSON.geometry.(fc) == [p]
-        @test iterate(p) === (1.1, 2)
-        @test iterate(p, 2) === (2.2, 3)
+        @test iterate(p) === (1.1f0, 2)
+        @test iterate(p, 2) === (2.2f0, 3)
         @test iterate(p, 3) === nothing
 
         # other constructors
-        @test DataFrame([GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2))]) ==
-              DataFrame([GeoJSON.Feature((geometry=p, properties=(a=1, geometry="g", b=2)))]) ==
-              DataFrame(GeoJSON.FeatureCollection((type="FeatureCollection", features=[f]))) ==
-              DataFrame(GeoJSON.FeatureCollection(; features))
+        GeoJSON.Feature(geometry=p, properties=Dict(:a => 1, :geometry => "g", :b => 2))
+        GeoJSON.FeatureCollection(features=[f])
 
         # Mixed name vector
-        f2 = GeoJSON.Feature(p; properties=(a=1, geometry="g", b=2, c=3))
-        GeoJSON.FeatureCollection((type="FeatureCollection", features=[f, f2]))
+        f2 = GeoJSON.Feature(geometry=p, properties=Dict(:a => 1, :geometry => "g", :b => 2, :c => 3))
+        GeoJSON.FeatureCollection(features=[f, f2])
     end
 
     @testset "extent" begin
         @test GI.extent(GeoJSON.read(T.d)) ==
-              Extent(X=(-180.0, 180.0), Y=(-90.0, 90.0))
+              Extent(X=(-180.0f0, 180.0f0), Y=(-90.0f0, 90.0f0))
         @test GI.extent(GeoJSON.read(T.e)) === nothing
-        @test GI.extent(GeoJSON.read(T.g, ndim=3)) ==
-              Extent(X=(100.0, 105.0), Y=(0.0, 1.0))
+        @test GI.extent(GeoJSON.read(T.g, ndim=2)) ==
+              Extent(X=(100.0f0, 105.0f0), Y=(0.0f0, 1.0f0))
     end
 
     @testset "crs" begin
@@ -155,7 +146,6 @@ include("geojson_samples.jl")
     @testset "write" begin
         # Round trip read/write and compare prettified output to prettified original
         foreach(T.features) do json
-            @info json
             f = GeoJSON.read(json)
             f1 = GeoJSON.read(GeoJSON.write(f))
             @test GeoJSON.geometry(f) == GeoJSON.geometry(f1)
@@ -179,17 +169,13 @@ include("geojson_samples.jl")
         @test Tables.istable(t)
         @test Tables.rows(t) === t
         @test Tables.columns(t) isa Tables.CopiedColumns
-        @test t isa GeoJSON.FeatureCollection{
-            <:GeoJSON.Feature,
-            <:JSON3.Object,
-            <:JSON3.Array,
-        }
-        @test propertynames(t) == [:geometry, :cartodb_id, :addr1, :addr2, :park]
+        @test t isa GeoJSON.FeatureCollection{2}
+        @test propertynames(t) == [:park, :cartodb_id, :addr1, :addr2, :geometry]
         @test Tables.rowtable(t) isa Vector{<:NamedTuple}
         @test Tables.columntable(t) isa NamedTuple
         @inferred first(t)
         f1, _ = iterate(t)
-        @test f1 isa GeoJSON.Feature{<:JSON3.Object}
+        @test f1 isa GeoJSON.Feature{2}
         @test propertynames(f1) === (:geometry, :park, :cartodb_id, :addr1, :addr2)
         @test all(propertynames(f1)) do pn
             getproperty(f1, pn) == getproperty(GI.getfeature(t, 1), pn)
@@ -197,34 +183,32 @@ include("geojson_samples.jl")
         @inferred t[1]
         @test f1 == t[1]
         geom = GeoJSON.geometry(f1)
-        @test geom isa GeoJSON.MultiPolygon{<:JSON3.Object}
-        @test geom isa GeoJSON.Geometry
-        @test geom isa AbstractVector
-        @test GeoJSON.object(geom) isa JSON3.Object
-        @test GeoJSON.coordinates(geom) isa JSON3.Array
-        @test GI.coordinates(geom) isa Vector
+        @test geom isa GeoJSON.MultiPolygon{2}
+        @test geom isa GeoJSON.AbstractGeometry{2}
+        @test GeoJSON.coordinates(geom) isa Vector{Vector{Vector{Tuple{Float32,Float32}}}}
+        @test GI.coordinates(geom) isa Vector{Vector{Vector{Tuple{Float32,Float32}}}}
         @test GeoJSON.coordinates(geom)[1][1] == geom[1][1]
         @test length(geom[1][1]) == 4
-        @test geom[1][1][1] == [-117.913883, 33.96657]
-        @test geom[1][1][2] == [-117.907767, 33.967747]
-        @test geom[1][1][3] == [-117.912919, 33.96445]
-        @test geom[1][1][4] == [-117.913883, 33.96657]
+        @test geom[1][1][1] == (-117.913883f0, 33.96657f0)
+        @test geom[1][1][2] == (-117.907767f0, 33.967747f0)
+        @test geom[1][1][3] == (-117.912919f0, 33.96445f0)
+        @test geom[1][1][4] == (-117.913883f0, 33.96657f0)
 
         @testset "With NamedTuple feature" begin
-            nt_feature = GeoJSON.Feature(;
+            nt_feature = GeoJSON.Feature(
                 geometry=t[1].geometry,
-                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park)
+                properties=Dict(:cartodb_id => t[1].cartodb_id, :addr1 => t[1].addr1, :addr2 => t[1].addr2, :park => t[1].park)
             )
-            fc = GeoJSON.FeatureCollection([nt_feature])
+            fc = GeoJSON.FeatureCollection(features=[nt_feature])
             @test fc isa GeoJSON.FeatureCollection
-            @test occursin("(:geometry, :cartodb_id, :addr1, :addr2, :park)", sprint(show, MIME"text/plain"(), fc[1]))
+            @test occursin("(:geometry, :park, :cartodb_id, :addr1, :addr2)", sprint(show, MIME"text/plain"(), fc[1]))
         end
 
         @testset "write to disk" begin
             fc = t
             GeoJSON.write("test.json", fc)
             fc1 = GeoJSON.read(read("test.json", String))
-            @test GI.extent(fc) == GI.extent(fc1) == Extent(X=(100, 105), Y=(0, 1))
+            @test GI.extent(fc) == GI.extent(fc1) == Extent(X=(100.0f0, 105.0f0), Y=(0.0f0, 1.0f0))
             f = GI.getfeature(fc, 1)
             f1 = GI.getfeature(fc1, 1)
             @test GI.geometry(f) == GI.geometry(f1)
@@ -238,8 +222,8 @@ include("geojson_samples.jl")
             @test GI.trait(f1) === GI.FeatureTrait()
             @test GI.geomtrait(geom) === GI.MultiPolygonTrait()
             properties = GeoJSON.properties(f1)
-            @test properties isa JSON3.Object
-            @test properties["addr2"] === "Rowland Heights"
+            @test properties isa Dict
+            @test properties[:addr2] === "Rowland Heights"
             @test !GI.isclosed(GeoJSON.read(T.bbox))
             @test GI.isclosed(GeoJSON.read(T.bermuda_triangle))
         end
@@ -253,14 +237,14 @@ include("geojson_samples.jl")
         GeoJSON.geometry(t[1])
         @test t.geometry isa Vector{Union{T,Missing}} where {T<:GeoJSON.Point}
         @test ismissing(t.geometry[3])
-        @test t.a isa Vector{Union{Float64,Missing}}
+        @test t.a isa Vector{Union{Int64,Missing}}
         @test isequal(t.a, [1, missing, 3])
         @test t.b isa Vector{Missing}
         @test Tables.columntable(t) isa NamedTuple
 
         t = GeoJSON.read(T.table_not_present)
         @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
-        @test propertynames(t) == (:geometry, :a, :b, :c, :d)
+        @test propertynames(t) == [:a, :b, :c, :geometry, :d]
         @test propertynames(t[1]) == (:geometry, :a, :b, :c)
         @test propertynames(t[2]) == (:geometry, :a, :b, :d)
         # "c" and "d" are only present in the properties of a single row
@@ -268,14 +252,15 @@ include("geojson_samples.jl")
         @test all(t.d .=== [missing, "appears-later", missing])
         @testset "With NamedTuple feature" begin
             nt_props = [
-                (a=t[1].a, b=t[1].b, c=t[1].c),
-                (a=t[2].a, b=t[2].b, d=t[2].d),
-                (a=t[3].a, b=t[3].b),
+                Dict(:a => t[1].a, :b => t[1].b, :c => t[1].c),
+                Dict(:a => t[2].a, :b => t[2].b, :d => t[2].d),
+                Dict(:a => t[3].a, :b => t[3].b),
             ]
             features = map(t.geometry, nt_props) do geometry, properties
-                GeoJSON.Feature(; geometry, properties)
+                # Setting 2 here is required because of the missing geometry
+                GeoJSON.Feature{2}(geometry=ismissing(geometry) ? nothing : geometry, properties=properties)
             end
-            fc = GeoJSON.FeatureCollection(features)
+            fc = GeoJSON.FeatureCollection(features=features)
             @test fc isa GeoJSON.FeatureCollection
             @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), fc[1]))
         end
@@ -311,13 +296,13 @@ include("geojson_samples.jl")
     end
 
     @testset "numbertype" begin
-        # all numbers are Float64 since we use numbertype=Float64
+        # all numbers are Float32 since we use numbertype=Float32
         p = GeoJSON.read(T.point_int)
         @test p isa GeoJSON.Point
         coords = GeoJSON.coordinates(p)
-        @test eltype(coords) == Float64
+        @test eltype(coords) == Float32
         @test coords == (1.0, 2.0)
-        @test collect(coords) isa Vector{Float64}
+        @test collect(coords) isa Vector{Float32}
     end
 
     Aqua.test_all(GeoJSON)

@@ -15,74 +15,82 @@ struct CRS
 end
 
 """
-    Point{D}(coordinates::Union{Nothing,NTuple{D,Float64}})
+    Point{D}(coordinates::Union{Nothing,NTuple{D,Float32}})
 
 A Point geometry with `D` dimensions.
 """
-struct Point{D} <: AbstractGeometry{D}
-    coordinates::Union{Nothing,NTuple{D,Float64}}
+Base.@kwdef struct Point{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    coordinates::Union{Nothing,NTuple{D,Float32}} = nothing
 end
 Base.show(io::IO, ::Point{D}) where {D} = print(io, "$(D)D Point")
-Base.eltype(::Type{Point}) = Float64
+Base.eltype(::Type{Point}) = Float32
 
 """
-    LineString{D}(coordinates::Union{Nothing,Vector{NTuple{D,Float64}}})
+    LineString{D}(coordinates::Union{Nothing,Vector{NTuple{D,Float32}}})
 
 A LineString geometry with `D` dimensions.
 """
-struct LineString{D} <: AbstractGeometry{D}
-    coordinates::Union{Nothing,Vector{NTuple{D,Float64}}}
+Base.@kwdef struct LineString{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    coordinates::Union{Nothing,Vector{NTuple{D,Float32}}} = nothing
 end
-Base.eltype(::Type{LineString{D}}) where {D} = NTuple{D,Float64}
+Base.eltype(::Type{LineString{D}}) where {D} = NTuple{D,Float32}
 
 """
-    Polygon{D}(coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float64}}}})
+    Polygon{D}(coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float32}}}})
 
 A Polygon geometry with `D` dimensions.
 """
-struct Polygon{D} <: AbstractGeometry{D}
-    coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float64}}}}
+Base.@kwdef struct Polygon{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float32}}}} = nothing
 end
-Base.eltype(::Type{Polygon{D}}) where {D} = Vector{NTuple{D,Float64}}
+Base.eltype(::Type{Polygon{D}}) where {D} = Vector{NTuple{D,Float32}}
 
 """
-    MultiPoint{D}(coordinates::Union{Nothing,Vector{NTuple{D,Float64}}})
+    MultiPoint{D}(coordinates::Union{Nothing,Vector{NTuple{D,Float32}}})
 
 A MultiPoint geometry with `D` dimensions.
 """
-struct MultiPoint{D} <: AbstractGeometry{D}
-    coordinates::Union{Nothing,Vector{NTuple{D,Float64}}}
+Base.@kwdef struct MultiPoint{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    coordinates::Union{Nothing,Vector{NTuple{D,Float32}}} = nothing
 end
-Base.eltype(::Type{MultiPoint{D}}) where {D} = Vector{NTuple{D,Float64}}
+Base.eltype(::Type{MultiPoint{D}}) where {D} = Vector{NTuple{D,Float32}}
 
 """
-    MultiLineString{D}(coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float64}}}})
+    MultiLineString{D}(coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float32}}}})
 
 A MultiLineString geometry with `D` dimensions.
 """
-struct MultiLineString{D} <: AbstractGeometry{D}
-    coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float64}}}}
+Base.@kwdef struct MultiLineString{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    coordinates::Union{Nothing,Vector{Vector{NTuple{D,Float32}}}} = nothing
 end
-Base.eltype(::Type{MultiLineString{D}}) where {D} = Vector{NTuple{D,Float64}}
+Base.eltype(::Type{MultiLineString{D}}) where {D} = Vector{NTuple{D,Float32}}
 
 """
-    MultiPolygon{D}(coordinates::Union{Nothing,Vector{Vector{Vector{NTuple{D,Float64}}}}})
+    MultiPolygon{D}(coordinates::Union{Nothing,Vector{Vector{Vector{NTuple{D,Float32}}}}})
 
 A MultiPolygon geometry with `D` dimensions.
 """
-struct MultiPolygon{D} <: AbstractGeometry{D}
-    coordinates::Union{Nothing,Vector{Vector{Vector{NTuple{D,Float64}}}}}
+Base.@kwdef struct MultiPolygon{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    coordinates::Union{Nothing,Vector{Vector{Vector{NTuple{D,Float32}}}}} = nothing
 end
-Base.eltype(::Type{MultiPolygon{D}}) where {D} = Vector{Vector{NTuple{D,Float64}}}
+Base.eltype(::Type{MultiPolygon{D}}) where {D} = Vector{Vector{NTuple{D,Float32}}}
+coordinates(g::AbstractGeometry) = getfield(g, :coordinates)
 
-coordinates(g::AbstractGeometry) = g.coordinates
-bbox(g::AbstractGeometry) = nothing
-
-Base.show(io::IO, x::T) where {D,T<:AbstractGeometry{D}} = print(io, "$(D)D $(type(T)) with $(length(x.coordinates)) sub-geometries")
+Base.show(io::IO, x::T) where {D,T<:AbstractGeometry{D}} = print(io, "$(D)D $(typestring(T)) $(get(io, :compact, false) ? "" : "with $(length(x.coordinates)) sub-geometries")")
 Base.length(g::AbstractGeometry) = length(coordinates(g))
+Base.lastindex(g::AbstractGeometry) = length(coordinates(g))
 Base.size(g::AbstractGeometry) = size(coordinates(g))
+Base.axes(g::AbstractGeometry) = axes(coordinates(g))
 Base.getindex(g::AbstractGeometry, i::Int) = getindex(coordinates(g), i::Int)
 Base.IndexStyle(::Type{<:AbstractGeometry}) = Base.IndexLinear()
+
+Base.:(==)(g1::AbstractGeometry, g2::AbstractGeometry) = coordinates(g1) == coordinates(g2)
 
 function Base.iterate(g::AbstractGeometry, state=1)
     x = iterate(coordinates(g), state)
@@ -96,16 +104,19 @@ end
 
 A GeometryCollection geometry with `D` dimensions.
 """
-struct GeometryCollection{D} <: AbstractGeometry{D}
-    geometries::Vector{AbstractGeometry{D}}
+Base.@kwdef struct GeometryCollection{D} <: AbstractGeometry{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    geometries::Vector{AbstractGeometry{D}} = AbstractGeometry{D}[]  # not that efficient
 end
 
-coordinates(g::GeometryCollection) = geometries(g)
-geometry(g::GeometryCollection) = g.geometries
+coordinates(g::GeometryCollection) = coordinates.(geometry(g))
+geometry(g::GeometryCollection) = getfield(g, :geometries)
 
 Base.show(io::IO, x::GeometryCollection{D}) where {D} = print(io, "GeometryCollection with $(length(x.geometries)) $(D)D geometries")
 Base.length(g::GeometryCollection) = length(geometry(g))
+Base.lastindex(g::GeometryCollection) = length(geometry(g))
 Base.size(g::GeometryCollection) = size(geometry(g))
+Base.axes(g::GeometryCollection) = axes(geometry(g))
 Base.getindex(g::GeometryCollection, i::Int) = getindex(geometry(g), i::Int)
 Base.IndexStyle(::Type{<:GeometryCollection}) = Base.IndexLinear()
 
@@ -117,21 +128,46 @@ function Base.iterate(g::GeometryCollection, state=1)
 end
 
 """
-    Feature{D}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{Float64}}, geometry::Union{Nothing,AbstractGeometry{D}}, properties::Union{Nothing,Dict{String,Any}})
+    Feature{D}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{Float32}}, geometry::Union{Nothing,AbstractGeometry{D}}, properties::Union{Nothing,Dict{String,Any}})
 
 A Feature with `D` dimensional geometry.
 """
-struct Feature{D} <: GeoJSONT{D}
-    id::Union{Nothing,String,Int}
-    bbox::Union{Nothing,Vector{Float64}}
-    geometry::Union{Nothing,AbstractGeometry{D}}
-    properties::Union{Nothing,Dict{String,Any}}
+Base.@kwdef struct Feature{D} <: GeoJSONT{D}
+    id::Union{Nothing,String,Int} = nothing
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    geometry::Union{Nothing,AbstractGeometry{D}} = nothing
+    properties::Dict{Symbol,Any} = Dict{Symbol,Any}()
 end
-bbox(f::Feature) = f.bbox
-geometry(f::Feature) = f.geometry
-properties(f::Feature) = f.properties
+id(f::Feature) = getfield(f, :id)
+geometry(f::Feature) = getfield(f, :geometry)
+properties(f::Feature) = getfield(f, :properties)
 coordinates(f::Feature) = coordinates(geometry(f))
-Base.show(io::IO, x::Feature{D}) where {D} = print(io, "Feature with $(D)D $(type(typeof(x.geometry))) geometry and $(length(x.properties)) properties")
+Base.show(io::IO, x::Feature{D}) where {D} = print(io, "Feature with $(D)D $(typestring(typeof(geometry(x)))) geometry and $(length(properties(x))+1) properties: $(propertynames(x))")
+Base.:(==)(f1::Feature, f2::Feature) = id(f1) == id(f2) && bbox(f1) == bbox(f2) && geometry(f1) == geometry(f2) && properties(f1) == properties(f2)
+
+# the keys in properties are added here for direct access
+function Base.propertynames(f::Feature)
+    (:geometry, filter(!=(:geometry), keys(properties(f)))...)
+end
+
+function Base.getproperty(f::Feature, name::Symbol)
+    props = properties(f)
+    v = if haskey(props, name)
+        get(props, name, missing)
+    elseif hasfield(typeof(f), name)
+        getfield(f, name)
+    else
+        missing  # when called from a collection with some features having the property and some not
+    end
+    isnothing(v) ? missing : v
+end
+
+function Base.iterate(f::Feature, state=collect(propertynames(f)))
+    isempty(state) && return nothing
+    k = pop!(state)
+    ((k, getproperty(f, k)), state)
+end
+
 
 # This is a non-public type used to lazily construct a Feature from a JSON3.RawValue
 # It can be written again as String, which can also be used to parsed to a Feature
@@ -140,22 +176,44 @@ struct LazyFeature{D} <: GeoJSONT{D}
     pos::Int
     len::Int
 end
-StructTypes.construct(::Type{LazyFeature{D}}, x::JSON3.RawValue) where {D} = LazyFeature{D}(x.bytes, x.pos, x.len)
-Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
-JSON3.rawbytes(x::LazyFeature) = codeunits(x)
+@inline StructTypes.construct(::Type{LazyFeature{D}}, x::JSON3.RawValue) where {D} = LazyFeature{D}(x.bytes, x.pos, x.len)
+@inline Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
+@inline JSON3.rawbytes(x::LazyFeature) = codeunits(x)
 
 
 """
-    FeatureCollection{D}(bbox::Union{Nothing,Vector{Float64}}, features::Vector{Feature{D}}, crs::Union{Nothing,CRS})
+    FeatureCollection{D}(bbox::Union{Nothing,Vector{Float32}}, features::Vector{Feature{D}}, crs::Union{Nothing,CRS})
 
 A FeatureCollection with `D` dimensional geometry in its features.
 """
-struct FeatureCollection{D} <: AbstractFeatureCollection{D}
-    bbox::Union{Nothing,Vector{Float64}}
-    features::Vector{Feature{D}}
-    crs::Union{Nothing,CRS}
+Base.@kwdef struct FeatureCollection{D} <: AbstractFeatureCollection{D}
+    bbox::Union{Nothing,Vector{Float32}} = nothing
+    features::Vector{Feature{D}} = Feature{D}[]
+    crs::Union{Nothing,CRS} = nothing
+    names::Vector{Symbol}
+    types::Dict{Symbol,Type}
+    function FeatureCollection{D}(bbox, features, crs, n, t) where {D}
+        names, types = property_schema(isnothing(features) ? Feature{D}[] : features)
+        return new{D}(bbox, features, crs, names, types)
+    end
 end
-features(fc::FeatureCollection) = fc.features
+function FeatureCollection(; bbox=nothing, features::Vector{Feature{D}}, crs=nothing) where {D}
+    names, types = property_schema(isnothing(features) ? Feature{D}[] : features)
+    FeatureCollection{D}(bbox, features, crs, names, types)
+end
+
+
+features(fc::FeatureCollection) = getfield(fc, :features)
+Base.propertynames(fc::FeatureCollection) = getfield(fc, :names)
+Base.getproperty(fc::FeatureCollection, nm::Symbol) = getproperty.(fc, nm)
+
+function Base.getproperty(fc::FeatureCollection, name::Symbol)
+    if hasfield(typeof(fc), name)
+        getfield(fc, name)
+    else
+        getproperty.(fc, name)
+    end
+end
 
 function Base.iterate(fc::AbstractFeatureCollection{D}, state=1) where {D}
     (1 <= state <= length(fc)) || return nothing
@@ -163,17 +221,20 @@ function Base.iterate(fc::AbstractFeatureCollection{D}, state=1) where {D}
     return val, state + 1
 end
 
-Base.show(io::IO, x::FeatureCollection) = print(io, "FeatureCollection with $(length(x.features)) features")
+Base.show(io::IO, fc::FeatureCollection) = print(io, "FeatureCollection with $(length(fc)) Features")
 Base.eltype(::Type{<:AbstractFeatureCollection{D}}) where {D} = Feature{D}
-Base.length(x::AbstractFeatureCollection) = length(x.features)
-Base.size(x::AbstractFeatureCollection) = size(x.features)
-Base.getindex(x::AbstractFeatureCollection, i::Int) = x.features[i]
+Base.IteratorEltype(::Type{<:AbstractFeatureCollection}) = Base.HasEltype()
+Base.length(fc::AbstractFeatureCollection) = length(features(fc))
+Base.lastindex(fc::AbstractFeatureCollection) = length(features(fc))
+Base.IteratorSize(::Type{<:AbstractFeatureCollection}) = Base.HasLength()
+Base.size(fc::AbstractFeatureCollection) = size(features(fc))
+Base.getindex(fc::AbstractFeatureCollection, i::Int) = features(fc)[i]
 Base.IndexStyle(::AbstractFeatureCollection) = IndexLinear()
 
-bbox(fc::AbstractFeatureCollection) = fc.bbox
+bbox(x::GeoJSONT) = getfield(x, :bbox)
 
 """
-    LazyFeatureCollection{D}(bbox::Union{Nothing,Vector{Float64}}, features::Vector{LazyFeature{D}}, crs::Union{Nothing,String})
+    LazyFeatureCollection{D}(bbox::Union{Nothing,Vector{Float32}}, features::Vector{LazyFeature{D}}, crs::Union{Nothing,String})
 
 A FeatureCollection with `D` dimensional geometry in its features, but it's features are
 lazily parsed from the GeoJSON string. Indexing into the collection will parse the feature.
@@ -181,7 +242,7 @@ This can be more efficient when interested in only a few features from a large c
 or parsing a very large collection iteratively without loading it all into memory.
 """
 struct LazyFeatureCollection{D} <: AbstractFeatureCollection{D}
-    bbox::Union{Nothing,Vector{Float64}}
+    bbox::Union{Nothing,Vector{Float32}}
     features::Vector{LazyFeature{D}}
     crs::Union{Nothing,CRS}
     # TODO Use features::JSON3.Array directly once we can parse the tape to find the
@@ -215,49 +276,51 @@ function obj_mapping(D)
         FeatureCollection=FeatureCollection{D}
     )
 end
-StructTypes.StructType(::Type{<:GeoJSONWrapper}) = StructTypes.CustomStruct()
-StructTypes.lower(x::GeoJSONWrapper) = x.obj
-StructTypes.lowertype(::Type{<:GeoJSONWrapper{D}}) where {D} = GeoJSONT{D}
+@inline StructTypes.StructType(::Type{<:GeoJSONWrapper}) = StructTypes.CustomStruct()
+@inline StructTypes.lower(x::GeoJSONWrapper) = x.obj
+@inline StructTypes.lowertype(::Type{<:GeoJSONWrapper{D}}) where {D} = GeoJSONT{D}
 
 const point = "Point"
-type(::Type{<:Point}) = point
+@inline typestring(::Type{<:Point}) = point
 const multipoint = "MultiPoint"
-type(::Type{<:MultiPoint}) = multipoint
+@inline typestring(::Type{<:MultiPoint}) = multipoint
 const linestring = "LineString"
-type(::Type{<:LineString}) = linestring
+@inline typestring(::Type{<:LineString}) = linestring
 const multilinestring = "MultiLineString"
-type(::Type{<:MultiLineString}) = multilinestring
+@inline typestring(::Type{<:MultiLineString}) = multilinestring
 const polygon = "Polygon"
-type(::Type{<:Polygon}) = polygon
+@inline typestring(::Type{<:Polygon}) = polygon
 const multipolygon = "MultiPolygon"
-type(::Type{<:MultiPolygon}) = multipolygon
+@inline typestring(::Type{<:MultiPolygon}) = multipolygon
 const geometrycollection = "GeometryCollection"
-type(::Type{<:GeometryCollection}) = geometrycollection
+@inline typestring(::Type{<:GeometryCollection}) = geometrycollection
 const feature = "Feature"
-type(::Type{<:Feature}) = feature
+@inline typestring(::Type{<:Feature}) = feature
 const featurecollection = "FeatureCollection"
-type(::Type{<:FeatureCollection}) = featurecollection
+@inline typestring(::Type{<:FeatureCollection}) = featurecollection
 const null = "null"
-type(::Type{Nothing}) = null
+@inline typestring(::Type{Nothing}) = null
+@inline typestring(::Type{Missing}) = null
 
-StructTypes.StructType(::Type{<:GeoJSONT}) = StructTypes.AbstractType()
-StructTypes.StructType(::Type{<:AbstractGeometry}) = StructTypes.AbstractType()
-StructTypes.StructType(::Type{<:Point}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:LineString}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:Polygon}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:MultiPoint}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:MultiLineString}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:MultiPolygon}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:GeometryCollection}) = StructTypes.Struct()
-StructTypes.subtypekey(::Type{<:AbstractGeometry}) = :type
-StructTypes.subtypes(::Type{<:AbstractGeometry{D}}) where {D} = geom_mapping(D)
-StructTypes.subtypekey(::Type{<:GeoJSONT}) = :type
-StructTypes.subtypes(::Type{<:GeoJSONT{D}}) where {D} = merge(geom_mapping(D), obj_mapping(D))
+@inline StructTypes.StructType(::Type{<:GeoJSONT}) = StructTypes.AbstractType()
+@inline StructTypes.StructType(::Type{<:AbstractGeometry}) = StructTypes.AbstractType()
+@inline StructTypes.StructType(::Type{<:Point}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:LineString}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:Polygon}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:MultiPoint}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:MultiLineString}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:MultiPolygon}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:GeometryCollection}) = StructTypes.Struct()
+@inline StructTypes.subtypekey(::Type{<:AbstractGeometry}) = :type
+@inline StructTypes.subtypes(::Type{<:AbstractGeometry{D}}) where {D} = geom_mapping(D)
+@inline StructTypes.subtypekey(::Type{<:GeoJSONT}) = :type
+@inline StructTypes.subtypes(::Type{<:GeoJSONT{D}}) where {D} = merge(geom_mapping(D), obj_mapping(D))
 
-StructTypes.StructType(::Type{<:Feature}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:LazyFeature}) = JSON3.RawType()
-StructTypes.StructType(::Type{<:FeatureCollection}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:LazyFeatureCollection}) = StructTypes.Struct()
-StructTypes.StructType(::Type{CRS}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:Feature}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{<:LazyFeature}) = JSON3.RawType()
+@inline StructTypes.StructType(::Type{<:FeatureCollection}) = StructTypes.Struct()
+@inline StructTypes.excludes(::Type{<:FeatureCollection}) = (:names, :types,)
+@inline StructTypes.StructType(::Type{<:LazyFeatureCollection}) = StructTypes.Struct()
+@inline StructTypes.StructType(::Type{CRS}) = StructTypes.Struct()
 
-StructTypes.omitempties(::Type{<:GeoJSONT}) = (:id, :crs, :bbox,)
+@inline StructTypes.omitempties(::Type{<:GeoJSONT}) = (:id, :crs, :bbox,)
