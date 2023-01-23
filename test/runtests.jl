@@ -9,9 +9,6 @@ using Test
 using Plots
 using DataFrames
 
-# samples and collections thereof defined under module T
-include("geojson_samples.jl")
-
 @testset "GeoJSON" begin
 
     @testset "Features" begin
@@ -43,7 +40,7 @@ include("geojson_samples.jl")
             [:foo => "bar"],
             Pair{Symbol,Any}[:title=>"Dict 1", :bbox=>[-180.0f0, -90.0f0, 180.0f0, 90.0f0]],
         ]
-        foreach(T.features, geometries, properties) do s, g, p
+        foreach(GeoJSON.Samples.features, geometries, properties) do s, g, p
             @test collect(GeoJSON.properties(GeoJSON.read(s))) == p
             geom = GeoJSON.geometry(GeoJSON.read(s))
             if !isnothing(geom)
@@ -54,7 +51,7 @@ include("geojson_samples.jl")
     end
 
     @testset "Geometries" begin
-        geom = GeoJSON.read(T.multi)
+        geom = GeoJSON.read(GeoJSON.Samples.multi)
         @test geom isa GeoJSON.MultiPolygon
         @test GI.coordinates(geom) == [
             [[(180.0f0, 40.0f0), (180.0f0, 50.0f0), (170.0f0, 50.0f0), (170.0f0, 40.0f0), (180.0f0, 40.0f0)]],
@@ -67,7 +64,7 @@ include("geojson_samples.jl")
             ]],
         ]
 
-        geom = GeoJSON.read(T.bbox)
+        geom = GeoJSON.read(GeoJSON.Samples.bbox)
         plot(geom)
         @test geom isa GeoJSON.LineString
         @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
@@ -75,7 +72,7 @@ include("geojson_samples.jl")
         @test GeoJSON.bbox(geom) == [-35.1f0, -6.6f0, 8.1f0, 3.8f0]
         @test GI.extent(geom) == Extent(X=(-35.1f0, 8.1f0), Y=(-6.6f0, 3.8f0))
 
-        geom = GeoJSON.read(T.bbox_z, ndim=3)
+        geom = GeoJSON.read(GeoJSON.Samples.bbox_z, ndim=3)
         @test geom isa GeoJSON.LineString
         @test GeoJSON.coordinates(geom) == [(-35.1f0, -6.6f0, 5.5f0), (8.1f0, 3.8f0, 6.5f0)]
         @test GeoJSON.bbox(geom) == [-35.1f0, -6.6f0, 5.5f0, 8.1f0, 3.8f0, 6.5f0]
@@ -84,7 +81,7 @@ include("geojson_samples.jl")
 
     @testset "Construct from NamedTuple" begin
         # Geometry
-        p = GeoJSON.Point(nothing, (1.1f0, 2.2f0))
+        p = GeoJSON.Point(coordinates=(1.1f0, 2.2f0))
         @test propertynames(p) === (:bbox, :coordinates)
         @test GeoJSON.typestring(typeof(p)) === "Point"
         @test p.coordinates === GeoJSON.coordinates(p) == (1.1f0, 2.2f0)
@@ -124,28 +121,28 @@ include("geojson_samples.jl")
     end
 
     @testset "extent" begin
-        @test GI.extent(GeoJSON.read(T.d)) ==
+        @test GI.extent(GeoJSON.read(GeoJSON.Samples.d)) ==
               Extent(X=(-180.0f0, 180.0f0), Y=(-90.0f0, 90.0f0))
-        @test GI.extent(GeoJSON.read(T.e)) === nothing
-        @test GI.extent(GeoJSON.read(T.g, ndim=2)) ==
+        @test GI.extent(GeoJSON.read(GeoJSON.Samples.e), fallback=false) === nothing
+        @test GI.extent(GeoJSON.read(GeoJSON.Samples.g, ndim=2)) ==
               Extent(X=(100.0f0, 105.0f0), Y=(0.0f0, 1.0f0))
     end
 
     @testset "crs" begin
-        @test GI.crs(GeoJSON.read(T.a)) == GeoFormatTypes.EPSG(4326)
-        @test GI.crs(GeoJSON.read(T.collection)) == GeoFormatTypes.EPSG(4326)
-        @test GI.crs(GeoJSON.read(T.multi)) == GeoFormatTypes.EPSG(4326)
+        @test GI.crs(GeoJSON.read(GeoJSON.Samples.a)) == GeoFormatTypes.EPSG(4326)
+        @test GI.crs(GeoJSON.read(GeoJSON.Samples.collection)) == GeoFormatTypes.EPSG(4326)
+        @test GI.crs(GeoJSON.read(GeoJSON.Samples.multi)) == GeoFormatTypes.EPSG(4326)
     end
 
     @testset "read not crash" begin
-        for str in vcat(T.featurecollections, T.features, T.geometries)
+        for str in vcat(GeoJSON.Samples.featurecollections, GeoJSON.Samples.features, GeoJSON.Samples.geometries)
             GeoJSON.read(str)
         end
     end
 
     @testset "write" begin
         # Round trip read/write and compare prettified output to prettified original
-        foreach(T.features) do json
+        foreach(GeoJSON.Samples.features) do json
             f = GeoJSON.read(json)
             f1 = GeoJSON.read(GeoJSON.write(f))
             @test GeoJSON.geometry(f) == GeoJSON.geometry(f1)
@@ -153,7 +150,7 @@ include("geojson_samples.jl")
             @test GI.extent(f) == GI.extent(f1)
         end
 
-        foreach(T.featurecollections) do json
+        foreach(GeoJSON.Samples.featurecollections) do json
             fc = GeoJSON.read(json)
             f1c = GeoJSON.read(GeoJSON.write(fc))
             foreach(fc, f1c) do f, f1
@@ -165,7 +162,7 @@ include("geojson_samples.jl")
     end
 
     @testset "FeatureCollection of one MultiPolygon" begin
-        t = GeoJSON.read(T.g)
+        t = GeoJSON.read(GeoJSON.Samples.g)
         @test Tables.istable(t)
         @test Tables.rows(t) === t
         @test Tables.columns(t) isa Tables.CopiedColumns
@@ -206,14 +203,14 @@ include("geojson_samples.jl")
 
         @testset "write to disk" begin
             fc = t
-            GeoJSON.write("test.json", fc)
-            fc1 = GeoJSON.read(read("test.json", String))
+            GeoJSON.write("tesGeoJSON.Samples.json", fc)
+            fc1 = GeoJSON.read(read("tesGeoJSON.Samples.json", String))
             @test GI.extent(fc) == GI.extent(fc1) == Extent(X=(100.0f0, 105.0f0), Y=(0.0f0, 1.0f0))
             f = GI.getfeature(fc, 1)
             f1 = GI.getfeature(fc1, 1)
             @test GI.geometry(f) == GI.geometry(f1)
             @test GI.properties(f) == GI.properties(f1)
-            rm("test.json")
+            rm("tesGeoJSON.Samples.json")
         end
 
         @testset "GeoInterface" begin
@@ -224,13 +221,13 @@ include("geojson_samples.jl")
             properties = GeoJSON.properties(f1)
             @test properties isa Dict
             @test properties[:addr2] === "Rowland Heights"
-            @test !GI.isclosed(GeoJSON.read(T.bbox))
-            @test GI.isclosed(GeoJSON.read(T.bermuda_triangle))
+            @test !GI.isclosed(GeoJSON.read(GeoJSON.Samples.bbox))
+            @test GI.isclosed(GeoJSON.read(GeoJSON.Samples.bermuda_triangle))
         end
     end
 
     @testset "Tables with missings" begin
-        t = GeoJSON.read(T.tablenull)
+        t = GeoJSON.read(GeoJSON.Samples.tablenull)
         @test t[1] isa GeoJSON.Feature
         @test occursin("(:geometry, :a, :b)", sprint(show, MIME"text/plain"(), t[1]))
         @test ismissing(t[1].geometry)
@@ -242,7 +239,7 @@ include("geojson_samples.jl")
         @test t.b isa Vector{Missing}
         @test Tables.columntable(t) isa NamedTuple
 
-        t = GeoJSON.read(T.table_not_present)
+        t = GeoJSON.read(GeoJSON.Samples.table_not_present)
         @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
         @test propertynames(t) == [:a, :b, :c, :geometry, :d]
         @test propertynames(t[1]) == (:geometry, :a, :b, :c)
@@ -258,7 +255,7 @@ include("geojson_samples.jl")
             ]
             features = map(t.geometry, nt_props) do geometry, properties
                 # Setting 2 here is required because of the missing geometry
-                GeoJSON.Feature{2}(geometry=ismissing(geometry) ? nothing : geometry, properties=properties)
+                GeoJSON.Feature{2,Float32}(geometry=ismissing(geometry) ? nothing : geometry, properties=properties)
             end
             fc = GeoJSON.FeatureCollection(features=features)
             @test fc isa GeoJSON.FeatureCollection
@@ -267,7 +264,7 @@ include("geojson_samples.jl")
     end
 
     @testset "FeatureCollection of one GeometryCollection" begin
-        fc = GeoJSON.read(T.collection)
+        fc = GeoJSON.read(GeoJSON.Samples.collection)
         gc = GeoJSON.geometry(GI.getfeature(fc, 1))
         @test GI.geomtrait(gc) isa GI.GeometryCollectionTrait
 
@@ -279,13 +276,13 @@ include("geojson_samples.jl")
     end
 
     @testset "GeoInterface tests" begin
-        @test all(GI.testgeometry, GeoJSON.read.(T.geometries))
-        @test all(GI.testfeature, GeoJSON.read.(T.features))
-        @test all(GI.testfeaturecollection, GeoJSON.read.(T.featurecollections))
+        @test all(GI.testgeometry, GeoJSON.read.(GeoJSON.Samples.geometries))
+        @test all(GI.testfeature, GeoJSON.read.(GeoJSON.Samples.features))
+        @test all(GI.testfeaturecollection, GeoJSON.read.(GeoJSON.Samples.featurecollections))
     end
 
     @testset "GeoFormatTypes" begin
-        gft_str = GeoFormatTypes.GeoJSON(T.b)
+        gft_str = GeoFormatTypes.GeoJSON(GeoJSON.Samples.b)
         f = GeoJSON.read(gft_str)
         @test f isa GeoJSON.Feature
 
@@ -297,7 +294,7 @@ include("geojson_samples.jl")
 
     @testset "numbertype" begin
         # all numbers are Float32 since we use numbertype=Float32
-        p = GeoJSON.read(T.point_int)
+        p = GeoJSON.read(GeoJSON.Samples.point_int)
         @test p isa GeoJSON.Point
         coords = GeoJSON.coordinates(p)
         @test eltype(coords) == Float32

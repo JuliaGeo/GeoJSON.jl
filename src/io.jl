@@ -7,17 +7,16 @@ Set `ndim=3` for 3D geometries, which is also tried automatically when
 When reading in huge featurecollections (1M+ features), set `lazyfc=true`
 to only parse them into memory when accessed.
 """
-function read(io; lazyfc=false, ndim=2)
+function read(io; lazyfc=false, ndim=2, numbertype=Float32)
     if lazyfc
-        obj = JSON3.read(io, LazyFeatureCollection{ndim})
+        obj = JSON3.read(io, LazyFeatureCollection{ndim,numbertype})
     else
         try
-            obj = JSON3.read(io, GeoJSONWrapper{ndim}).obj
+            obj = JSON3.read(io, GeoJSONWrapper{ndim,numbertype}).obj
         catch e
             if e isa ArgumentError
                 @warn "Failed to parse GeoJSON as 2D, trying 3D. Set `ndim` to 3 to avoid this warning."
-                @info io
-                obj = JSON3.read(io, GeoJSONWrapper{ndim + 1}).obj
+                obj = JSON3.read(io, GeoJSONWrapper{ndim + 1,numbertype}).obj
             else
                 rethrow(e)
             end

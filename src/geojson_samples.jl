@@ -1,5 +1,4 @@
-
-module T
+module Samples
 
 # There are 3 sections, FeatureCollection, Feature, Geometry.
 # When adding a sample, also add it to the list at the end of the section.
@@ -489,6 +488,8 @@ geom_collection = """{
 
 point_int = """{"type":"Point","coordinates":[1,2]}"""
 
-geometries = [multi, bbox, bbox_z, bermuda_triangle, geom_collection, point_int]
+geometries_2d = [multi, bbox, bermuda_triangle, geom_collection, point_int]
+geometries_3d = [bbox_z]
+geometries = vcat(geometries_2d, geometries_3d)
 
-end  # module test
+end  # module
