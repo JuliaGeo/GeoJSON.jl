@@ -25,7 +25,7 @@ struct Point{D,T} <: AbstractGeometry{D,T}
     Point{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     Point{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = Point{D,T}(bbox, coordinates)
 end
-Point(; bbox=nothing, coordinates::NTuple{D,T}) where {D,T} = Point{D,T}(bbox, coordinates)
+Point(; bbox=nothing, coordinates::NTuple{2,T}) where {T} = Point{2,T}(bbox, coordinates)
 Base.show(io::IO, ::Point{D,T}) where {D,T} = print(io, "$(D)D Point")
 Base.eltype(::Type{Point{D,T}}) where {D,T} = T
 
@@ -40,7 +40,7 @@ struct LineString{D,T} <: AbstractGeometry{D,T}
     LineString{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     LineString{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = LineString{D,T}(bbox, coordinates)
 end
-LineString(; bbox=nothing, coordinates::Vector{NTuple{D,T}}) where {D,T} = LineString{D,T}(D, T, bbox, coordinates)
+LineString(; bbox=nothing, coordinates::Vector{NTuple{2,T}}) where {T} = LineString{2,T}(D, T, bbox, coordinates)
 Base.eltype(::Type{LineString{D,T}}) where {D,T} = NTuple{D,T}
 
 """
@@ -54,7 +54,7 @@ struct Polygon{D,T} <: AbstractGeometry{D,T}
     Polygon{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     Polygon{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = Polygon{D,T}(bbox, coordinates)
 end
-Polygon(; bbox=nothing, coordinates::Vector{Vector{NTuple{D,T}}}) where {D,T} = Polygon{D,T}(bbox, coordinates)
+Polygon(; bbox=nothing, coordinates::Vector{Vector{NTuple{2,T}}}) where {T} = Polygon{2,T}(bbox, coordinates)
 Base.eltype(::Type{Polygon{D,T}}) where {D,T} = Vector{NTuple{D,T}}
 
 """
@@ -68,7 +68,7 @@ struct MultiPoint{D,T} <: AbstractGeometry{D,T}
     MultiPoint{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     MultiPoint{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = MultiPoint{D,T}(bbox, coordinates)
 end
-MultiPoint(; bbox=nothing, coordinates::Vector{NTuple{D,T}}) where {D,T} = MultiPoint{D,T}(bbox, coordinates)
+MultiPoint(; bbox=nothing, coordinates::Vector{NTuple{2,T}}) where {T} = MultiPoint{2,T}(bbox, coordinates)
 Base.eltype(::Type{MultiPoint{D,T}}) where {D,T} = Vector{NTuple{D,T}}
 
 """
@@ -82,7 +82,7 @@ struct MultiLineString{D,T} <: AbstractGeometry{D,T}
     MultiLineString{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     MultiLineString{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = MultiLineString{D,T}(bbox, coordinates)
 end
-MultiLineString(; bbox=nothing, coordinates::Vector{Vector{NTuple{D,T}}}) where {D,T} = MultiLineString{D,T}(bbox, coordinates)
+MultiLineString(; bbox=nothing, coordinates::Vector{Vector{NTuple{2,T}}}) where {T} = MultiLineString{2,T}(bbox, coordinates)
 Base.eltype(::Type{MultiLineString{D,T}}) where {D,T} = Vector{NTuple{D,T}}
 
 """
@@ -96,7 +96,7 @@ struct MultiPolygon{D,T} <: AbstractGeometry{D,T}
     MultiPolygon{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     MultiPolygon{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = MultiPolygon{D,T}(bbox, coordinates)
 end
-MultiPolygon(; bbox=nothing, coordinates::Vector{Vector{Vector{NTuple{D,T}}}}) where {D,T} = MultiPolygon{D,T}(bbox, coordinates)
+MultiPolygon(; bbox=nothing, coordinates::Vector{Vector{Vector{NTuple{2,T}}}}) where {T} = MultiPolygon{2,T}(bbox, coordinates)
 Base.eltype(::Type{MultiPolygon{D,T}}) where {D,T} = Vector{Vector{NTuple{D,T}}}
 coordinates(g::AbstractGeometry) = getfield(g, :coordinates)
 
