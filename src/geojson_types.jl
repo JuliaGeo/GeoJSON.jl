@@ -157,11 +157,11 @@ struct Feature{D,T} <: GeoJSONT{D,T}
     id::Union{Nothing,String,Int}
     bbox::Union{Nothing,Vector{T}}
     geometry::Union{Nothing,AbstractGeometry{D,T}}
-    properties::Dict{Symbol,Any}
+    properties::NamedTuple
     Feature{D,T}(id, bbox, geometry, properties) where {D,T} = new{D,T}(id, bbox, geometry, properties)
-    Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=Dict{Symbol,Any}()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
+    Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=NamedTuple()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
 end
-Feature(; id=nothing, bbox=nothing, geometry::AbstractGeometry{D,T}, properties=Dict{Symbol,Any}()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
+Feature(; id=nothing, bbox=nothing, geometry::AbstractGeometry{D,T}, properties=NamedTuple()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
 
 id(f::Feature) = getfield(f, :id)
 geometry(f::Feature) = getfield(f, :geometry)
@@ -283,7 +283,7 @@ end
 GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
 
 # symbol (from json string type) to struct mapping
-function geom_mapping(D, T)
+@inline function geom_mapping(D, T)
     (;
         Point=Point{D,T},
         MultiPoint=MultiPoint{D,T},
@@ -294,7 +294,7 @@ function geom_mapping(D, T)
         GeometryCollection=GeometryCollection{D,T}
     )
 end
-function obj_mapping(D, T)
+@inline function obj_mapping(D, T)
     (;
         Feature=Feature{D,T},
         FeatureCollection=FeatureCollection{D,T}
@@ -304,27 +304,17 @@ end
 @inline StructTypes.lower(x::GeoJSONWrapper) = x.obj
 @inline StructTypes.lowertype(::Type{<:GeoJSONWrapper{D,T}}) where {D,T} = GeoJSONT{D,T}
 
-const point = "Point"
-@inline typestring(::Type{<:Point}) = point
-const multipoint = "MultiPoint"
-@inline typestring(::Type{<:MultiPoint}) = multipoint
-const linestring = "LineString"
-@inline typestring(::Type{<:LineString}) = linestring
-const multilinestring = "MultiLineString"
-@inline typestring(::Type{<:MultiLineString}) = multilinestring
-const polygon = "Polygon"
-@inline typestring(::Type{<:Polygon}) = polygon
-const multipolygon = "MultiPolygon"
-@inline typestring(::Type{<:MultiPolygon}) = multipolygon
-const geometrycollection = "GeometryCollection"
-@inline typestring(::Type{<:GeometryCollection}) = geometrycollection
-const feature = "Feature"
-@inline typestring(::Type{<:Feature}) = feature
-const featurecollection = "FeatureCollection"
-@inline typestring(::Type{<:FeatureCollection}) = featurecollection
-const null = "null"
-@inline typestring(::Type{Nothing}) = null
-@inline typestring(::Type{Missing}) = null
+typestring(::Type{<:Point}) = "Point"
+typestring(::Type{<:MultiPoint}) = "MultiPoint"
+typestring(::Type{<:LineString}) = "LineString"
+typestring(::Type{<:MultiLineString}) = "MultiLineString"
+typestring(::Type{<:Polygon}) = "Polygon"
+typestring(::Type{<:MultiPolygon}) = "MultiPolygon"
+typestring(::Type{<:GeometryCollection}) = "GeometryCollection"
+typestring(::Type{<:Feature}) = "Feature"
+typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
+typestring(::Type{Nothing}) = "null"
+typestring(::Type{Missing}) = "null"
 
 @inline StructTypes.StructType(::Type{<:GeoJSONT}) = StructTypes.AbstractType()
 @inline StructTypes.StructType(::Type{<:AbstractGeometry}) = StructTypes.AbstractType()

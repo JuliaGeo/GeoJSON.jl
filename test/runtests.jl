@@ -34,16 +34,16 @@ include("geojson_samples.jl")
             [:type => "é"],
             [:type => "meow"],
             [:title => "Dict 1"],
-            Pair{Symbol,Any}[
-                :link=>"http://example.org/features/1",
-                :title=>"Feature 1",
-                :summary=>"The first feature",
+            [
+                :link => "http://example.org/features/1",
+                :title => "Feature 1",
+                :summary => "The first feature",
             ],
             [:foo => "bar"],
-            Pair{Symbol,Any}[:title=>"Dict 1", :bbox=>[-180.0f0, -90.0f0, 180.0f0, 90.0f0]],
+            [:title => "Dict 1", :bbox => [-180.0f0, -90.0f0, 180.0f0, 90.0f0]],
         ]
         foreach(Samples.features, geometries, properties) do s, g, p
-            @test collect(GeoJSON.properties(GeoJSON.read(s))) == p
+            @test collect(pairs(GeoJSON.properties(GeoJSON.read(s)))) == p
             geom = GeoJSON.geometry(GeoJSON.read(s))
             if !isnothing(geom)
                 @test GeoJSON.coordinates(geom) == g
@@ -90,7 +90,7 @@ include("geojson_samples.jl")
 
         # Feature
         # properties named "geometry" are *not* shadowed by the geometry
-        f = GeoJSON.Feature(geometry=p, properties=Dict(:a => 1, :geometry => "g", :b => 2))
+        f = GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2))
         @test GeoJSON.coordinates(f) == (1.1f0, 2.2f0)
         @test propertynames(f) === (:geometry, :a, :b)
         @test GeoJSON.geometry(f) === p
@@ -114,11 +114,11 @@ include("geojson_samples.jl")
         @test iterate(p, 3) === nothing
 
         # other constructors
-        GeoJSON.Feature(geometry=p, properties=Dict(:a => 1, :geometry => "g", :b => 2))
+        GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2))
         GeoJSON.FeatureCollection(features=[f])
 
         # Mixed name vector
-        f2 = GeoJSON.Feature(geometry=p, properties=Dict(:a => 1, :geometry => "g", :b => 2, :c => 3))
+        f2 = GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2, c=3))
         GeoJSON.FeatureCollection(features=[f, f2])
     end
 
@@ -196,11 +196,11 @@ include("geojson_samples.jl")
         @testset "With NamedTuple feature" begin
             nt_feature = GeoJSON.Feature(
                 geometry=t[1].geometry,
-                properties=Dict(:cartodb_id => t[1].cartodb_id, :addr1 => t[1].addr1, :addr2 => t[1].addr2, :park => t[1].park)
+                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park)
             )
             fc = GeoJSON.FeatureCollection(features=[nt_feature])
             @test fc isa GeoJSON.FeatureCollection
-            @test occursin("(:geometry, :park, :cartodb_id, :addr1, :addr2)", sprint(show, MIME"text/plain"(), fc[1]))
+            @test occursin("(:geometry, :cartodb_id, :addr1, :addr2, :park)", sprint(show, MIME"text/plain"(), fc[1]))
         end
 
         @testset "write to disk" begin
@@ -221,7 +221,7 @@ include("geojson_samples.jl")
             @test GI.trait(f1) === GI.FeatureTrait()
             @test GI.geomtrait(geom) === GI.MultiPolygonTrait()
             properties = GeoJSON.properties(f1)
-            @test properties isa Dict
+            @test properties isa NamedTuple
             @test properties[:addr2] === "Rowland Heights"
             @test !GI.isclosed(GeoJSON.read(Samples.bbox))
             @test GI.isclosed(GeoJSON.read(Samples.bermuda_triangle))
@@ -251,9 +251,9 @@ include("geojson_samples.jl")
         @test all(t.d .=== [missing, "appears-later", missing])
         @testset "With NamedTuple feature" begin
             nt_props = [
-                Dict(:a => t[1].a, :b => t[1].b, :c => t[1].c),
-                Dict(:a => t[2].a, :b => t[2].b, :d => t[2].d),
-                Dict(:a => t[3].a, :b => t[3].b),
+                (a=t[1].a, b=t[1].b, c=t[1].c),
+                (a=t[2].a, b=t[2].b, d=t[2].d),
+                (a=t[3].a, b=t[3].b),
             ]
             features = map(t.geometry, nt_props) do geometry, properties
                 # Setting 2 here is required because of the missing geometry
