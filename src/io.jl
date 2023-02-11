@@ -43,6 +43,10 @@ Write a GeoInterface.jl compatible feature or geometry to a GeoJSON `String`.
 write(io, obj::GeoJSONT) = JSON3.write(io, obj)
 write(obj::GeoJSONT) = JSON3.write(obj)
 
+# GeoInterface supported objects
+write(io, obj) = JSON3.write(io, _lower(obj))
+write(obj) = JSON3.write(_lower(obj))
+
 function _lower(obj)
     if GI.isfeaturecollection(obj)
         base = (type="FeatureCollection", features=_lower.(GI.getfeature(obj)))
