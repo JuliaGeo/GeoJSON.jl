@@ -433,6 +433,8 @@ h = """{
     "properties": {"title": "Dict 1", "bbox": [-180.0, -90.0, 180.0, 90.0]}
 }"""
 
+null_prop_feat = """{"geometry": null, "id": 12, "properties": null, "type": "Feature"}"""
+
 features = [a, b, c, d, e, f, h]
 
 
@@ -491,5 +493,7 @@ point_int = """{"type":"Point","coordinates":[1,2]}"""
 geometries_2d = [multi, bbox, bermuda_triangle, geom_collection, point_int]
 geometries_3d = [bbox_z]
 geometries = vcat(geometries_2d, geometries_3d)
+
+include("regression.jl")
 
 end  # module

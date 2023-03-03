@@ -2,6 +2,7 @@ abstract type GeoJSONT{D,T} end
 abstract type AbstractGeometry{D,T} <: GeoJSONT{D,T} end
 abstract type AbstractFeatureCollection{D,T} <: GeoJSONT{D,T} end
 
+const Dims = (2, 3, 4)
 """
     CRS(type::String, properties::Dict{String,Any})
 
@@ -40,7 +41,7 @@ struct LineString{D,T} <: AbstractGeometry{D,T}
     LineString{D,T}(bbox, coordinates) where {D,T} = new{D,T}(bbox, coordinates)
     LineString{D,T}(; bbox=nothing, coordinates=nothing) where {D,T} = LineString{D,T}(bbox, coordinates)
 end
-LineString(; bbox=nothing, coordinates::Vector{NTuple{2,T}}) where {T} = LineString{2,T}(D, T, bbox, coordinates)
+LineString(; bbox=nothing, coordinates::Vector{NTuple{2,T}}) where {T} = LineString{2,T}(bbox, coordinates)
 Base.eltype(::Type{LineString{D,T}}) where {D,T} = NTuple{D,T}
 
 """
@@ -100,7 +101,13 @@ MultiPolygon(; bbox=nothing, coordinates::Vector{Vector{Vector{NTuple{2,T}}}}) w
 Base.eltype(::Type{MultiPolygon{D,T}}) where {D,T} = Vector{Vector{NTuple{D,T}}}
 coordinates(g::AbstractGeometry) = getfield(g, :coordinates)
 
-Base.show(io::IO, G::AbstractGeometry{D,T}) where {D,T} = print(io, "$(D)D $(typestring(typeof(G))) $(get(io, :compact, false) ? "" : "with $(length(G.coordinates)) sub-geometries")")
+function Base.show(io::IO, G::AbstractGeometry{D,T}) where {D,T}
+    print(io, D, "D ", typestring(typeof(G)))
+    if !get(io, :compact, false)
+        print(io, "with ", length(G.coordinates), " sub-geometries")
+    end
+end
+
 Base.length(g::AbstractGeometry) = length(coordinates(g))
 Base.lastindex(g::AbstractGeometry) = length(coordinates(g))
 Base.size(g::AbstractGeometry) = size(coordinates(g))
@@ -108,7 +115,9 @@ Base.axes(g::AbstractGeometry) = axes(coordinates(g))
 Base.getindex(g::AbstractGeometry, i::Int) = getindex(coordinates(g), i::Int)
 Base.IndexStyle(::Type{<:AbstractGeometry}) = Base.IndexLinear()
 
-Base.:(==)(g1::AbstractGeometry, g2::AbstractGeometry) = coordinates(g1) == coordinates(g2)
+function Base.:(==)(g1::AbstractGeometry, g2::AbstractGeometry)
+    (typeof(g1) === typeof(g2)) && (coordinates(g1) == coordinates(g2))
+end
 
 function Base.iterate(g::AbstractGeometry, state=1)
     x = iterate(coordinates(g), state)
@@ -157,7 +166,7 @@ struct Feature{D,T} <: GeoJSONT{D,T}
     id::Union{Nothing,String,Int}
     bbox::Union{Nothing,Vector{T}}
     geometry::Union{Nothing,AbstractGeometry{D,T}}
-    properties::NamedTuple
+    properties::Union{Nothing,NamedTuple}
     Feature{D,T}(id, bbox, geometry, properties) where {D,T} = new{D,T}(id, bbox, geometry, properties)
     Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=NamedTuple()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
 end
@@ -165,7 +174,11 @@ Feature(; id=nothing, bbox=nothing, geometry::AbstractGeometry{D,T}, properties=
 
 id(f::Feature) = getfield(f, :id)
 geometry(f::Feature) = getfield(f, :geometry)
-properties(f::Feature) = getfield(f, :properties)
+function properties(f::Feature)
+    props = getfield(f, :properties)
+    return isnothing(props) ? (;) : props
+end
+
 coordinates(f::Feature) = coordinates(geometry(f))
 Base.show(io::IO, x::Feature{D,T}) where {D,T} = print(io, "Feature with $(D)D $(typestring(typeof(geometry(x)))) geometry and $(length(properties(x))+1) properties: $(propertynames(x))")
 Base.:(==)(f1::Feature, f2::Feature) = id(f1) == id(f2) && bbox(f1) == bbox(f2) && geometry(f1) == geometry(f2) && properties(f1) == properties(f2)
@@ -195,7 +208,7 @@ end
 
 
 # This is a non-public type used to lazily construct a Feature from a JSON3.RawValue
-# It can be written again as String, which can also be used to parsed to a Feature
+# It can be written again as String, which can also be used to parse to a Feature
 struct LazyFeature{D,T} <: GeoJSONT{D,T}
     bytes::Any
     pos::Int
@@ -260,7 +273,7 @@ bbox(x::GeoJSONT) = getfield(x, :bbox)
 """
     LazyFeatureCollection{D,T}(bbox::Union{Nothing,Vector{T}}, features::Vector{LazyFeature{D,T}}, crs::Union{Nothing,String})
 
-A FeatureCollection with `D` dimensional geometry in its features, but it's features are
+A FeatureCollection with `D` dimensional geometry in its features, but its features are
 lazily parsed from the GeoJSON string. Indexing into the collection will parse the feature.
 This can be more efficient when interested in only a few features from a large collection,
 or parsing a very large collection iteratively without loading it all into memory.

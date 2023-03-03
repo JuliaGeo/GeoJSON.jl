@@ -304,6 +304,17 @@ include("geojson_samples.jl")
         @test collect(coords) isa Vector{Float32}
     end
 
+    @testset "equality" begin
+        p = GeoJSON.read(Samples.point_int)
+        @test p == p
+        @test GeoJSON.Point(coordinates=(1, 2)) != GeoJSON.Point(coordinates=(2, 3))
+        @test GeoJSON.LineString(coordinates=[(1, 2)]) != GeoJSON.MultiPoint(coordinates=[(1, 2)])
+    end
+
+    @testset "regression" begin
+        GeoJSON.read(Samples.null_prop_feat)
+    end
+
     Aqua.test_all(GeoJSON)
 
 end  # testset "GeoJSON"
