@@ -1,8 +1,10 @@
 """
-    GeoJSON.read(json::String; lazyfc=false, ndim=2)
+    GeoJSON.read(json::String; lazyfc=false, ndim=2, numbertype=Float32)
 
 Read GeoJSON from a string to a GeoInterface.jl compatible object.
 Set `ndim=3` for 3D geometries, which is also tried automatically when
+parsing as `ndim=2` (default) fails. The `numbertype` is Float32 by default,
+Float64 should be set when the precision is required.
 
 When reading in huge featurecollections (1M+ features), set `lazyfc=true`
 to only parse them into memory when accessed.
