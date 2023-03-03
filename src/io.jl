@@ -1,7 +1,7 @@
 """
     GeoJSON.read(json::String; lazyfc=false, ndim=2)
 
-Read GeoJSON from a string or file to a GeoInterface.jl compatible object.
+Read GeoJSON from a string to a GeoInterface.jl compatible object.
 Set `ndim=3` for 3D geometries, which is also tried automatically when
 
 When reading in huge featurecollections (1M+ features), set `lazyfc=true`
