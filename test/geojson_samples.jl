@@ -494,6 +494,4 @@ geometries_2d = [multi, bbox, bermuda_triangle, geom_collection, point_int]
 geometries_3d = [bbox_z]
 geometries = vcat(geometries_2d, geometries_3d)
 
-include("regression.jl")
-
 end  # module
