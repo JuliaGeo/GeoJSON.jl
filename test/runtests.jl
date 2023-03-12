@@ -90,7 +90,7 @@ include("geojson_samples.jl")
 
         # Feature
         # properties named "geometry" are *not* shadowed by the geometry
-        f = GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2))
+        f = GeoJSON.Feature(geometry=p, properties=pairs((a=1, geometry="g", b=2)))
         @test GeoJSON.coordinates(f) == (1.1f0, 2.2f0)
         @test propertynames(f) === (:geometry, :a, :b)
         @test GeoJSON.geometry(f) === p
@@ -114,11 +114,11 @@ include("geojson_samples.jl")
         @test iterate(p, 3) === nothing
 
         # other constructors
-        GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2))
+        GeoJSON.Feature(geometry=p, properties=pairs((a=1, geometry="g", b=2)))
         GeoJSON.FeatureCollection(features=[f])
 
         # Mixed name vector
-        f2 = GeoJSON.Feature(geometry=p, properties=(a=1, geometry="g", b=2, c=3))
+        f2 = GeoJSON.Feature(geometry=p, properties=pairs((a=1, geometry="g", b=2, c=3)))
         GeoJSON.FeatureCollection(features=[f, f2])
     end
 
@@ -169,7 +169,7 @@ include("geojson_samples.jl")
         @test Tables.rows(t) === t
         @test Tables.columns(t) isa Tables.CopiedColumns
         @test t isa GeoJSON.FeatureCollection{2}
-        @test propertynames(t) == [:park, :cartodb_id, :addr1, :addr2, :geometry]
+        @test sort(propertynames(t)) == [:addr1, :addr2, :cartodb_id, :geometry, :park,]
         @test Tables.rowtable(t) isa Vector{<:NamedTuple}
         @test Tables.columntable(t) isa NamedTuple
         @inferred first(t)
@@ -196,11 +196,12 @@ include("geojson_samples.jl")
         @testset "With NamedTuple feature" begin
             nt_feature = GeoJSON.Feature(
                 geometry=t[1].geometry,
-                properties=(cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park)
+                properties=pairs((cartodb_id=t[1].cartodb_id, addr1=t[1].addr1, addr2=t[1].addr2, park=t[1].park))
             )
             fc = GeoJSON.FeatureCollection(features=[nt_feature])
             @test fc isa GeoJSON.FeatureCollection
-            @test occursin("(:geometry, :cartodb_id, :addr1, :addr2, :park)", sprint(show, MIME"text/plain"(), fc[1]))
+            @test occursin("(:geometry,", sprint(show, MIME"text/plain"(), fc[1]))
+            @test occursin(":park", sprint(show, MIME"text/plain"(), fc[1]))
         end
 
         @testset "write to disk" begin
@@ -221,7 +222,7 @@ include("geojson_samples.jl")
             @test GI.trait(f1) === GI.FeatureTrait()
             @test GI.geomtrait(geom) === GI.MultiPolygonTrait()
             properties = GeoJSON.properties(f1)
-            @test properties isa NamedTuple
+            @test properties isa Dict{Symbol,Any}
             @test properties[:addr2] === "Rowland Heights"
             @test !GI.isclosed(GeoJSON.read(Samples.bbox))
             @test GI.isclosed(GeoJSON.read(Samples.bermuda_triangle))
@@ -243,7 +244,7 @@ include("geojson_samples.jl")
 
         t = GeoJSON.read(Samples.table_not_present)
         @test occursin("(:geometry, :a, :b, :c)", sprint(show, MIME"text/plain"(), t[1]))
-        @test propertynames(t) == [:a, :b, :c, :geometry, :d]
+        @test sort(propertynames(t)) == sort([:a, :b, :c, :geometry, :d])
         @test propertynames(t[1]) == (:geometry, :a, :b, :c)
         @test propertynames(t[2]) == (:geometry, :a, :b, :d)
         # "c" and "d" are only present in the properties of a single row
@@ -257,7 +258,7 @@ include("geojson_samples.jl")
             ]
             features = map(t.geometry, nt_props) do geometry, properties
                 # Setting 2 here is required because of the missing geometry
-                GeoJSON.Feature{2,Float32}(geometry=ismissing(geometry) ? nothing : geometry, properties=properties)
+                GeoJSON.Feature{2,Float32}(geometry=ismissing(geometry) ? nothing : geometry, properties=pairs(properties))
             end
             fc = GeoJSON.FeatureCollection(features=features)
             @test fc isa GeoJSON.FeatureCollection

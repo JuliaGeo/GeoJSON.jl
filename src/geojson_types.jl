@@ -163,10 +163,10 @@ end
 A Feature with `D` dimensional geometry.
 """
 struct Feature{D,T} <: GeoJSONT{D,T}
-    id::Union{Nothing,String,Int}
+    id::Any
     bbox::Union{Nothing,Vector{T}}
     geometry::Union{Nothing,AbstractGeometry{D,T}}
-    properties::Union{Nothing,NamedTuple}
+    properties::Union{Nothing,Dict{Symbol,Any}}
     Feature{D,T}(id, bbox, geometry, properties) where {D,T} = new{D,T}(id, bbox, geometry, properties)
     Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=NamedTuple()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
 end
@@ -176,7 +176,7 @@ id(f::Feature) = getfield(f, :id)
 geometry(f::Feature) = getfield(f, :geometry)
 function properties(f::Feature)
     props = getfield(f, :properties)
-    return isnothing(props) ? (;) : props
+    return isnothing(props) ? Dict{Symbol,Any}() : props
 end
 
 coordinates(f::Feature) = coordinates(geometry(f))
