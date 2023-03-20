@@ -13,12 +13,12 @@ GI.ncoord(::GI.AbstractTrait, ::AbstractGeometry{D,T}) where {D,T} = D
 GI.coordinates(::GI.AbstractGeometryTrait, g::AbstractGeometry) = coordinates(g)
 GI.coordinates(::GI.AbstractPointTrait, g::AbstractGeometry) = coordinates(g)  # prevent ambiguity
 
-GI.traittype(::Val{:GeoJSON}, ::GI.PointTrait) = Point
-GI.traittype(::Val{:GeoJSON}, ::GI.LineStringTrait) = LineString
-GI.traittype(::Val{:GeoJSON}, ::GI.PolygonTrait) = Polygon
-GI.traittype(::Val{:GeoJSON}, ::GI.MultiLineStringTrait) = MultiLineString
-GI.traittype(::Val{:GeoJSON}, ::GI.MultiPolygonTrait) = MultiPolygon
-GI.traittype(::Val{:GeoJSON}, ::GI.GeometryCollectionTrait) = GeometryCollection
+geointerface_geomtype(::GI.PointTrait) = Point
+geointerface_geomtype(::GI.LineStringTrait) = LineString
+geointerface_geomtype(::GI.PolygonTrait) = Polygon
+geointerface_geomtype(::GI.MultiLineStringTrait) = MultiLineString
+geointerface_geomtype(::GI.MultiPolygonTrait) = MultiPolygon
+geointerface_geomtype(::GI.GeometryCollectionTrait) = GeometryCollection
 
 # we have to make use of the GI fallbacks that call geomtrait on the input
 GI.getcoord(::GI.PointTrait, g::Point, i::Int) = g[i]
