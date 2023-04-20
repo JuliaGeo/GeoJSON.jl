@@ -61,32 +61,49 @@ function _lower(obj)
         )
         return _add_bbox(GI.extent(obj), base)
     elseif GI.isgeometry(obj)
-        _lower(GI.geomtrait(obj), obj)
+        if GI.is3d(obj)
+            _lower(GI.geomtrait(obj), Val{true}(), obj)
+        else                                           
+            _lower(GI.geomtrait(obj), Val{false}(), obj)
+        end
     else
         # null geometry
         nothing
     end
 end
-_lower(::GI.AbstractPointTrait, obj) = (type="Point", coordinates=GI.coordinates(obj))
-_lower(::GI.AbstractLineStringTrait, obj) =
-    (type="LineString", coordinates=GI.coordinates(obj))
-_lower(::GI.AbstractPolygonTrait, obj) =
-    (type="Polygon", coordinates=GI.coordinates(obj))
-_lower(::GI.AbstractMultiPointTrait, obj) =
-    (type="MultiPoint", coordinates=GI.coordinates(obj))
-_lower(::GI.AbstractMultiLineStringTrait, obj) =
-    (type="Polygon", coordinates=GI.coordinates(obj))
-_lower(::GI.AbstractMultiPolygonTrait, obj) =
-    (type="MultiPolygon", coordinates=collect(GI.coordinates(obj)))
-_lower(::GI.AbstractGeometryCollectionTrait, obj) =
+_lower(t::GI.AbstractPointTrait, d, obj) =
+    (type="Point", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractLineStringTrait, d, obj) =
+    (type="LineString", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractPolygonTrait, d, obj) =
+    (type="Polygon", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractMultiPointTrait, d, obj) =
+    (type="MultiPoint", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractMultiLineStringTrait, d, obj) =
+    (type="Polygon", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractMultiPolygonTrait, d, obj) =
+    (type="MultiPolygon", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractGeometryCollectionTrait, d, obj) =
     (type="GeometryCollection", geometries=_lower.(GI.getgeom(obj)))
+
+function _to_vector_ntuple(::GI.PointTrait, is3d::Val{false}, geom)
+    (GI.x(geom), GI.y(geom))
+end
+function _to_vector_ntuple(::GI.PointTrait, is3d::Val{true}, geom)
+    (GI.x(geom), GI.y(geom), GI.z(geom))
+end
+function _to_vector_ntuple(::GI.AbstractGeometryTrait, is3d, geom)
+    map(GI.getgeom(geom)) do child_geom
+        _to_vector_ntuple(is3d, GI.geomtrait(child_geom), child_geom) 
+    end
+end
 
 _add_bbox(::Nothing, nt::NamedTuple) = nt
 function _add_bbox(ext::Extents.Extent, nt::NamedTuple)
     if haskey(ext, :Z)
         bbox = [ext.X[1], ext.Y[1], ext.Z[1], ext.X[2], ext.Y[2], ext.Z[2]]
     else
-        bbox = [ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
+        bbox = [ext.X[1], ext.Y[2], ext.X[2], ext.Y[2]]
     end
     merge(nt, (; bbox))
 end
