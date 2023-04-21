@@ -94,7 +94,7 @@ function _to_vector_ntuple(::GI.PointTrait, is3d::Val{true}, geom)
 end
 function _to_vector_ntuple(::GI.AbstractGeometryTrait, is3d, geom)
     map(GI.getgeom(geom)) do child_geom
-        _to_vector_ntuple(is3d, GI.geomtrait(child_geom), child_geom) 
+        _to_vector_ntuple(GI.geomtrait(child_geom), is3d, child_geom) 
     end
 end
 
