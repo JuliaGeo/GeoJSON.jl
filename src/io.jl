@@ -103,7 +103,7 @@ function _add_bbox(ext::Extents.Extent, nt::NamedTuple)
     if haskey(ext, :Z)
         bbox = [ext.X[1], ext.Y[1], ext.Z[1], ext.X[2], ext.Y[2], ext.Z[2]]
     else
-        bbox = [ext.X[1], ext.Y[2], ext.X[2], ext.Y[2]]
+        bbox = [ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
     end
     merge(nt, (; bbox))
 end
