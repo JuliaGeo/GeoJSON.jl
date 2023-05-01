@@ -59,7 +59,11 @@ function _lower(obj)
             geometry=_lower(GI.geometry(obj)),
             properties=GI.properties(obj),
         )
-        return _add_bbox(GI.extent(obj), base)
+        if GI.ngeom(GI.geometry(obj)) > 0 
+            return _add_bbox(GI.extent(obj), base)
+        else
+            return _add_bbox(nothing, base)
+        end
     elseif GI.isgeometry(obj)
         _lower(GI.geomtrait(obj), obj)
     else
