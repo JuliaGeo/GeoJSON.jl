@@ -2,6 +2,7 @@ using GeoJSON
 import GeoInterface as GI
 import GeoFormatTypes
 import Aqua
+import JSON3
 using Extents
 using JSON3
 using Tables
@@ -147,6 +148,15 @@ include("geojson_samples.jl")
         foreach(Samples.features) do json
             f = GeoJSON.read(json)
             f1 = GeoJSON.read(GeoJSON.write(f))
+            @test GeoJSON.geometry(f) == GeoJSON.geometry(f1)
+            @test GeoJSON.properties(f) == GeoJSON.properties(f1)
+            @test GI.extent(f) == GI.extent(f1)
+        end
+
+        # Writing using _lower
+        foreach(Samples.features) do json
+            f = GeoJSON.read(json)
+            f1 = GeoJSON.read(JSON3.write(GeoJSON._lower(f)))
             @test GeoJSON.geometry(f) == GeoJSON.geometry(f1)
             @test GeoJSON.properties(f) == GeoJSON.properties(f1)
             @test GI.extent(f) == GI.extent(f1)

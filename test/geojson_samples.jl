@@ -437,7 +437,6 @@ null_prop_feat = """{"geometry": null, "id": 12, "properties": null, "type": "Fe
 
 features = [a, b, c, d, e, f, h]
 
-
 ## Geometry
 
 # Examples from https://datatracker.ietf.org/doc/html/rfc7946#section-1.3
