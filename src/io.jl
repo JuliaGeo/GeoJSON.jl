@@ -80,6 +80,8 @@ _lower(t::GI.AbstractPolygonTrait, d, obj) =
 _lower(t::GI.AbstractMultiPointTrait, d, obj) =
     (type="MultiPoint", coordinates=_to_vector_ntuple(t, d, obj))
 _lower(t::GI.AbstractMultiLineStringTrait, d, obj) =
+    (type="MultiLineString", coordinates=_to_vector_ntuple(t, d, obj))
+_lower(t::GI.AbstractPolygonTrait, d, obj) =
     (type="Polygon", coordinates=_to_vector_ntuple(t, d, obj))
 _lower(t::GI.AbstractMultiPolygonTrait, d, obj) =
     (type="MultiPolygon", coordinates=_to_vector_ntuple(t, d, obj))
