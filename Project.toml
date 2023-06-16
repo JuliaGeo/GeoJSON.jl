@@ -1,7 +1,7 @@
 name = "GeoJSON"
 uuid = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
 authors = ["Martijn Visser <mgvisser@gmail.com>", "Rafael Schouten <rafaelschouten@gmail.com>", "Maarten Pronk <git@evetion.nl>"]
-version = "0.7.1"
+version = "0.7.2"
 
 [deps]
 Extents = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
