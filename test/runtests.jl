@@ -161,6 +161,14 @@ include("geojson_samples.jl")
                 @test GI.extent(f) == GI.extent(f1)
             end
         end
+
+        # GeoInterface support
+        foreach(Samples.featuresgeom) do json
+            geom = GeoJSON.geometry(GeoJSON.read(json))
+            geom1 = GeoJSON.read(GeoJSON.write(GI.convert(GI, geom)))
+            @test geom == geom1
+            @test GI.extent(geom) == GI.extent(geom1)
+        end
     end
 
     @testset "FeatureCollection of one MultiPolygon" begin

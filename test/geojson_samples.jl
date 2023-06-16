@@ -436,7 +436,7 @@ h = """{
 null_prop_feat = """{"geometry": null, "id": 12, "properties": null, "type": "Feature"}"""
 
 features = [a, b, c, d, e, f, h]
-
+featuresgeom = [b, d, e, h]
 
 ## Geometry
 
