@@ -265,7 +265,7 @@ Base.length(fc::AbstractFeatureCollection) = length(features(fc))
 Base.lastindex(fc::AbstractFeatureCollection) = length(features(fc))
 Base.IteratorSize(::Type{<:AbstractFeatureCollection}) = Base.HasLength()
 Base.size(fc::AbstractFeatureCollection) = size(features(fc))
-Base.getindex(fc::AbstractFeatureCollection, i::Int) = features(fc)[i]
+Base.getindex(fc::AbstractFeatureCollection, i::Union{Int,UnitRange,Vector}) = features(fc)[i]
 Base.IndexStyle(::AbstractFeatureCollection) = IndexLinear()
 
 bbox(x::GeoJSONT) = getfield(x, :bbox)
