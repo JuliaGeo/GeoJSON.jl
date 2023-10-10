@@ -13,13 +13,12 @@ properties in the columns individually.
 
 ## Usage
 GeoJSON only provides simple `read` and `write` methods.
+`GeoJSON.read` takes a file path, string, IO, or bytes.
 
 ```julia
 julia> using GeoJSON, DataFrames
 
-julia> jsonbytes = read("path/to/a.geojson");
-
-julia> fc = GeoJSON.read(jsonbytes)
+julia> fc = GeoJSON.read("path/to/a.geojson")
 FeatureCollection with 171 Features
 
 julia> first(fc)
@@ -34,8 +33,7 @@ julia> write(fc)
 ```
 
 
-
-### HTTP access 
+### HTTP access
 To read JSON from a URL, use HTTP.jl
 ```julia
 

@@ -1,13 +1,14 @@
 """
-    GeoJSON.read(json::String; lazyfc=false, ndim=2, numbertype=Float32)
+    GeoJSON.read(json; lazyfc=false, ndim=2, numbertype=Float32)
 
-Read GeoJSON from a string to a GeoInterface.jl compatible object.
-Set `ndim=3` for 3D geometries, which is also tried automatically when
-parsing as `ndim=2` (default) fails. The `numbertype` is Float32 by default,
-Float64 should be set when the precision is required.
+Read GeoJSON to a GeoInterface.jl compatible object.
 
-When reading in huge featurecollections (1M+ features), set `lazyfc=true`
-to only parse them into memory when accessed.
+# Arguments
+- `json`: A file path, string, IO, or bytes (`AbstractVector{UInt8`) containing JSON to read.
+- `lazyfc::Bool=false`: When reading in huge featurecollections (1M+ features),
+    set `lazyfc=true` to only parse them into memory when accessed.
+- `ndim::Int=2`: Use 3 for 3D geometries, which is also used when 2D parsing fails.
+- `numbertype::DataType=Float32`: Use Float64 when the precision is required.
 """
 function read(io; lazyfc=false, ndim=2, numbertype=Float32)
     if lazyfc
@@ -63,7 +64,7 @@ function _lower(obj)
     elseif GI.isgeometry(obj)
         if GI.is3d(obj)
             _lower(GI.geomtrait(obj), Val{true}(), obj)
-        else                                           
+        else
             _lower(GI.geomtrait(obj), Val{false}(), obj)
         end
     else
@@ -94,7 +95,7 @@ function _to_vector_ntuple(::GI.PointTrait, is3d::Val{true}, geom)
 end
 function _to_vector_ntuple(::GI.AbstractGeometryTrait, is3d, geom)
     map(GI.getgeom(geom)) do child_geom
-        _to_vector_ntuple(GI.geomtrait(child_geom), is3d, child_geom) 
+        _to_vector_ntuple(GI.geomtrait(child_geom), is3d, child_geom)
     end
 end
 

@@ -212,16 +212,38 @@ include("geojson_samples.jl")
             @test occursin(":park", sprint(show, MIME"text/plain"(), fc[1]))
         end
 
-        @testset "write to disk" begin
+        @testset "read and write methods" begin
+            # read string
             fc = t
-            GeoJSON.write("Samples.json", fc)
-            fc1 = GeoJSON.read(read("Samples.json", String))
-            @test GI.extent(fc) == GI.extent(fc1) == Extent(X=(100.0f0, 105.0f0), Y=(0.0f0, 1.0f0))
             f = GI.getfeature(fc, 1)
-            f1 = GI.getfeature(fc1, 1)
-            @test GI.geometry(f) == GI.geometry(f1)
-            @test GI.properties(f) == GI.properties(f1)
-            rm("Samples.json")
+            geom = GI.geometry(f)
+            prop = GI.properties(f)
+            path = tempname()
+            # write to path
+            GeoJSON.write(path, fc)
+            bytes = read(path)
+            # write to io
+            mktemp() do path, io
+                GeoJSON.write(io, fc)
+                close(io)
+                @test read(path) == bytes
+            end
+            # read bytes
+            fc_bytes = GeoJSON.read(bytes)
+            @test GI.extent(fc) == GI.extent(fc_bytes) == Extent(X=(100.0f0, 105.0f0), Y=(0.0f0, 1.0f0))
+            f_bytes = GI.getfeature(fc_bytes, 1)
+            @test GI.geometry(f_bytes) == geom
+            @test GI.properties(f_bytes) == prop
+            # read file
+            fc_file = GeoJSON.read(path)
+            @test GI.geometry(fc_file[1]) == geom
+            @test GI.properties(fc_file[1]) == prop
+            # read io
+            fc_io = open(path) do io
+                GeoJSON.read(io)
+            end
+            @test GI.geometry(fc_io[1]) == geom
+            @test GI.properties(fc_io[1]) == prop
         end
 
         @testset "GeoInterface" begin
@@ -325,19 +347,19 @@ include("geojson_samples.jl")
     end
 
     @testset "NamedTuple point order doesn't matter as long as it's known" begin
-        @test GeoJSON.write((X=1.0, Y=2.0)) == 
-              GeoJSON.write((Y=2.0, X=1.0)) == 
+        @test GeoJSON.write((X=1.0, Y=2.0)) ==
+              GeoJSON.write((Y=2.0, X=1.0)) ==
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0]}"
-        @test GeoJSON.write((Z=3, X=1.0, Y=2.0)) == 
-              GeoJSON.write((Y=2.0, X=1.0, Z=3)) == 
-              GeoJSON.write((Y=2.0, Z=3, X=1.0)) == 
-              GeoJSON.write((X=1.0, Z=3, Y=2.0)) == 
+        @test GeoJSON.write((Z=3, X=1.0, Y=2.0)) ==
+              GeoJSON.write((Y=2.0, X=1.0, Z=3)) ==
+              GeoJSON.write((Y=2.0, Z=3, X=1.0)) ==
+              GeoJSON.write((X=1.0, Z=3, Y=2.0)) ==
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
         # M is not in the spec
-        @test GeoJSON.write((Z=3, X=1.0, Y=2.0, M=4)) == 
-              GeoJSON.write((Y=2.0, X=1.0, M=4, Z=3)) == 
-              GeoJSON.write((M=4, Y=2.0, Z=3, X=1.0)) == 
-              GeoJSON.write((X=1.0, Z=3, M=4, Y=2.0)) == 
+        @test GeoJSON.write((Z=3, X=1.0, Y=2.0, M=4)) ==
+              GeoJSON.write((Y=2.0, X=1.0, M=4, Z=3)) ==
+              GeoJSON.write((M=4, Y=2.0, Z=3, X=1.0)) ==
+              GeoJSON.write((X=1.0, Z=3, M=4, Y=2.0)) ==
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
     end
 
