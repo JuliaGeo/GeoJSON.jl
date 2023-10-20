@@ -3,9 +3,9 @@ using Documenter
 
 makedocs(;
     modules=[GeoJSON],
-    repo="https://github.com/JuliaGeo/GeoJSON.jl/blob/{commit}{path}#{line}",
     sitename="GeoJSON.jl",
     format=Documenter.HTML(;
+        repolink="https://github.com/JuliaGeo/GeoJSON.jl/",
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://JuliaGeo.github.io/GeoJSON.jl",
         assets=String[],
@@ -13,7 +13,6 @@ makedocs(;
     pages=[
         "Home" => "index.md",
     ],
-    strict=true,
 )
 
 deploydocs(;
