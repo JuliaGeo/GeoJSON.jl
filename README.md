@@ -18,7 +18,10 @@ GeoJSON only provides simple `read` and `write` methods.
 ```julia
 julia> using GeoJSON, DataFrames
 
-julia> fc = GeoJSON.read("path/to/a.geojson")
+julia> jsonbytes = read("path/to/a.geojson");
+2182679-element Vector{UInt8}:
+
+julia> fc = GeoJSON.read(jsonbytes)
 FeatureCollection with 171 Features
 
 julia> first(fc)
