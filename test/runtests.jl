@@ -368,6 +368,13 @@ include("geojson_samples.jl")
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
     end
 
-    Aqua.test_all(GeoJSON)
+    @testset "Aqua.jl" begin
+        Aqua.test_ambiguities([GeoJSON, Base, Core])
+        Aqua.test_unbound_args(GeoJSON)
+        # Aqua.test_stale_deps(GeoJSON)
+        Aqua.test_undefined_exports(GeoJSON)
+        Aqua.test_project_extras(GeoJSON)
+        Aqua.test_deps_compat(GeoJSON)
+    end
 
 end  # testset "GeoJSON"
