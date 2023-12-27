@@ -7,6 +7,7 @@ using JSON3
 using Tables
 using Test
 using Plots
+using Makie
 using DataFrames
 
 include("geojson_samples.jl")
@@ -47,7 +48,8 @@ include("geojson_samples.jl")
             geom = GeoJSON.geometry(GeoJSON.read(s))
             if !isnothing(geom)
                 @test GeoJSON.coordinates(geom) == g
-                plot(geom)
+                Plots.plot(geom)
+                Makie.plot(geom)
             end
         end
     end
@@ -67,7 +69,8 @@ include("geojson_samples.jl")
         ]
 
         geom = GeoJSON.read(Samples.bbox)
-        plot(geom)
+        Plots.plot(geom)
+        Makie.plot(geom)
         @test geom isa GeoJSON.LineString
         @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
         @test GeoJSON.coordinates(geom) == [(-35.1f0, -6.6f0), (8.1f0, 3.8f0)]
