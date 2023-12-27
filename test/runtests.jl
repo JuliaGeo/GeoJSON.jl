@@ -14,6 +14,13 @@ include("geojson_samples.jl")
 
 @testset "GeoJSON" begin
 
+    @testset "Aqua.jl" begin
+        Aqua.test_all(
+            GeoJSON;
+            stale_deps=(ignore=[:GeoInterfaceMakie],),
+        )
+    end
+
     @testset "Features" begin
         geometries = [
             nothing,
@@ -366,15 +373,6 @@ include("geojson_samples.jl")
               GeoJSON.write((M=4, Y=2.0, Z=3, X=1.0)) ==
               GeoJSON.write((X=1.0, Z=3, M=4, Y=2.0)) ==
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
-    end
-
-    @testset "Aqua.jl" begin
-        Aqua.test_ambiguities([GeoJSON, Base, Core])
-        Aqua.test_unbound_args(GeoJSON)
-        # Aqua.test_stale_deps(GeoJSON)
-        Aqua.test_undefined_exports(GeoJSON)
-        Aqua.test_project_extras(GeoJSON)
-        Aqua.test_deps_compat(GeoJSON)
     end
 
 end  # testset "GeoJSON"
