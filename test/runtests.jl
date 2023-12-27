@@ -1,5 +1,6 @@
 using GeoJSON
 import GeoInterface as GI
+import GeoIntefaceRecipes
 import GeoFormatTypes
 import Aqua
 using Extents
