@@ -2,6 +2,7 @@ module GeoJSONMakie
 using GeoInterfaceMakie: GeoInterfaceMakie
 using GeoJSON: GeoJSON
 
-GeoInterfaceMakie.@enable GeoJSON.AbstractShape
+@show "here in GeoJSONMakie"
+GeoInterfaceMakie.@enable GeoJSON.AbstractGeometry
 
 end

@@ -67,6 +67,8 @@ include("geojson_samples.jl")
                 (-170.0f0, 40.0f0),
             ]],
         ]
+        Plots.plot(geom)
+        Makie.plot(geom)
 
         geom = GeoJSON.read(Samples.bbox)
         Plots.plot(geom)
