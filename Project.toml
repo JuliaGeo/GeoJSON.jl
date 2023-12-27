@@ -27,7 +27,7 @@ Plots = "1.39"
 StructTypes = "1"
 Tables = "1"
 Test = "<0.0.1,1"
-julia = "1.6"
+julia = "1.9"
 
 [weakdeps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
