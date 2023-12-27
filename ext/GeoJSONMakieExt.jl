@@ -1,4 +1,4 @@
-module GeoJSONMakie
+module GeoJSONMakieExt
 using GeoInterfaceMakie: GeoInterfaceMakie
 using GeoJSON: GeoJSON
 
