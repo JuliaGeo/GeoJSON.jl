@@ -1,5 +1,6 @@
 using GeoJSON
 import GeoInterface as GI
+import GeoInterfaceRecipes
 import GeoFormatTypes
 import Aqua
 using Extents
@@ -7,11 +8,19 @@ using JSON3
 using Tables
 using Test
 using Plots
+using Makie
 using DataFrames
 
 include("geojson_samples.jl")
 
 @testset "GeoJSON" begin
+    @testset "Aqua.jl" begin
+        Aqua.test_all(
+            GeoJSON;
+            ambiguities=(exclude=[GeoInterfaceRecipes.RecipesBase.apply_recipe],),
+            stale_deps=(ignore=[:GeoInterfaceMakie],),
+        )
+    end
 
     @testset "Features" begin
         geometries = [
@@ -47,7 +56,8 @@ include("geojson_samples.jl")
             geom = GeoJSON.geometry(GeoJSON.read(s))
             if !isnothing(geom)
                 @test GeoJSON.coordinates(geom) == g
-                plot(geom)
+                Plots.plot(geom)
+                Makie.plot(geom)
             end
         end
     end
@@ -65,9 +75,12 @@ include("geojson_samples.jl")
                 (-170.0f0, 40.0f0),
             ]],
         ]
+        Plots.plot(geom)
+        Makie.plot(geom)
 
         geom = GeoJSON.read(Samples.bbox)
-        plot(geom)
+        Plots.plot(geom)
+        Makie.plot(geom)
         @test geom isa GeoJSON.LineString
         @test GI.crs(geom) == GeoFormatTypes.EPSG(4326)
         @test GeoJSON.coordinates(geom) == [(-35.1f0, -6.6f0), (8.1f0, 3.8f0)]
@@ -362,7 +375,5 @@ include("geojson_samples.jl")
               GeoJSON.write((X=1.0, Z=3, M=4, Y=2.0)) ==
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
     end
-
-    Aqua.test_all(GeoJSON)
 
 end  # testset "GeoJSON"
