@@ -321,6 +321,14 @@ include("geojson_samples.jl")
         end
     end
 
+    @testset "Extents" begin
+        # First, test that `Extents.extent` returns nothing for a geometry with no bbox
+        feature = GeoJSON.read(Samples.b)
+        @test isnothing(GI.Extents.extent(feature))
+        # Next, test that `GI.extent` returns the correct extent for a geometry with a bbox
+        @test GI.extent(feature) == mapreduce(GI.extent, GI.Extents.union, GI.getpoint(feature.geometry))
+    end
+
     @testset "GeoInterface tests" begin
         @test all(GI.testgeometry, GeoJSON.read.(Samples.geometries))
         @test all(GI.testfeature, GeoJSON.read.(Samples.features))
