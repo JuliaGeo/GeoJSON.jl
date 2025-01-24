@@ -57,12 +57,8 @@ GI.getfeature(::GI.FeatureCollectionTrait, fc::AbstractFeatureCollection, i::Int
 GI.nfeature(::GI.FeatureCollectionTrait, fc::AbstractFeatureCollection) = length(fc)
 
 # Any GeoJSON Object
-GI.extent(::GI.FeatureTrait, x::GeoJSONT{2}) = _extent2(x)
-GI.extent(::GI.FeatureCollectionTrait, x::GeoJSONT{2}) = _extent2(x)
-GI.extent(::GI.AbstractGeometryTrait, x::GeoJSONT{2}) = _extent2(x)
-GI.extent(::GI.FeatureTrait, x::GeoJSONT{3}) = _extent3(x)
-GI.extent(::GI.FeatureCollectionTrait, x::GeoJSONT{3}) = _extent3(x)
-GI.extent(::GI.AbstractGeometryTrait, x::GeoJSONT{3}) = _extent3(x)
+GI.Extents.extent(x::GeoJSONT{2}) = _extent2(x)
+GI.Extents.extent(x::GeoJSONT{3}) = _extent3(x)
 
 function _extent3(x)
     bb = bbox(x)
