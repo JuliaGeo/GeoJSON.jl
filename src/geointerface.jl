@@ -81,4 +81,13 @@ end
 
 GI.crs(::GeoJSONT) = GeoFormatTypes.EPSG(4326)
 
+@static if :crstrait in names(GI)
+    # All GeoJSON geometries are geographic-by-default
+    # If you don't want this behaviour in e.g. GeometryOps,
+    # then you can set the manifold directly to Planar (or a different ellipsoid).
+    # An extension on GeometryOpsCore should add the definition of `best_manifold(::GeoJSONType)`
+    # to be WGS84.
+    GI.crstrait(::GeoJSONT) = GI.GeographicTrait() 
+end
+
 GeoInterfaceRecipes.@enable_geo_plots GeoJSON.AbstractGeometry
