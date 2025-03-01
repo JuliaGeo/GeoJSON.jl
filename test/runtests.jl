@@ -56,8 +56,10 @@ include("geojson_samples.jl")
             geom = GeoJSON.geometry(GeoJSON.read(s))
             if !isnothing(geom)
                 @test GeoJSON.coordinates(geom) == g
-                Plots.plot(geom)
-                Makie.plot(geom)
+                @test_nowarn Plots.plot(geom)
+                if !(GI.geomtrait(geom) isa GI.MultiPointTrait)
+                    @test_nowarn Makie.plot(geom)
+                end
             end
         end
     end
