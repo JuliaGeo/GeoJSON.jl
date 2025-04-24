@@ -47,11 +47,12 @@ write(io, obj::GeoJSONT) = JSON3.write(io, obj)
 write(obj::GeoJSONT) = JSON3.write(obj)
 
 # GeoInterface supported objects
-write(io, obj) = JSON3.write(io, _lower(obj))
-write(obj) = JSON3.write(_lower(obj))
+write(io, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(io, _lower(obj; geometrycolumn))
+write(obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(_lower(obj; geometrycolumn))
 
-function _lower(obj)
+function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
     if GI.isfeaturecollection(obj)
+        # This is recursive into this method technically
         base = (type="FeatureCollection", features=_lower.(GI.getfeature(obj)))
         return _add_bbox(GI.extent(obj), base)
     elseif GI.isfeature(obj)
@@ -67,6 +68,20 @@ function _lower(obj)
         else
             _lower(GI.geomtrait(obj), Val{false}(), obj)
         end
+    elseif Tables.istable(obj)
+        geom_col_idx = Tables.columnindex(obj, geometrycolumn)
+        features = map(Tables.namedtupleiterator(obj)) do row
+            geom = getindex(row, geom_col_idx)
+            properties = Base.structdiff(row, NamedTuple{(geometrycolumn,)})
+            fbase = (;
+                type="Feature",
+                geometry=_lower(geom),
+                properties=properties,
+            )
+            _add_bbox(GI.extent(geom), fbase)
+        end
+        base = (type="FeatureCollection", features=features)
+        return _add_bbox(mapreduce(x -> GI.extent(x.geometry), Extents.union, features), base)
     else
         # null geometry
         nothing
