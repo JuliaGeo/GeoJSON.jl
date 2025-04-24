@@ -70,9 +70,13 @@ function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
         end
     elseif Tables.istable(obj)
         geom_col_idx = Tables.columnindex(obj, geometrycolumn)
-        features = map(Tables.namedtupleiterator(obj)) do row
-            geom = getindex(row, geom_col_idx)
-            properties = Base.structdiff(row, NamedTuple{(geometrycolumn,)})
+        # There is a strange bug where Tables.columnnames on some tables is empty, 
+        # so we use the schema instead
+        colnames = Tables.schema(obj).names
+        non_geomcol_keys = tuple(setdiff(colnames, (geometrycolumn,))...)
+        features = map(Tables.rows(obj)) do row
+            geom = Tables.getcolumn(row, geom_col_idx)
+            properties = NamedTuple{non_geomcol_keys}(map(k -> Tables.getcolumn(row, k), non_geomcol_keys))
             fbase = (;
                 type="Feature",
                 geometry=_lower(geom),

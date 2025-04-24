@@ -384,4 +384,24 @@ include("geojson_samples.jl")
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
     end
 
+    @testset "Tables" begin
+        # try a namedtuple table
+        t1 = map(tuple.(1:10, 1:10), rand(10), ["abc" for i in 1:10]) do geometry, prop1, prop2
+            (; geometry, prop1, prop2)
+        end
+        t1_geojson_str = GeoJSON.write(t1)
+        t1_geojson = GeoJSON.read(t1_geojson_str)
+        @test map(x -> (GI.x(x), GI.y(x)), t1_geojson.geometry) == getproperty.(t1, :geometry)
+        @test t1_geojson.prop1 == getproperty.(t1, :prop1)
+        @test t1_geojson.prop2 == getproperty.(t1, :prop2)
+
+        t2 = map(tuple.(1:10, 1:10), rand(10), ["abc" for i in 1:10]) do somethingelse, prop1, prop2
+            (; somethingelse, prop1, prop2)
+        end
+        t2_geojson_str = GeoJSON.write(t2; geometrycolumn = :somethingelse)
+        t2_geojson = GeoJSON.read(t2_geojson_str)
+        @test map(x -> (GI.x(x), GI.y(x)), t2_geojson.geometry) == getproperty.(t2, :somethingelse)
+        @test t2_geojson.prop1 == getproperty.(t2, :prop1)
+        @test t2_geojson.prop2 == getproperty.(t2, :prop2)
+    end
 end  # testset "GeoJSON"
