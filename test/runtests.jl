@@ -403,5 +403,19 @@ include("geojson_samples.jl")
         @test map(x -> (GI.x(x), GI.y(x)), t2_geojson.geometry) == getproperty.(t2, :somethingelse)
         @test t2_geojson.prop1 == getproperty.(t2, :prop1)
         @test t2_geojson.prop2 == getproperty.(t2, :prop2)
+
+        @testset "Metadata" begin
+            @test GI.DataAPI.metadatasupport(typeof(t2_geojson)) == (; read = true, write = false)
+            @test GI.DataAPI.metadatakeys(t2_geojson) == ("GEOINTERFACE:geometrycolumns", "GEOINTERFACE:crs")
+            @test GI.DataAPI.metadata(t2_geojson, "GEOINTERFACE:geometrycolumns") == (:geometry,)
+            @test GI.DataAPI.metadata(t2_geojson, "GEOINTERFACE:crs") == GI.crs(t2_geojson)
+            @test_throws KeyError GI.DataAPI.metadata(t2_geojson, "not_a_key")
+
+            df = DataFrames.DataFrame(t2_geojson)
+            m = DataFrames.metadata(df)
+            @test isempty(setdiff(keys(m), (GI.GEOINTERFACE_CRS_KEY, GI.GEOINTERFACE_GEOMETRYCOLUMNS_KEY)))
+            @test m[GI.GEOINTERFACE_CRS_KEY] == GI.crs(t2_geojson)
+            @test m[GI.GEOINTERFACE_GEOMETRYCOLUMNS_KEY] == (:geometry,)
+        end
     end
 end  # testset "GeoJSON"
