@@ -69,6 +69,7 @@ function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
             _lower(GI.geomtrait(obj), Val{false}(), obj)
         end
     elseif Tables.istable(obj)
+        !(geometrycolumn isa Symbol) && throw(ArgumentError("GeoJSON.jl can only write a single geometry column which must be specified as a `Symbol`, but was passed `$(geometrycolumn)` instead."))
         geom_col_idx = Tables.columnindex(obj, geometrycolumn)
         # There is a strange bug where Tables.columnnames on some tables is empty, 
         # so we use the schema instead
