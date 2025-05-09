@@ -56,6 +56,29 @@ GI.trait(::AbstractFeatureCollection) = GI.FeatureCollectionTrait()
 GI.getfeature(::GI.FeatureCollectionTrait, fc::AbstractFeatureCollection, i::Integer) = fc[i]
 GI.nfeature(::GI.FeatureCollectionTrait, fc::AbstractFeatureCollection) = length(fc)
 
+# Metadata support for FeatureCollection, since it's also a Tables.jl table
+GI.DataAPI.metadatasupport(::Type{<: AbstractFeatureCollection}) = (; read = true, write = false)
+GI.DataAPI.metadatakeys(::AbstractFeatureCollection) = ("GEOINTERFACE:geometrycolumns", "GEOINTERFACE:crs")
+
+function GI.DataAPI.metadata(fc::AbstractFeatureCollection, key, default; style = false)
+    val, thisstyle = if key == "GEOINTERFACE:geometrycolumns"
+        (:geometry,), :note # only this one geom column is supported by the GeoJSON spec
+    elseif key == "GEOINTERFACE:crs"
+        GI.crs(fc), :note
+    else
+        default, :default
+    end
+    return style ? (val, thisstyle) : val
+end
+
+function GI.DataAPI.metadata(fc::AbstractFeatureCollection, key; style = false)
+    if !(key in GI.DataAPI.metadatakeys(fc))
+        throw(KeyError(key))
+    else
+        return GI.DataAPI.metadata(fc, key, nothing; style)
+    end
+end
+
 # Any GeoJSON Object
 GI.Extents.extent(x::GeoJSONT{2}) = _extent2(x)
 GI.Extents.extent(x::GeoJSONT{3}) = _extent3(x)
