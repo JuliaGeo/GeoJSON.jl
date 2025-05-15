@@ -37,11 +37,15 @@ end
 
 
 """
-    write([io], geometry)
+    write([io], geometry; geometrycolumn)
 
-Write a GeoInterface.jl compatible feature or geometry to a GeoJSON `String`.
+Write a GeoInterface.jl compatible feature or geometry to a string of GeoJSON.
 
-`io` may be a filename `String` or `IO` object.
+`io` may be a filename `String`, or an `IO` object.
+
+If `geometry` is a `Tables.Table`, you may pass a `Symbol` to the `geometrycolumn` keyword argument,
+to indicate which column of the table holds the geometries.  Note that this will not keep the name,
+the geometry must be written to the `:geometry` column of the GeoJSON according to the spec.
 """
 write(io, obj::GeoJSONT) = JSON3.write(io, obj)
 write(obj::GeoJSONT) = JSON3.write(obj)
