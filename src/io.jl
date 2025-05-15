@@ -37,21 +37,26 @@ end
 
 
 """
-    write([io], geometry)
+    write([io], geometry; geometrycolumn)
 
-Write a GeoInterface.jl compatible feature or geometry to a GeoJSON `String`.
+Write a GeoInterface.jl compatible feature or geometry to a string of GeoJSON.
 
-`io` may be a filename `String` or `IO` object.
+`io` may be a filename `String`, or an `IO` object.
+
+If `geometry` is a `Tables.Table`, you may pass a `Symbol` to the `geometrycolumn` keyword argument,
+to indicate which column of the table holds the geometries.  Note that this will not keep the name,
+the geometry must be written to the `:geometry` column of the GeoJSON according to the spec.
 """
 write(io, obj::GeoJSONT) = JSON3.write(io, obj)
 write(obj::GeoJSONT) = JSON3.write(obj)
 
 # GeoInterface supported objects
-write(io, obj) = JSON3.write(io, _lower(obj))
-write(obj) = JSON3.write(_lower(obj))
+write(io, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(io, _lower(obj; geometrycolumn))
+write(obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(_lower(obj; geometrycolumn))
 
-function _lower(obj)
+function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
     if GI.isfeaturecollection(obj)
+        # This is recursive into this method technically
         base = (type="FeatureCollection", features=_lower.(GI.getfeature(obj)))
         return _add_bbox(GI.extent(obj), base)
     elseif GI.isfeature(obj)
@@ -67,6 +72,25 @@ function _lower(obj)
         else
             _lower(GI.geomtrait(obj), Val{false}(), obj)
         end
+    elseif Tables.istable(obj)
+        !(geometrycolumn isa Symbol) && throw(ArgumentError("GeoJSON.jl can only write a single geometry column which must be specified as a `Symbol`, but was passed `$(geometrycolumn)` instead."))
+        geom_col_idx = Tables.columnindex(obj, geometrycolumn)
+        # There is a strange bug where Tables.columnnames on some tables is empty, 
+        # so we use the schema instead
+        colnames = Tables.schema(obj).names
+        non_geomcol_keys = tuple(setdiff(colnames, (geometrycolumn,))...)
+        features = map(Tables.rows(obj)) do row
+            geom = Tables.getcolumn(row, geom_col_idx)
+            properties = NamedTuple{non_geomcol_keys}(map(k -> Tables.getcolumn(row, k), non_geomcol_keys))
+            fbase = (;
+                type="Feature",
+                geometry=_lower(geom),
+                properties=properties,
+            )
+            _add_bbox(GI.extent(geom), fbase)
+        end
+        base = (type="FeatureCollection", features=features)
+        return _add_bbox(mapreduce(x -> GI.extent(x.geometry), Extents.union, features), base)
     else
         # null geometry
         nothing
