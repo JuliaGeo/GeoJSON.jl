@@ -43,3 +43,74 @@ julia> resp = HTTP.get("https://path/to/file.json")
 
 julia> fc = GeoJSON.read(resp.body)
 ```
+
+### Creating a GeoJSON File
+This example illustrates the process of generating a GeoJSON file from a JSON file that contains coordinate data.
+
+This example uses [GeoInterface.jl](https://juliageo.org/GeoInterface.jl/stable/) for constructing the GeoJSON.
+```julia
+# First we import the packages we need
+using GeoJSON # for writing the GeoJSON
+using JSON3 # for reading the JSON data
+import GeoInterface as GI # For creating Feature, FeatureCollection and geometry types like Point
+
+# Example JSON snippet
+json_string = """
+{
+  "results": [
+    {
+      "locality": "Wekerom",
+      "name": "Wekerom-Riemterdijk",
+      "coordinates": {
+        "latitude": 52.111599999999996,
+        "longitude": 5.70842
+      }
+    },
+    {
+      "name": "Zaanstad-Hemkade",
+      "locality": "Zaandam",
+      "coordinates": {
+        "latitude": 52.420230000140556,
+        "longitude": 4.832060000156797
+      }
+    }
+  ]
+}
+"""
+
+# Read the JSON snippet
+data = JSON3.read(json_string)
+
+# Create a vector to store the features
+features = []
+
+# Loop through each result and create a feature
+for result in data.results
+    # Extract the coordinates and name
+    lat::Float64 = result.coordinates.latitude
+    lon::Float64 = result.coordinates.longitude
+    name = result.name
+    locality = result.locality
+
+    # Create a GeoJSON point feature with properties
+    point = GI.Point([lon, lat])
+    props = Dict(
+        :name => name,
+        :locality => locality
+    )
+    feature = GI.Feature(
+        point,
+        properties=props
+    )
+
+    # Add the feature to the vector
+    push!(features, feature)
+end
+
+# Create a feature collection
+fc = GI.FeatureCollection(features)
+
+# Write the feature collection to a GeoJSON file
+output_file = "output.geojson"
+GeoJSON.write(output_file, fc)
+```
