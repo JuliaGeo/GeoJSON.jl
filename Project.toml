@@ -13,6 +13,12 @@ JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 
+[weakdeps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extensions]
+GeoJSONMakieExt = "Makie"
+
 [compat]
 Aqua = "0.8"
 DataFrames = "1.6"
@@ -22,18 +28,12 @@ GeoInterface = "1.2.1"
 GeoInterfaceMakie = "0.1"
 GeoInterfaceRecipes = "1"
 JSON3 = "1.13"
-Makie = "0.20, 0.21, 0.22"
+Makie = "0.20, 0.21, 0.22, 0.23"
 Plots = "1.39"
 StructTypes = "1"
 Tables = "1"
 Test = "<0.0.1,1"
 julia = "1.9"
-
-[weakdeps]
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
-
-[extensions]
-GeoJSONMakieExt = "Makie"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
