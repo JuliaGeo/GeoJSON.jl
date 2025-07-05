@@ -99,5 +99,3 @@ function _extent2(x)
 end
 
 GI.crs(::GeoJSONT) = GeoFormatTypes.EPSG(4326)
-
-GeoInterfaceRecipes.@enable_geo_plots GeoJSON.AbstractGeometry

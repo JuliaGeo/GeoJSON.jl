@@ -1,7 +1,9 @@
 module GeoJSONMakieExt
-using GeoInterfaceMakie: GeoInterfaceMakie
-using GeoJSON: GeoJSON
 
-GeoInterfaceMakie.@enable GeoJSON.AbstractGeometry
+import GeoInterface
+import GeoJSON
+import Makie
+
+GeoInterface.@enable_makie Makie GeoJSON.AbstractGeometry
 
 end
