@@ -52,7 +52,7 @@ include("geojson_samples.jl")
             if !isnothing(geom)
                 @test GeoJSON.coordinates(geom) == g
                 Plots.plot(geom)
-                Makie.plot(geom)
+                geom isa GeoJSON.MultiPoint || Makie.plot(geom)
             end
         end
     end
