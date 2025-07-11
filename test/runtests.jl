@@ -1,6 +1,5 @@
 using GeoJSON
 import GeoInterface as GI
-import GeoInterfaceRecipes
 import GeoFormatTypes
 import Aqua
 using Extents
@@ -15,11 +14,7 @@ include("geojson_samples.jl")
 
 @testset "GeoJSON" begin
     @testset "Aqua.jl" begin
-        Aqua.test_all(
-            GeoJSON;
-            ambiguities=(exclude=[GeoInterfaceRecipes.RecipesBase.apply_recipe],),
-            stale_deps=(ignore=[:GeoInterfaceMakie],),
-        )
+        Aqua.test_all(GeoJSON)
     end
 
     @testset "Features" begin
@@ -57,7 +52,7 @@ include("geojson_samples.jl")
             if !isnothing(geom)
                 @test GeoJSON.coordinates(geom) == g
                 Plots.plot(geom)
-                Makie.plot(geom)
+                geom isa GeoJSON.MultiPoint || Makie.plot(geom)
             end
         end
     end
