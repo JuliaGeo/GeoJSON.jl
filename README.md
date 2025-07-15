@@ -34,12 +34,12 @@ julia> write(fc)
 
 
 ### HTTP access
-To read JSON from a URL, use HTTP.jl
+To read JSON from a URL, use Downloads
 ```julia
 
-julia> using GeoJSON, HTTP
+julia> using GeoJSON, Downloads
 
-julia> resp = HTTP.get("https://path/to/file.json")
+julia> io = Downloads.download("https://its-live-data.s3.amazonaws.com/datacubes/catalog_v02.json", IOBuffer())
 
-julia> fc = GeoJSON.read(resp.body)
+julia> fc = GeoJSON.read(io)
 ```
