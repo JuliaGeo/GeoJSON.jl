@@ -379,6 +379,37 @@ include("geojson_samples.jl")
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0,3]}"
     end
 
+    @testset "firstindex and begin indexing" begin
+        # Test Point geometry
+        p = GeoJSON.read("""{"type":"Point","coordinates":[30,10]}""")
+        @test firstindex(p) == 1
+        @test p[begin] == p[1]
+        @test p[begin] == 30.0f0
+
+        # Test LineString geometry
+        ls = GeoJSON.read("""{"type":"LineString","coordinates":[[100.0,0.0],[101.0,1.0]]}""")
+        @test firstindex(ls) == 1
+        @test ls[begin] == ls[1]
+        @test ls[begin] == (100.0f0, 0.0f0)
+
+        # Test Polygon geometry
+        poly = GeoJSON.read("""{"type":"Polygon","coordinates":[[[100.0,0.0],[101.0,0.0],[101.0,1.0],[100.0,1.0],[100.0,0.0]]]}""")
+        @test firstindex(poly) == 1
+        @test poly[begin] == poly[1]
+
+        # Test GeometryCollection
+        gc = GeoJSON.read("""{"type":"GeometryCollection","geometries":[{"type":"Point","coordinates":[100.0,0.0]},{"type":"LineString","coordinates":[[101.0,0.0],[102.0,1.0]]}]}""")
+        @test firstindex(gc) == 1
+        @test gc[begin] == gc[1]
+        @test gc[begin] isa GeoJSON.AbstractGeometry
+
+        # Test FeatureCollection
+        fc = GeoJSON.read("""{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[102.0,0.5]},"properties":{"prop0":"value0"}}]}""")
+        @test firstindex(fc) == 1
+        @test fc[begin] == fc[1]
+        @test fc[begin] isa GeoJSON.Feature
+    end
+
     @testset "Tables" begin
         # try a namedtuple table
         t1 = map(tuple.(1:10, 1:10), rand(10), ["abc" for i in 1:10]) do geometry, prop1, prop2
