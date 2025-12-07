@@ -207,16 +207,21 @@ function Base.iterate(f::Feature, state=collect(propertynames(f)))
 end
 
 
-# This is a non-public type used to lazily construct a Feature from a JSON3.RawValue
+# This is a non-public type used to lazily construct a Feature from JSON bytes
 # It can be written again as String, which can also be used to parse to a Feature
 struct LazyFeature{D,T} <: GeoJSONT{D,T}
     bytes::Any
     pos::Int
     len::Int
 end
-@inline StructTypes.construct(::Type{LazyFeature{D,T}}, x::JSON3.RawValue) where {D,T} = LazyFeature{D,T}(x.bytes, x.pos, x.len)
+
+# StructUtils construction from raw JSON data
+@inline function StructUtils.construct(::Type{LazyFeature{D,T}}, data) where {D,T}
+    bytes = codeunits(String(data))
+    LazyFeature{D,T}(bytes, 1, length(bytes))
+end
+
 @inline Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
-@inline JSON3.rawbytes(x::LazyFeature) = codeunits(x)
 
 
 """
