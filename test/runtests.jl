@@ -3,7 +3,7 @@ import GeoInterface as GI
 import GeoFormatTypes
 import Aqua
 using Extents
-using JSON3
+using JSON
 using Tables
 using Test
 using Plots
