@@ -47,12 +47,12 @@ If `geometry` is a `Tables.Table`, you may pass a `Symbol` to the `geometrycolum
 to indicate which column of the table holds the geometries.  Note that this will not keep the name,
 the geometry must be written to the `:geometry` column of the GeoJSON according to the spec.
 """
-write(io, obj::GeoJSONT) = JSON3.write(io, obj)
-write(obj::GeoJSONT) = JSON3.write(obj)
+write(io, obj::GeoJSONT) = JSON.json(io, obj)
+write(obj::GeoJSONT) = JSON.json(obj)
 
 # GeoInterface supported objects
-write(io, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(io, _lower(obj; geometrycolumn))
-write(obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(_lower(obj; geometrycolumn))
+write(io, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON.json(io, _lower(obj; geometrycolumn))
+write(obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON.json(_lower(obj; geometrycolumn))
 
 function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
     if GI.isfeaturecollection(obj)
