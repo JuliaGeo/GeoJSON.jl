@@ -210,18 +210,10 @@ end
 # This is a non-public type used to lazily construct a Feature from JSON bytes
 # It can be written again as String, which can also be used to parse to a Feature
 struct LazyFeature{D,T} <: GeoJSONT{D,T}
-    bytes::Any
-    pos::Int
-    len::Int
+    json::String
 end
 
-# StructUtils construction from raw JSON data
-@inline function StructUtils.construct(::Type{LazyFeature{D,T}}, data) where {D,T}
-    bytes = codeunits(String(data))
-    LazyFeature{D,T}(bytes, 1, length(bytes))
-end
-
-@inline Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
+@inline Base.codeunits(x::LazyFeature) = x.json
 
 
 """
@@ -233,9 +225,10 @@ struct FeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     bbox::Union{Nothing,Vector{T}}
     features::Vector{Feature{D,T}}
     crs::Union{Nothing,CRS}
-    names::Vector{Symbol}
-    types::Dict{Symbol,Type}
-    function FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T}  # n, t = nothing required for StructTypes
+    names::Any  # Computed field - can be Vector{Symbol} or parsed as Any from JSON
+    types::Any  # Computed field - can be Dict{Symbol,Type} or parsed as Any from JSON
+    function FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T}  # n, t = nothing required for StructUtils/StructTypes
+        # Always recompute names and types from features, ignoring n and t parameters
         names, types = property_schema(features)
         return new{D,T}(bbox, features, crs, names, types)
     end
@@ -247,7 +240,14 @@ end
 
 
 features(fc::FeatureCollection) = getfield(fc, :features)
-Base.propertynames(fc::FeatureCollection) = getfield(fc, :names)
+function Base.propertynames(fc::FeatureCollection)
+    names_field = getfield(fc, :names)
+    if names_field isa Vector{Symbol}
+        return names_field
+    else
+        return Symbol[]
+    end
+end
 
 function Base.getproperty(fc::FeatureCollection, name::Symbol)
     if hasfield(typeof(fc), name)
@@ -295,12 +295,8 @@ features(fc::LazyFeatureCollection) = collect(fc.features)
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
 Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON.parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
 
-struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
-    obj::X
-end
-GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
-
 # symbol (from json string type) to struct mapping
+# NOTE: These must be defined BEFORE GeoJSONWrapper to be available in the choosetype lambda
 @inline function geom_mapping(D, T)
     (;
         Point=Point{D,T},
@@ -318,8 +314,43 @@ end
         FeatureCollection=FeatureCollection{D,T}
     )
 end
+
+struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
+    obj::X
+end
+GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
+
+# Custom type chooser for GeoJSONWrapper
+# We manually implement what @choosetype would do
+function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONWrapper{D,TT}}, source) where {D,TT}
+    # Check if T is a UnionAll (i.e., GeoJSONWrapper{D,TT,X} where X)
+    if T isa UnionAll || (T isa DataType && !isconcretetype(T))
+        type_str = source.type[]
+        mapping = merge(geom_mapping(D, TT), obj_mapping(D, TT))
+        concrete_obj_type = get(mapping, Symbol(type_str), nothing)
+        concrete_obj_type === nothing && error("Unknown GeoJSON type: $type_str")
+        concrete_wrapper_type = GeoJSONWrapper{D,TT,concrete_obj_type}
+        # Call make again with the concrete type
+        return StructUtils.make(st, concrete_wrapper_type, source)
+    else
+        # T is already concrete (GeoJSONWrapper{D,TT,SomeConcreteType})
+        # Parse the source as the wrapped type and then wrap it
+        X = T.parameters[3]  # Extract the wrapped type
+        obj, pos = StructUtils.make(st, X, source)
+        return T(obj), pos
+    end
+end
 # GeoJSONWrapper lowering for serialization
 @inline StructUtils.lower(x::GeoJSONWrapper) = x.obj
+
+# FeatureCollection lowering - exclude computed fields (names, types) from serialization
+@inline function StructUtils.lower(x::FeatureCollection{D,T}) where {D,T}
+    return (;
+        bbox=getfield(x, :bbox),
+        features=getfield(x, :features),
+        crs=getfield(x, :crs)
+    )
+end
 
 typestring(::Type{<:Point}) = "Point"
 typestring(::Type{<:MultiPoint}) = "MultiPoint"
@@ -334,25 +365,105 @@ typestring(::Type{Nothing}) = "null"
 typestring(::Type{Missing}) = "null"
 
 # Type choosers for polymorphic parsing
+# NOTE: These functions need to determine D and T dynamically
+# We default to 2D Float32 but support 2D/3D/4D with Float32/Float64
+
+# Type choosers for polymorphic parsing - we can't use @choosetype for parametric types
+# so we manually define the make methods
+
 # For AbstractGeometry - select based on "type" field
-function _choose_geometry_type(::Type{AbstractGeometry{D,T}}, json) where {D,T}
-    type_str = json.type[]
-    mapping = geom_mapping(D, T)
-    return get(mapping, Symbol(type_str), nothing)
+function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:AbstractGeometry{D,TT}}, source) where {D,TT}
+    # If T is abstract, choose the concrete type
+    if T isa UnionAll || !isconcretetype(T)
+        type_str = source.type[]
+        mapping = geom_mapping(D, TT)
+        concrete_type = get(mapping, Symbol(type_str), nothing)
+        concrete_type === nothing && error("Unknown geometry type: $type_str")
+        # Return a tuple (value, position) as make methods should
+        obj, pos = StructUtils.make(st, concrete_type, source)
+        return (obj, pos)
+    else
+        # T is already concrete, use default behavior
+        return invoke(StructUtils.make, Tuple{typeof(st), Type, typeof(source)}, st, T, source)
+    end
 end
 
-JSON.@choosetype AbstractGeometry{D,T} where {D,T} _choose_geometry_type
+# lift is called when StructUtils needs to convert an already-parsed object
+# (like JSON.Object) to the target type. JSON.jl expects lift to return (value, position)
+function StructUtils.lift(st::StructUtils.StructStyle, T::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT}
+    # Get the type from the JSON object
+    type_str = get(x, "type", nothing)
+    type_str === nothing && error("Missing 'type' field in geometry object: keys=$(keys(x))")
+
+    # Choose the concrete type based on the type field
+    mapping = geom_mapping(D, TT)
+    concrete_type = get(mapping, Symbol(type_str), nothing)
+    concrete_type === nothing && error("Unknown geometry type: $type_str")
+
+    # Manually construct the geometry from the JSON.Object fields
+    # Extract bbox and coordinates
+    bbox_val = get(x, "bbox", nothing)
+    bbox = bbox_val === nothing ? nothing : Vector{TT}(bbox_val)
+
+    # Handle different geometry types
+    if concrete_type <: GeometryCollection
+        geoms_val = get(x, "geometries", nothing)
+        geometries = geoms_val === nothing ? AbstractGeometry{D,TT}[] :
+                     [StructUtils.lift(st, AbstractGeometry{D,TT}, g)[1] for g in geoms_val]
+        result = GeometryCollection{D,TT}(bbox, geometries)
+    else
+        coords_val = get(x, "coordinates", nothing)
+        coordinates = coords_val === nothing ? nothing : _convert_coordinates(concrete_type, coords_val, TT)
+        result = concrete_type(bbox, coordinates)
+    end
+
+    # Return (value, position) tuple as expected by JSON.jl
+    return (result, 0)
+end
+
+# Helper function to convert coordinates to the right type
+function _convert_coordinates(::Type{<:Point{D,T}}, coords, ::Type{T}) where {D,T}
+    return NTuple{D,T}(coords)
+end
+
+function _convert_coordinates(::Type{<:LineString{D,T}}, coords, ::Type{T}) where {D,T}
+    return [NTuple{D,T}(c) for c in coords]
+end
+
+function _convert_coordinates(::Type{<:Polygon{D,T}}, coords, ::Type{T}) where {D,T}
+    return [[NTuple{D,T}(c) for c in ring] for ring in coords]
+end
+
+function _convert_coordinates(::Type{<:MultiPoint{D,T}}, coords, ::Type{T}) where {D,T}
+    return [NTuple{D,T}(c) for c in coords]
+end
+
+function _convert_coordinates(::Type{<:MultiLineString{D,T}}, coords, ::Type{T}) where {D,T}
+    return [[NTuple{D,T}(c) for c in line] for line in coords]
+end
+
+function _convert_coordinates(::Type{<:MultiPolygon{D,T}}, coords, ::Type{T}) where {D,T}
+    return [[[NTuple{D,T}(c) for c in ring] for ring in poly] for poly in coords]
+end
 
 # For GeoJSONT - select based on "type" field (includes geometries + Feature/FeatureCollection)
-function _choose_geojson_type(::Type{GeoJSONT{D,T}}, json) where {D,T}
-    type_str = json.type[]
-    mapping = merge(geom_mapping(D, T), obj_mapping(D, T))
-    return get(mapping, Symbol(type_str), nothing)
+function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONT{D,TT}}, source) where {D,TT}
+    # If T is abstract, choose the concrete type
+    if T isa UnionAll || !isconcretetype(T)
+        type_str = source.type[]
+        mapping = merge(geom_mapping(D, TT), obj_mapping(D, TT))
+        concrete_type = get(mapping, Symbol(type_str), nothing)
+        concrete_type === nothing && error("Unknown GeoJSON type: $type_str")
+        return StructUtils.make(st, concrete_type, source)
+    else
+        # T is already concrete, use default behavior
+        return invoke(StructUtils.make, Tuple{typeof(st), Type, typeof(source)}, st, T, source)
+    end
 end
 
-JSON.@choosetype GeoJSONT{D,T} where {D,T} _choose_geojson_type
 
-# Exclude computed fields from FeatureCollection serialization
-StructUtils.@exclude FeatureCollection :names :types
+# Note: Computed fields (:names, :types) in FeatureCollection will be serialized
+# This is a difference from JSON3/StructTypes where we could exclude them
+# TODO: Find a way to exclude these fields if needed
 
 # Note: omitempties is now handled via JSON.json(x; omit_null=true) at call site
