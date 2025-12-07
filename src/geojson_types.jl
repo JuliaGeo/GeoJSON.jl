@@ -318,9 +318,8 @@ end
         FeatureCollection=FeatureCollection{D,T}
     )
 end
-@inline StructTypes.StructType(::Type{<:GeoJSONWrapper}) = StructTypes.CustomStruct()
-@inline StructTypes.lower(x::GeoJSONWrapper) = x.obj
-@inline StructTypes.lowertype(::Type{<:GeoJSONWrapper{D,T}}) where {D,T} = GeoJSONT{D,T}
+# GeoJSONWrapper lowering for serialization
+@inline StructUtils.lower(x::GeoJSONWrapper) = x.obj
 
 typestring(::Type{<:Point}) = "Point"
 typestring(::Type{<:MultiPoint}) = "MultiPoint"
@@ -334,25 +333,26 @@ typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
 typestring(::Type{Nothing}) = "null"
 typestring(::Type{Missing}) = "null"
 
-@inline StructTypes.StructType(::Type{<:GeoJSONT}) = StructTypes.AbstractType()
-@inline StructTypes.StructType(::Type{<:AbstractGeometry}) = StructTypes.AbstractType()
-@inline StructTypes.StructType(::Type{<:Point}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:LineString}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:Polygon}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiPoint}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiLineString}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiPolygon}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:GeometryCollection}) = StructTypes.Struct()
-@inline StructTypes.subtypekey(::Type{<:AbstractGeometry}) = :type
-@inline StructTypes.subtypes(::Type{<:AbstractGeometry{D,T}}) where {D,T} = geom_mapping(D, T)
-@inline StructTypes.subtypekey(::Type{<:GeoJSONT}) = :type
-@inline StructTypes.subtypes(::Type{<:GeoJSONT{D,T}}) where {D,T} = merge(geom_mapping(D, T), obj_mapping(D, T))
+# Type choosers for polymorphic parsing
+# For AbstractGeometry - select based on "type" field
+function _choose_geometry_type(::Type{AbstractGeometry{D,T}}, json) where {D,T}
+    type_str = json.type[]
+    mapping = geom_mapping(D, T)
+    return get(mapping, Symbol(type_str), nothing)
+end
 
-@inline StructTypes.StructType(::Type{<:Feature}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:LazyFeature}) = JSON3.RawType()
-@inline StructTypes.StructType(::Type{<:FeatureCollection}) = StructTypes.Struct()
-@inline StructTypes.excludes(::Type{<:FeatureCollection}) = (:names, :types,)
-@inline StructTypes.StructType(::Type{<:LazyFeatureCollection}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{CRS}) = StructTypes.Struct()
+JSON.@choosetype AbstractGeometry{D,T} where {D,T} _choose_geometry_type
 
-@inline StructTypes.omitempties(::Type{<:GeoJSONT}) = (:id, :crs, :bbox,)
+# For GeoJSONT - select based on "type" field (includes geometries + Feature/FeatureCollection)
+function _choose_geojson_type(::Type{GeoJSONT{D,T}}, json) where {D,T}
+    type_str = json.type[]
+    mapping = merge(geom_mapping(D, T), obj_mapping(D, T))
+    return get(mapping, Symbol(type_str), nothing)
+end
+
+JSON.@choosetype GeoJSONT{D,T} where {D,T} _choose_geojson_type
+
+# Exclude computed fields from FeatureCollection serialization
+StructUtils.@exclude FeatureCollection :names :types
+
+# Note: omitempties is now handled via JSON.json(x; omit_null=true) at call site
