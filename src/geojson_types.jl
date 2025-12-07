@@ -288,7 +288,7 @@ end
 features(fc::LazyFeatureCollection) = collect(fc.features)
 
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
-Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON3.read(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
+Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON.parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
 
 struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
     obj::X
