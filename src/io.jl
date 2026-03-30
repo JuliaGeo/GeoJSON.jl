@@ -74,6 +74,7 @@ function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
         end
     elseif Tables.istable(obj)
         !(geometrycolumn isa Symbol) && throw(ArgumentError("GeoJSON.jl can only write a single geometry column which must be specified as a `Symbol`, but was passed `$(geometrycolumn)` instead."))
+        geometrycolumn != :geometry && @warn "GeoJSON specification requires the geometry column to be named 'geometry'. The column '$(geometrycolumn)' will be written as 'geometry' in the output."
         geom_col_idx = Tables.columnindex(obj, geometrycolumn)
         # There is a strange bug where Tables.columnnames on some tables is empty, 
         # so we use the schema instead
