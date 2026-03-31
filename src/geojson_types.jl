@@ -109,6 +109,7 @@ function Base.show(io::IO, G::AbstractGeometry{D,T}) where {D,T}
 end
 
 Base.length(g::AbstractGeometry) = length(coordinates(g))
+Base.firstindex(g::AbstractGeometry) = 1
 Base.lastindex(g::AbstractGeometry) = length(coordinates(g))
 Base.size(g::AbstractGeometry) = size(coordinates(g))
 Base.axes(g::AbstractGeometry) = axes(coordinates(g))
@@ -144,6 +145,7 @@ geometry(g::GeometryCollection) = getfield(g, :geometries)
 
 Base.show(io::IO, x::GeometryCollection{D,T}) where {D,T} = print(io, "GeometryCollection with $(length(x.geometries)) $(D)D geometries")
 Base.length(g::GeometryCollection) = length(geometry(g))
+Base.firstindex(g::GeometryCollection) = 1
 Base.lastindex(g::GeometryCollection) = length(geometry(g))
 Base.size(g::GeometryCollection) = size(geometry(g))
 Base.axes(g::GeometryCollection) = axes(geometry(g))
@@ -262,6 +264,7 @@ Base.show(io::IO, fc::FeatureCollection) = print(io, "FeatureCollection with $(l
 Base.eltype(::Type{<:AbstractFeatureCollection{D,T}}) where {D,T} = Feature{D,T}
 Base.IteratorEltype(::Type{<:AbstractFeatureCollection}) = Base.HasEltype()
 Base.length(fc::AbstractFeatureCollection) = length(features(fc))
+Base.firstindex(fc::AbstractFeatureCollection) = 1
 Base.lastindex(fc::AbstractFeatureCollection) = length(features(fc))
 Base.IteratorSize(::Type{<:AbstractFeatureCollection}) = Base.HasLength()
 Base.size(fc::AbstractFeatureCollection) = size(features(fc))
