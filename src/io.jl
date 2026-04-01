@@ -11,6 +11,7 @@ Read GeoJSON to a GeoInterface.jl compatible object.
 - `numbertype::DataType=Float32`: Use Float64 when the precision is required.
 """
 function read(io; lazyfc=false, ndim=2, numbertype=Float32)
+    eof(io) && seekstart(io)
     if lazyfc
         obj = JSON3.read(io, LazyFeatureCollection{ndim,numbertype})
     else
