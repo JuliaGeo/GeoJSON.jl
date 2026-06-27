@@ -399,6 +399,16 @@ include("geojson_samples.jl")
         @test t2_geojson.prop1 == getproperty.(t2, :prop1)
         @test t2_geojson.prop2 == getproperty.(t2, :prop2)
 
+        @testset "geometrycolumn warnings" begin
+            # Test warning is shown for non-geometry column
+            t_warn = [(somethingelse=(1.0, 2.0), prop1=1)]
+            @test_logs (:warn, r"GeoJSON specification requires.*geometry.*somethingelse.*") GeoJSON.write(t_warn; geometrycolumn = :somethingelse)
+            
+            # Test no warning for geometry column
+            t_no_warn = [(geometry=(1.0, 2.0), prop1=1)]
+            @test_logs GeoJSON.write(t_no_warn; geometrycolumn = :geometry)
+        end
+
         @testset "Metadata" begin
             @test GI.DataAPI.metadatasupport(typeof(t2_geojson)) == (; read = true, write = false)
             @test GI.DataAPI.metadatakeys(t2_geojson) == ("GEOINTERFACE:geometrycolumns", "GEOINTERFACE:crs")
