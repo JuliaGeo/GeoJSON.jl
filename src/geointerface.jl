@@ -99,3 +99,10 @@ function _extent2(x)
 end
 
 GI.crs(::GeoJSONT) = GeoFormatTypes.EPSG(4326)
+
+# coordtype implementation - GeoJSON encodes type in parameter T
+if :coordtype in names(GI; all = true)
+    GI.coordtype(::GI.AbstractGeometryTrait, ::AbstractGeometry{D,T}) where {D,T} = T
+    GI.coordtype(::GI.FeatureTrait, ::Feature{D,T}) where {D,T} = T
+    GI.coordtype(::GI.FeatureCollectionTrait, ::AbstractFeatureCollection{D,T}) where {D,T} = T
+end
