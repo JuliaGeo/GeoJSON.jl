@@ -337,8 +337,10 @@ struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
 end
 GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
 
-# Custom type chooser for GeoJSONWrapper
-# We manually implement what @choosetype would do
+# Type chooser for GeoJSONWrapper. `@choosetype` can't be used here: its chooser sees
+# only the JSON source, but the concrete type we need depends on both the JSON "type"
+# field AND the caller-supplied dimension D and number type T, which aren't in the JSON.
+# A `make` method with `where {D,TT}` is the only way to capture those type parameters.
 function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONWrapper{D,TT}}, source) where {D,TT}
     # Check if T is a UnionAll (i.e., GeoJSONWrapper{D,TT,X} where X)
     if T isa UnionAll || (T isa DataType && !isconcretetype(T))
@@ -369,87 +371,57 @@ typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
 typestring(::Type{Nothing}) = "null"
 typestring(::Type{Missing}) = "null"
 
-# Type choosers for polymorphic parsing
-# NOTE: These functions need to determine D and T dynamically
-# We default to 2D Float32 but support 2D/3D/4D with Float32/Float64
-
-# Type choosers for polymorphic parsing - we can't use @choosetype for parametric types
-# so we manually define the make methods
-
-# For AbstractGeometry - select based on "type" field
-function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:AbstractGeometry{D,TT}}, source) where {D,TT}
-    # If T is abstract, choose the concrete type
-    if T isa UnionAll || !isconcretetype(T)
-        type_str = source.type[]
-        mapping = geom_mapping(D, TT)
-        concrete_type = get(mapping, Symbol(type_str), nothing)
-        concrete_type === nothing && error("Unknown geometry type: $type_str")
-        # Return a tuple (value, position) as make methods should
-        obj, pos = StructUtils.make(st, concrete_type, source)
-        return (obj, pos)
-    else
-        # T is already concrete, use default behavior
-        return invoke(StructUtils.make, Tuple{typeof(st), Type, typeof(source)}, st, T, source)
-    end
+# Geometries need a custom chooser because the concrete type comes from the "type"
+# field while the dimension D and number type T come from the caller (they are not in
+# the JSON). Both parsing entry points funnel through `_build_geometry`:
+#   - `make`  is hit for a top-level geometry and for elements of a GeometryCollection's
+#     `geometries` vector; it gets a lazy `source` and must return the end position.
+#   - `lift`  is hit for a Feature's `Union{Nothing,AbstractGeometry}` field; it gets an
+#     already-materialized `JSON.Object`.
+# Materializing the lazy source to a JSON.Object lets a single builder serve both.
+function StructUtils.make(st::StructUtils.StructStyle, ::Type{<:AbstractGeometry{D,TT}}, source) where {D,TT}
+    obj, pos = StructUtils.make(st, JSON.Object, source)
+    return _build_geometry(AbstractGeometry{D,TT}, obj), pos
 end
 
-# lift is called when StructUtils needs to convert an already-parsed object
-# (like JSON.Object) to the target type. JSON.jl expects lift to return (value, position)
-function StructUtils.lift(st::StructUtils.DefaultStyle, T::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT}
-    # Get the type from the JSON object
-    type_str = get(x, "type", nothing)
-    type_str === nothing && error("Missing 'type' field in geometry object: keys=$(keys(x))")
+StructUtils.lift(::StructUtils.DefaultStyle, ::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT} =
+    _build_geometry(AbstractGeometry{D,TT}, x)
 
-    # Choose the concrete type based on the type field
-    mapping = geom_mapping(D, TT)
-    concrete_type = get(mapping, Symbol(type_str), nothing)
+function _build_geometry(::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT}
+    type_str = get(x, "type", nothing)
+    type_str === nothing && throw(ArgumentError("Missing 'type' field in geometry object: keys=$(keys(x))"))
+    concrete_type = get(geom_mapping(D, TT), Symbol(type_str), nothing)
     concrete_type === nothing && error("Unknown geometry type: $type_str")
 
-    # Manually construct the geometry from the JSON.Object fields
-    # Extract bbox and coordinates
     bbox_val = get(x, "bbox", nothing)
     bbox = bbox_val === nothing ? nothing : Vector{TT}(bbox_val)
 
-    # Handle different geometry types
     if concrete_type <: GeometryCollection
         geoms_val = get(x, "geometries", nothing)
         geometries = geoms_val === nothing ? AbstractGeometry{D,TT}[] :
-                     [StructUtils.lift(st, AbstractGeometry{D,TT}, g)[1] for g in geoms_val]
-        result = GeometryCollection{D,TT}(bbox, geometries)
+                     AbstractGeometry{D,TT}[_build_geometry(AbstractGeometry{D,TT}, g) for g in geoms_val]
+        return GeometryCollection{D,TT}(bbox, geometries)
     else
         coords_val = get(x, "coordinates", nothing)
-        coordinates = coords_val === nothing ? nothing : _convert_coordinates(concrete_type, coords_val, TT)
-        result = concrete_type(bbox, coordinates)
+        coords = coords_val === nothing ? nothing : _convert_coordinates(concrete_type, coords_val, TT)
+        return concrete_type(bbox, coords)
     end
-
-    # Return (value, position) tuple as expected by JSON.jl
-    return (result, 0)
 end
 
-# Helper function to convert coordinates to the right type
-function _convert_coordinates(::Type{<:Point{D,T}}, coords, ::Type{T}) where {D,T}
-    return NTuple{D,T}(coords)
+# Build an NTuple coordinate, rejecting the wrong dimension. A GeoJSON reader parses at a
+# fixed D, so a mismatch here (e.g. a 3D coordinate read as 2D) must error rather than
+# silently truncate — `read` relies on the ArgumentError to retry one dimension higher.
+@inline function _coord(::Type{T}, ::Val{D}, c) where {T,D}
+    length(c) == D || throw(ArgumentError("expected a $(D)-dimensional coordinate, got $(length(c))"))
+    return NTuple{D,T}(c)
 end
 
-function _convert_coordinates(::Type{<:LineString{D,T}}, coords, ::Type{T}) where {D,T}
-    return [NTuple{D,T}(c) for c in coords]
-end
-
-function _convert_coordinates(::Type{<:Polygon{D,T}}, coords, ::Type{T}) where {D,T}
-    return [[NTuple{D,T}(c) for c in ring] for ring in coords]
-end
-
-function _convert_coordinates(::Type{<:MultiPoint{D,T}}, coords, ::Type{T}) where {D,T}
-    return [NTuple{D,T}(c) for c in coords]
-end
-
-function _convert_coordinates(::Type{<:MultiLineString{D,T}}, coords, ::Type{T}) where {D,T}
-    return [[NTuple{D,T}(c) for c in line] for line in coords]
-end
-
-function _convert_coordinates(::Type{<:MultiPolygon{D,T}}, coords, ::Type{T}) where {D,T}
-    return [[[NTuple{D,T}(c) for c in ring] for ring in poly] for poly in coords]
-end
+_convert_coordinates(::Type{<:Point{D,T}}, coords, ::Type{T}) where {D,T} = _coord(T, Val(D), coords)
+_convert_coordinates(::Type{<:LineString{D,T}}, coords, ::Type{T}) where {D,T} = [_coord(T, Val(D), c) for c in coords]
+_convert_coordinates(::Type{<:MultiPoint{D,T}}, coords, ::Type{T}) where {D,T} = [_coord(T, Val(D), c) for c in coords]
+_convert_coordinates(::Type{<:Polygon{D,T}}, coords, ::Type{T}) where {D,T} = [[_coord(T, Val(D), c) for c in ring] for ring in coords]
+_convert_coordinates(::Type{<:MultiLineString{D,T}}, coords, ::Type{T}) where {D,T} = [[_coord(T, Val(D), c) for c in line] for line in coords]
+_convert_coordinates(::Type{<:MultiPolygon{D,T}}, coords, ::Type{T}) where {D,T} = [[[_coord(T, Val(D), c) for c in ring] for ring in poly] for poly in coords]
 
 # For GeoJSONT - select based on "type" field (includes geometries + Feature/FeatureCollection)
 function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONT{D,TT}}, source) where {D,TT}

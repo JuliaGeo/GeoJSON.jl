@@ -198,6 +198,21 @@ include("geojson_samples.jl")
         @test occursin("\"geometry\":null", GeoJSON.write(empty))
     end
 
+    @testset "dimension is detected, not truncated" begin
+        # 3D coordinates read without ndim must fall back to 3D, never silently drop Z
+        pt = GeoJSON.read("""{"type":"Point","coordinates":[1,2,3]}""")
+        @test length(GeoJSON.coordinates(pt)) == 3
+
+        feat = GeoJSON.read("""{"type":"Feature","geometry":{"type":"LineString","coordinates":[[1,2,3],[4,5,6]]},"properties":{}}""")
+        @test length(first(GeoJSON.coordinates(GeoJSON.geometry(feat)))) == 3
+
+        gc = GeoJSON.read("""{"type":"GeometryCollection","geometries":[{"type":"Point","coordinates":[1,2,3]}]}""")
+        @test length(GeoJSON.coordinates(gc[1])) == 3
+
+        # 2D data stays 2D
+        @test length(GeoJSON.coordinates(GeoJSON.read("""{"type":"Point","coordinates":[1,2]}"""))) == 2
+    end
+
     @testset "FeatureCollection of one MultiPolygon" begin
         t = GeoJSON.read(Samples.g)
         @test Tables.istable(t)
