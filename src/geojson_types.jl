@@ -207,16 +207,24 @@ function Base.iterate(f::Feature, state=collect(propertynames(f)))
 end
 
 
-# This is a non-public type used to lazily construct a Feature from a JSON3.RawValue
+# This is a non-public type used to lazily construct a Feature from JSON bytes
 # It can be written again as String, which can also be used to parse to a Feature
 struct LazyFeature{D,T} <: GeoJSONT{D,T}
-    bytes::Any
-    pos::Int
-    len::Int
+    json::String
 end
-@inline StructTypes.construct(::Type{LazyFeature{D,T}}, x::JSON3.RawValue) where {D,T} = LazyFeature{D,T}(x.bytes, x.pos, x.len)
-@inline Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
-@inline JSON3.rawbytes(x::LazyFeature) = codeunits(x)
+
+@inline Base.codeunits(x::LazyFeature) = x.json
+
+# Capture each feature's raw JSON without parsing it, by delegating to JSON's own
+# JSONText machinery (which correctly finds the value's byte span). The stored string
+# is re-parsed to a Feature on demand in `getindex`.
+function StructUtils.make(st::StructUtils.StructStyle, ::Type{LazyFeature{D,T}}, source) where {D,T}
+    raw, pos = StructUtils.make(st, JSON.JSONText, source)
+    return LazyFeature{D,T}(raw.value), pos
+end
+
+# Write a lazily-held feature back out verbatim.
+@inline StructUtils.lower(::JSON.JSONStyle, x::LazyFeature) = JSON.JSONText(x.json)
 
 
 """
@@ -228,9 +236,10 @@ struct FeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     bbox::Union{Nothing,Vector{T}}
     features::Vector{Feature{D,T}}
     crs::Union{Nothing,CRS}
-    names::Vector{Symbol}
-    types::Dict{Symbol,Type}
-    function FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T}  # n, t = nothing required for StructTypes
+    names::Any  # Computed field - can be Vector{Symbol} or parsed as Any from JSON
+    types::Any  # Computed field - can be Dict{Symbol,Type} or parsed as Any from JSON
+    function FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T}  # n, t = nothing required for StructUtils/StructTypes
+        # Always recompute names and types from features, ignoring n and t parameters
         names, types = property_schema(features)
         return new{D,T}(bbox, features, crs, names, types)
     end
@@ -242,7 +251,14 @@ end
 
 
 features(fc::FeatureCollection) = getfield(fc, :features)
-Base.propertynames(fc::FeatureCollection) = getfield(fc, :names)
+function Base.propertynames(fc::FeatureCollection)
+    names_field = getfield(fc, :names)
+    if names_field isa Vector{Symbol}
+        return names_field
+    else
+        return Symbol[]
+    end
+end
 
 function Base.getproperty(fc::FeatureCollection, name::Symbol)
     if hasfield(typeof(fc), name)
@@ -288,14 +304,16 @@ end
 features(fc::LazyFeatureCollection) = collect(fc.features)
 
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
-Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON3.read(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
+Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON.parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
 
-struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
-    obj::X
+# Write a lazy collection back out as a normal FeatureCollection, emitting each
+# held feature verbatim (see the LazyFeature lower above).
+@inline function StructUtils.lower(::JSON.JSONStyle, x::LazyFeatureCollection)
+    return (; type="FeatureCollection", bbox=x.bbox, features=x.features, crs=x.crs)
 end
-GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
 
 # symbol (from json string type) to struct mapping
+# NOTE: These must be defined BEFORE GeoJSONWrapper to be available in the choosetype lambda
 @inline function geom_mapping(D, T)
     (;
         Point=Point{D,T},
@@ -313,10 +331,34 @@ end
         FeatureCollection=FeatureCollection{D,T}
     )
 end
-@inline StructTypes.StructType(::Type{<:GeoJSONWrapper}) = StructTypes.CustomStruct()
-@inline StructTypes.lower(x::GeoJSONWrapper) = x.obj
-@inline StructTypes.lowertype(::Type{<:GeoJSONWrapper{D,T}}) where {D,T} = GeoJSONT{D,T}
 
+struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
+    obj::X
+end
+GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
+
+# Type chooser for GeoJSONWrapper. `@choosetype` can't be used here: its chooser sees
+# only the JSON source, but the concrete type we need depends on both the JSON "type"
+# field AND the caller-supplied dimension D and number type T, which aren't in the JSON.
+# A `make` method with `where {D,TT}` is the only way to capture those type parameters.
+function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONWrapper{D,TT}}, source) where {D,TT}
+    # Check if T is a UnionAll (i.e., GeoJSONWrapper{D,TT,X} where X)
+    if T isa UnionAll || (T isa DataType && !isconcretetype(T))
+        type_str = source.type[]
+        mapping = merge(geom_mapping(D, TT), obj_mapping(D, TT))
+        concrete_obj_type = get(mapping, Symbol(type_str), nothing)
+        concrete_obj_type === nothing && error("Unknown GeoJSON type: $type_str")
+        concrete_wrapper_type = GeoJSONWrapper{D,TT,concrete_obj_type}
+        # Call make again with the concrete type
+        return StructUtils.make(st, concrete_wrapper_type, source)
+    else
+        # T is already concrete (GeoJSONWrapper{D,TT,SomeConcreteType})
+        # Parse the source as the wrapped type and then wrap it
+        X = T.parameters[3]  # Extract the wrapped type
+        obj, pos = StructUtils.make(st, X, source)
+        return T(obj), pos
+    end
+end
 typestring(::Type{<:Point}) = "Point"
 typestring(::Type{<:MultiPoint}) = "MultiPoint"
 typestring(::Type{<:LineString}) = "LineString"
@@ -329,25 +371,58 @@ typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
 typestring(::Type{Nothing}) = "null"
 typestring(::Type{Missing}) = "null"
 
-@inline StructTypes.StructType(::Type{<:GeoJSONT}) = StructTypes.AbstractType()
-@inline StructTypes.StructType(::Type{<:AbstractGeometry}) = StructTypes.AbstractType()
-@inline StructTypes.StructType(::Type{<:Point}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:LineString}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:Polygon}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiPoint}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiLineString}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiPolygon}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:GeometryCollection}) = StructTypes.Struct()
-@inline StructTypes.subtypekey(::Type{<:AbstractGeometry}) = :type
-@inline StructTypes.subtypes(::Type{<:AbstractGeometry{D,T}}) where {D,T} = geom_mapping(D, T)
-@inline StructTypes.subtypekey(::Type{<:GeoJSONT}) = :type
-@inline StructTypes.subtypes(::Type{<:GeoJSONT{D,T}}) where {D,T} = merge(geom_mapping(D, T), obj_mapping(D, T))
+# Geometries need a custom chooser because the concrete type comes from the "type"
+# field while the dimension D and number type T come from the caller (they are not in
+# the JSON). Both parsing entry points funnel through `_build_geometry`:
+#   - `make`  is hit for a top-level geometry and for elements of a GeometryCollection's
+#     `geometries` vector; it gets a lazy `source` and must return the end position.
+#   - `lift`  is hit for a Feature's `Union{Nothing,AbstractGeometry}` field; it gets an
+#     already-materialized `JSON.Object`.
+# Materializing the lazy source to a JSON.Object lets a single builder serve both.
+function StructUtils.make(st::StructUtils.StructStyle, ::Type{<:AbstractGeometry{D,TT}}, source) where {D,TT}
+    obj, pos = StructUtils.make(st, JSON.Object, source)
+    return _build_geometry(AbstractGeometry{D,TT}, obj), pos
+end
 
-@inline StructTypes.StructType(::Type{<:Feature}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:LazyFeature}) = JSON3.RawType()
-@inline StructTypes.StructType(::Type{<:FeatureCollection}) = StructTypes.Struct()
-@inline StructTypes.excludes(::Type{<:FeatureCollection}) = (:names, :types,)
-@inline StructTypes.StructType(::Type{<:LazyFeatureCollection}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{CRS}) = StructTypes.Struct()
+StructUtils.lift(::StructUtils.DefaultStyle, ::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT} =
+    _build_geometry(AbstractGeometry{D,TT}, x)
 
-@inline StructTypes.omitempties(::Type{<:GeoJSONT}) = (:id, :crs, :bbox,)
+function _build_geometry(::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT}
+    type_str = get(x, "type", nothing)
+    type_str === nothing && throw(ArgumentError("Missing 'type' field in geometry object: keys=$(keys(x))"))
+    concrete_type = get(geom_mapping(D, TT), Symbol(type_str), nothing)
+    concrete_type === nothing && error("Unknown geometry type: $type_str")
+
+    bbox_val = get(x, "bbox", nothing)
+    bbox = bbox_val === nothing ? nothing : Vector{TT}(bbox_val)
+
+    if concrete_type <: GeometryCollection
+        geoms_val = get(x, "geometries", nothing)
+        geometries = geoms_val === nothing ? AbstractGeometry{D,TT}[] :
+                     AbstractGeometry{D,TT}[_build_geometry(AbstractGeometry{D,TT}, g) for g in geoms_val]
+        return GeometryCollection{D,TT}(bbox, geometries)
+    else
+        coords_val = get(x, "coordinates", nothing)
+        coords = coords_val === nothing ? nothing : _convert_coordinates(concrete_type, coords_val, TT)
+        return concrete_type(bbox, coords)
+    end
+end
+
+# Build an NTuple coordinate, rejecting the wrong dimension. A GeoJSON reader parses at a
+# fixed D, so a mismatch here (e.g. a 3D coordinate read as 2D) must error rather than
+# silently truncate — `read` relies on the ArgumentError to retry one dimension higher.
+@inline function _coord(::Type{T}, ::Val{D}, c) where {T,D}
+    length(c) == D || throw(ArgumentError("expected a $(D)-dimensional coordinate, got $(length(c))"))
+    return NTuple{D,T}(c)
+end
+
+_convert_coordinates(::Type{<:Point{D,T}}, coords, ::Type{T}) where {D,T} = _coord(T, Val(D), coords)
+_convert_coordinates(::Type{<:LineString{D,T}}, coords, ::Type{T}) where {D,T} = [_coord(T, Val(D), c) for c in coords]
+_convert_coordinates(::Type{<:MultiPoint{D,T}}, coords, ::Type{T}) where {D,T} = [_coord(T, Val(D), c) for c in coords]
+_convert_coordinates(::Type{<:Polygon{D,T}}, coords, ::Type{T}) where {D,T} = [[_coord(T, Val(D), c) for c in ring] for ring in coords]
+_convert_coordinates(::Type{<:MultiLineString{D,T}}, coords, ::Type{T}) where {D,T} = [[_coord(T, Val(D), c) for c in line] for line in coords]
+_convert_coordinates(::Type{<:MultiPolygon{D,T}}, coords, ::Type{T}) where {D,T} = [[[_coord(T, Val(D), c) for c in ring] for ring in poly] for poly in coords]
+
+# No chooser is needed for the abstract GeoJSONT level: at the top level GeoJSONWrapper's
+# chooser picks the concrete Feature/FeatureCollection/geometry, and concrete Feature and
+# FeatureCollection are ordinary structs that StructUtils parses by default.

@@ -3,7 +3,7 @@ import GeoInterface as GI
 import GeoFormatTypes
 import Aqua
 using Extents
-using JSON3
+using JSON
 using Tables
 using Test
 using Plots
@@ -177,6 +177,40 @@ include("geojson_samples.jl")
             @test geom == geom1
             @test GI.extent(geom) == GI.extent(geom1)
         end
+    end
+
+    @testset "serialized output is clean GeoJSON" begin
+        f = GeoJSON.read("""{"type":"Feature","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"a":1}}""")
+        fc = GeoJSON.read("""{"type":"FeatureCollection","features":[$(GeoJSON.write(f))]}""")
+
+        # Absent optional members are omitted, not written as null
+        feat = GeoJSON.write(f)
+        @test !occursin("\"id\"", feat)
+        @test !occursin("\"bbox\"", feat)
+
+        # The internal name/type cache never leaks into a FeatureCollection
+        coll = GeoJSON.write(fc)
+        @test !occursin("\"names\"", coll)
+        @test !occursin("\"types\"", coll)
+
+        # A feature with no geometry keeps the required null geometry member
+        empty = GeoJSON.read("""{"type":"Feature","geometry":null,"properties":{"a":1}}""")
+        @test occursin("\"geometry\":null", GeoJSON.write(empty))
+    end
+
+    @testset "dimension is detected, not truncated" begin
+        # 3D coordinates read without ndim must fall back to 3D, never silently drop Z
+        pt = GeoJSON.read("""{"type":"Point","coordinates":[1,2,3]}""")
+        @test length(GeoJSON.coordinates(pt)) == 3
+
+        feat = GeoJSON.read("""{"type":"Feature","geometry":{"type":"LineString","coordinates":[[1,2,3],[4,5,6]]},"properties":{}}""")
+        @test length(first(GeoJSON.coordinates(GeoJSON.geometry(feat)))) == 3
+
+        gc = GeoJSON.read("""{"type":"GeometryCollection","geometries":[{"type":"Point","coordinates":[1,2,3]}]}""")
+        @test length(GeoJSON.coordinates(gc[1])) == 3
+
+        # 2D data stays 2D
+        @test length(GeoJSON.coordinates(GeoJSON.read("""{"type":"Point","coordinates":[1,2]}"""))) == 2
     end
 
     @testset "FeatureCollection of one MultiPolygon" begin

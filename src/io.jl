@@ -11,15 +11,29 @@ Read GeoJSON to a GeoInterface.jl compatible object.
 - `numbertype::DataType=Float32`: Use Float64 when the precision is required.
 """
 function read(io; lazyfc=false, ndim=2, numbertype=Float32)
+    # Check if io is a file path (string that represents an existing file)
+    # Use try-catch because isfile() can error on invalid paths
+    is_filepath = false
+    if io isa AbstractString
+        try
+            is_filepath = isfile(io)
+        catch
+            # If isfile() errors (e.g., path too long), treat as JSON string
+            is_filepath = false
+        end
+    end
+
+    parse_fn = is_filepath ? JSON.parsefile : JSON.parse
+
     if lazyfc
-        obj = JSON3.read(io, LazyFeatureCollection{ndim,numbertype})
+        obj = parse_fn(io, LazyFeatureCollection{ndim,numbertype})
     else
         try
-            obj = JSON3.read(io, GeoJSONWrapper{ndim,numbertype}).obj
+            obj = parse_fn(io, GeoJSONWrapper{ndim,numbertype}).obj
         catch e
             if e isa ArgumentError
                 @warn "Failed to parse GeoJSON as 2D, trying 3D. Set `ndim` to 3 to avoid this warning."
-                obj = JSON3.read(io, GeoJSONWrapper{ndim + 1,numbertype}).obj
+                obj = parse_fn(io, GeoJSONWrapper{ndim + 1,numbertype}).obj
             else
                 rethrow(e)
             end
@@ -31,7 +45,7 @@ read(source::GeoFormatTypes.GeoJSON) = read(GeoFormatTypes.val(source))
 
 function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict})
     dict = GeoFormatTypes.val(source)
-    str = JSON3.write(dict)
+    str = JSON.json(dict)
     return read(str)
 end
 
@@ -47,12 +61,12 @@ If `geometry` is a `Tables.Table`, you may pass a `Symbol` to the `geometrycolum
 to indicate which column of the table holds the geometries.  Note that this will not keep the name,
 the geometry must be written to the `:geometry` column of the GeoJSON according to the spec.
 """
-write(io, obj::GeoJSONT) = JSON3.write(io, obj)
-write(obj::GeoJSONT) = JSON3.write(obj)
+write(io, obj::GeoJSONT) = (JSON.json(io, obj); nothing)
+write(obj::GeoJSONT) = JSON.json(obj)
 
 # GeoInterface supported objects
-write(io, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(io, _lower(obj; geometrycolumn))
-write(obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON3.write(_lower(obj; geometrycolumn))
+write(io, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = (JSON.json(io, _lower(obj; geometrycolumn)); nothing)
+write(obj; geometrycolumn = first(GI.geometrycolumns(obj))) = JSON.json(_lower(obj; geometrycolumn))
 
 function _lower(obj; geometrycolumn = first(GI.geometrycolumns(obj)))
     if GI.isfeaturecollection(obj)

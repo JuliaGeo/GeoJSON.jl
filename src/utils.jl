@@ -1,28 +1,19 @@
-# Hack to get force the type field into the JSON
-# Adapted from StructTypes.jl, with the addition of the typestring(T) line
-@inline function StructTypes.foreachfield(f, x::T) where {T<:GeoJSONT}
-    N = fieldcount(T)
-    nms = StructTypes.names(T)
-    kwargs = StructTypes.keywordargs(T)
-    emp = StructTypes.omitempties(T) === true ? fieldnames(T) : StructTypes.omitempties(T)
-    f(0, :type, String, typestring(T))
-    Base.@nexprs 8 i -> begin
-        k_i = fieldname(T, i)
-        if isdefined(x, i)
-            v_i = Core.getfield(x, i)
-            if !StructTypes.symbolin(emp, k_i) || !StructTypes.isempty(T, x, i)
-                if haskey(kwargs, k_i)
-                    f(i, StructTypes.serializationname(nms, k_i), fieldtype(T, i), v_i; kwargs[k_i]...)
-                else
-                    f(i, StructTypes.serializationname(nms, k_i), fieldtype(T, i), v_i)
-                end
-            end
-        end
-        N == i && @goto done
-    end
+# Fields kept only as an internal cache on FeatureCollection; never serialized.
+const COMPUTED_FIELDS = (:names, :types)
+# Optional members dropped when absent, matching the GeoJSON spec (a null bbox/id/crs
+# is not valid). Mirrors the old StructTypes `omitempties` list.
+const OMITEMPTY_FIELDS = (:id, :bbox, :crs)
 
-    @label done
-    return
+# Custom lowering to add the "type" field to GeoJSON types during serialization.
+# This is required by the GeoJSON spec - all objects must have a "type" field.
+@inline function StructUtils.lower(::JSON.JSONStyle, x::T) where {T<:GeoJSONT}
+    kept = filter(fieldnames(T)) do f
+        f in COMPUTED_FIELDS && return false
+        f in OMITEMPTY_FIELDS && getfield(x, f) === nothing && return false
+        return true
+    end
+    values = map(f -> getfield(x, f), kept)
+    return merge((type = typestring(T),), NamedTuple{kept}(values))
 end
 
 missT(::Type{Nothing}) = Missing
