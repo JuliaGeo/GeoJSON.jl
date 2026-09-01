@@ -423,17 +423,6 @@ _convert_coordinates(::Type{<:Polygon{D,T}}, coords, ::Type{T}) where {D,T} = [[
 _convert_coordinates(::Type{<:MultiLineString{D,T}}, coords, ::Type{T}) where {D,T} = [[_coord(T, Val(D), c) for c in line] for line in coords]
 _convert_coordinates(::Type{<:MultiPolygon{D,T}}, coords, ::Type{T}) where {D,T} = [[[_coord(T, Val(D), c) for c in ring] for ring in poly] for poly in coords]
 
-# For GeoJSONT - select based on "type" field (includes geometries + Feature/FeatureCollection)
-function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONT{D,TT}}, source) where {D,TT}
-    # If T is abstract, choose the concrete type
-    if T isa UnionAll || !isconcretetype(T)
-        type_str = source.type[]
-        mapping = merge(geom_mapping(D, TT), obj_mapping(D, TT))
-        concrete_type = get(mapping, Symbol(type_str), nothing)
-        concrete_type === nothing && error("Unknown GeoJSON type: $type_str")
-        return StructUtils.make(st, concrete_type, source)
-    else
-        # T is already concrete, use default behavior
-        return invoke(StructUtils.make, Tuple{typeof(st), Type, typeof(source)}, st, T, source)
-    end
-end
+# No chooser is needed for the abstract GeoJSONT level: at the top level GeoJSONWrapper's
+# chooser picks the concrete Feature/FeatureCollection/geometry, and concrete Feature and
+# FeatureCollection are ordinary structs that StructUtils parses by default.
