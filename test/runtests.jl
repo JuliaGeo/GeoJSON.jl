@@ -179,6 +179,25 @@ include("geojson_samples.jl")
         end
     end
 
+    @testset "serialized output is clean GeoJSON" begin
+        f = GeoJSON.read("""{"type":"Feature","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"a":1}}""")
+        fc = GeoJSON.read("""{"type":"FeatureCollection","features":[$(GeoJSON.write(f))]}""")
+
+        # Absent optional members are omitted, not written as null
+        feat = GeoJSON.write(f)
+        @test !occursin("\"id\"", feat)
+        @test !occursin("\"bbox\"", feat)
+
+        # The internal name/type cache never leaks into a FeatureCollection
+        coll = GeoJSON.write(fc)
+        @test !occursin("\"names\"", coll)
+        @test !occursin("\"types\"", coll)
+
+        # A feature with no geometry keeps the required null geometry member
+        empty = GeoJSON.read("""{"type":"Feature","geometry":null,"properties":{"a":1}}""")
+        @test occursin("\"geometry\":null", GeoJSON.write(empty))
+    end
+
     @testset "FeatureCollection of one MultiPolygon" begin
         t = GeoJSON.read(Samples.g)
         @test Tables.istable(t)

@@ -357,18 +357,6 @@ function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONWrapper{
         return T(obj), pos
     end
 end
-# GeoJSONWrapper lowering for serialization
-@inline StructUtils.lower(x::GeoJSONWrapper) = x.obj
-
-# FeatureCollection lowering - exclude computed fields (names, types) from serialization
-@inline function StructUtils.lower(x::FeatureCollection{D,T}) where {D,T}
-    return (;
-        bbox=getfield(x, :bbox),
-        features=getfield(x, :features),
-        crs=getfield(x, :crs)
-    )
-end
-
 typestring(::Type{<:Point}) = "Point"
 typestring(::Type{<:MultiPoint}) = "MultiPoint"
 typestring(::Type{<:LineString}) = "LineString"
@@ -477,10 +465,3 @@ function StructUtils.make(st::StructUtils.StructStyle, T::Type{<:GeoJSONT{D,TT}}
         return invoke(StructUtils.make, Tuple{typeof(st), Type, typeof(source)}, st, T, source)
     end
 end
-
-
-# Note: Computed fields (:names, :types) in FeatureCollection will be serialized
-# This is a difference from JSON3/StructTypes where we could exclude them
-# TODO: Find a way to exclude these fields if needed
-
-# Note: omitempties is now handled via JSON.json(x; omit_null=true) at call site
