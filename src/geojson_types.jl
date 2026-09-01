@@ -407,7 +407,7 @@ end
 
 # lift is called when StructUtils needs to convert an already-parsed object
 # (like JSON.Object) to the target type. JSON.jl expects lift to return (value, position)
-function StructUtils.lift(st::StructUtils.StructStyle, T::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT}
+function StructUtils.lift(st::StructUtils.DefaultStyle, T::Type{<:AbstractGeometry{D,TT}}, x::JSON.Object) where {D,TT}
     # Get the type from the JSON object
     type_str = get(x, "type", nothing)
     type_str === nothing && error("Missing 'type' field in geometry object: keys=$(keys(x))")
