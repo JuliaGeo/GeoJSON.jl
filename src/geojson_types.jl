@@ -215,6 +215,17 @@ end
 
 @inline Base.codeunits(x::LazyFeature) = x.json
 
+# Capture each feature's raw JSON without parsing it, by delegating to JSON's own
+# JSONText machinery (which correctly finds the value's byte span). The stored string
+# is re-parsed to a Feature on demand in `getindex`.
+function StructUtils.make(st::StructUtils.StructStyle, ::Type{LazyFeature{D,T}}, source) where {D,T}
+    raw, pos = StructUtils.make(st, JSON.JSONText, source)
+    return LazyFeature{D,T}(raw.value), pos
+end
+
+# Write a lazily-held feature back out verbatim.
+@inline StructUtils.lower(::JSON.JSONStyle, x::LazyFeature) = JSON.JSONText(x.json)
+
 
 """
     FeatureCollection{D,T}(bbox::Union{Nothing,Vector{T}}, features::Vector{Feature{D,T}}, crs::Union{Nothing,CRS})
@@ -294,6 +305,12 @@ features(fc::LazyFeatureCollection) = collect(fc.features)
 
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
 Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON.parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
+
+# Write a lazy collection back out as a normal FeatureCollection, emitting each
+# held feature verbatim (see the LazyFeature lower above).
+@inline function StructUtils.lower(::JSON.JSONStyle, x::LazyFeatureCollection)
+    return (; type="FeatureCollection", bbox=x.bbox, features=x.features, crs=x.crs)
+end
 
 # symbol (from json string type) to struct mapping
 # NOTE: These must be defined BEFORE GeoJSONWrapper to be available in the choosetype lambda
