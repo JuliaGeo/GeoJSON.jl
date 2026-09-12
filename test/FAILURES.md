@@ -78,7 +78,7 @@ Run: `test/geointerface.jl` 221 pass / 2 fail, `test/tables.jl` 110 pass / 0 fai
 - Source: `Project.toml` (WP0)
 - Verdict: infrastructure. Add `DataAPI = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"` to `[extras]` and
   `"DataAPI"` to the `test` target. Both files pass in a temp environment that adds it explicitly.
-- Status: the working tree already carries this addition, uncommitted, from another agent.
+- Resolved: `DataAPI` is in `[extras]`, `[compat]` and the `test` target of `Project.toml`.
 
 ## Open questions
 
@@ -321,3 +321,25 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   brief rather than a regression. `Base.getindex(f::Feature, k::Union{AbstractString,Symbol}) = properties(f)[k]`
   would satisfy both tests.
 - Resolved: 7a33560. `getindex`, `get` and `haskey` on a `Feature` reach its properties container.
+
+# Final verification, 05c34d9
+
+`julia --project=. -e 'using Pkg; Pkg.test()'`: 894 pass / 0 fail / 1 error / 0 broken in 58.3 s.
+`julia --project=docs -e '... include("docs/make.jl")'` builds clean.
+
+## `import Pkg` is unavailable under `Pkg.test()`
+
+- Test: `test/trim_tests.jl`, which the suite includes from `test/runtests.jl:14`
+- Expected: the test environment resolves `Pkg`, which `prepare_trim_package` uses to activate,
+  develop and instantiate the copied trim package
+- Got: `LoadError: ArgumentError: Package Pkg not found in current path.` at `test/trim_tests.jl:3`,
+  which aborts the whole `@testset "GeoJSON"` with one error
+- Source: `Project.toml` (WP0). `Pkg` is missing from `[extras]` and the `test` target, so the
+  sandbox `Pkg.test()` builds cannot see it; a plain `--project=.` session can, which is why the
+  failure appears only under `Pkg.test()`
+- Verdict: infrastructure, same shape as the DataAPI entry above. Add
+  `Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"` to `[extras]` and `"Pkg"` to the `test` target.
+- Deferred to the owner of `Project.toml`: the verifier does not edit `src/` or `Project.toml`.
+  Running `test/trim_tests.jl` in a temp environment that adds `Pkg` gives 9 pass / 0 fail:
+  the read+write build verifies at 0 errors / 0 warnings in 10.7 s and its 5,390,704-byte binary
+  prints `features 177`, `sumx 121572.13516100003`, `name Fiji`, `written 257731`.
