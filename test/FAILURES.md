@@ -17,6 +17,7 @@ Run: `test/geointerface.jl` 221 pass / 2 fail, `test/tables.jl` 110 pass / 0 fai
 - Verdict: code. A hole count is a cardinality, so an empty polygon has zero holes;
   `max(_ngeom(g) - 1, 0)` restores the invariant. This is the same empty-polygon case the plan fixes
   for `GI.ncoord`, which already returns `D` here.
+- Resolved: 7a33560. `GI.nhole` is `max(_ngeom(g) - 1, 0)`.
 
 ## Aqua: 10 method ambiguities in the writer
 
@@ -46,6 +47,9 @@ Run: `test/geointerface.jl` 221 pass / 2 fail, `test/tables.jl` 110 pass / 0 fai
   returns `Point{2,Float64}` — because `D` is solved from the tuple length at dispatch. Aqua's static
   check counts a `Vararg` length parameter as unbound. Silencing it means
   `Aqua.test_unbound_args(GeoJSON; broken=true)` or a signature that takes `Val{D}`.
+- Resolved: 7a33560. The bare constructors take the position tuple type `E<:Tuple` and read
+  `fieldcount(E)`/`eltype(E)`; the point readers take `Val{D}` and `T`; the nullable `make` is gone.
+  `Aqua.detect_unbound_args(GeoJSON)` is empty.
 
 ## Aqua: type piracy on `StructUtils.make`
 
@@ -57,6 +61,8 @@ Run: `test/geointerface.jl` 221 pass / 2 fail, `test/tables.jl` 110 pass / 0 fai
   package: the function is StructUtils', the style is JSON's, and `Union{Nothing,G}` is a Base `Union`
   even though `G` is ours. Dispatching on a wrapper that GeoJSON owns, or on `Type{G}` with the
   `Nothing` case handled by the caller, would make the method legitimately ours.
+- Resolved: 7a33560. The method is deleted; `FeatureSink` already branches on `null` before
+  calling the geometry `make`, and nothing else called it. `Aqua.test_piracies(GeoJSON)` passes.
 
 ## `using DataAPI` is unavailable under `Pkg.test()`
 
@@ -82,6 +88,9 @@ Run: `test/geointerface.jl` 221 pass / 2 fail, `test/tables.jl` 110 pass / 0 fai
   `GI.ncoord` promises `D` coordinates that the geometry does not hold. GeoJSON allows
   `{"type": "Point", "coordinates": []}`, so the reader's representation of it decides whether this
   needs a fix. Every other geometry type with empty or `nothing` coordinates passes `GI.testgeometry`.
+  - Resolved: 7a33560. `GI.ncoord` on an unlocated point is `0` and `GI.isempty` is `true`, which
+    is the empty-point case `GI.testgeometry` allows; the other geometries report `GI.isempty`
+    from their item count.
 
 ## Intentional changes observed
 
@@ -209,6 +218,10 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   `NamedTuple` targets that fills `missing`, or a `StructUtils.fielddefaults` method that maps every
   `Union{Missing,T}` field to `missing`, fixes it. A *null value* on a present key already reads as
   `missing`, so only the absent key is broken.
+- Resolved: 7a33560. `readprops` builds a `NamedTuple` schema through `SchemaSlots`, a sink with
+  one `missing`-initialized slot per field, a generated `keyeq` ladder over the field-name literals,
+  and `StructUtils.make(st, fieldtype, v)` per present key; a field without `Missing` rejects an
+  absent key with an `ArgumentError`. Struct schemas still go through `StructUtils.make`.
 
 ## A null or absent `"properties"` member under a `NamedTuple` schema throws
 
@@ -220,6 +233,7 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   `Properties` and `Nothing`
 - Verdict: code (WP1), same root cause as the entry above: with field defaults available,
   `emptyprops` can build the all-`missing` schema instead of throwing.
+- Resolved: 7a33560. `emptyprops(P)` for a `NamedTuple` `P` is the all-`missing` schema.
 
 ## `==` on a feature whose properties hold `missing` throws
 
@@ -233,6 +247,8 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   `isequal` inherits it through the default `isequal(x, y) = x == y`. Comparing properties with
   `isequal`, or replacing `&&` with `&` so the result is three-valued, restores the round trip.
   Writing is unaffected: `missing` writes as `null`.
+- Resolved: 7a33560. `==` compares `properties` and `extras` with `isequal` and returns a `Bool`;
+  `isequal` and `hash` are defined consistently for geometries, `Feature` and `FeatureCollection`.
 
 ## `ndim=Val(3)` does not give a concretely inferred read
 
@@ -251,6 +267,9 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   passes. Either document `Val` as pinning `D` alone, or take the root kind and `properties` as
   `Val`s too. The union widened from nine to ten members, and `Feature`/`FeatureCollection` lost
   their concrete `P`, when the lazy reader landed.
+- Resolved: 7a33560, by documentation. The `read` docstring names the typed form as the inferable
+  entry and `Val(N)` as pinning `D` on the keyword form's union; the `@test_broken` is now an
+  `@inferred` test of `read(bytes, FeatureCollection{3,Float64,AnyGeometry{3,Float64},Properties})`.
 
 ## An empty Point position throws instead of reading as an unlocated point
 
@@ -263,6 +282,9 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   Point is the odd one out, and T3's open question on `GI.testgeometry(Point(nothing, nothing))`
   turns on this representation. The advice in the message is unreachable as well: `ndim=0` throws
   `ArgumentError: ndim must be 2, 3, or 4`.
+- Resolved: 7a33560. A Point's own `[]` reads as `Point{D,T}(nothing, nothing)` through
+  `readposition`; an empty position inside a ring is still a `DimMismatch`, and the message offers
+  `ndim=` only for 2, 3 or 4.
 
 ## A `Feature` has no `getindex`
 
@@ -274,3 +296,4 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   `getproperty` to `Feature`, and 0.8.4 had no feature indexing either, so this is a gap in the
   brief rather than a regression. `Base.getindex(f::Feature, k::Union{AbstractString,Symbol}) = properties(f)[k]`
   would satisfy both tests.
+- Resolved: 7a33560. `getindex`, `get` and `haskey` on a `Feature` reach its properties container.
