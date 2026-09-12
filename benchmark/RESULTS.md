@@ -28,12 +28,12 @@ and `ne_10m_populated_places.geojson`.
 
 | file | `read` 0.9.0 | `read` 0.8.4 | speedup | `write` 0.9.0 | `write` 0.8.4 | speedup |
 |---|---:|---:|---:|---:|---:|---:|
-| ne_110m_countries | 2.73 ms | 17.49 ms | 6.4× | 4.40 ms | 35.21 ms | 8.0× |
-| ne_10m_countries | 63.24 ms | 60.72 ms | 0.96× | 117.59 ms | 99.19 ms | 0.84× |
-| ne_10m_populated_places | 105.87 ms | 602.49 ms | 5.7× | 149.44 ms | 770.23 ms | 5.2× |
+| ne_110m_countries | 2.73 ms | 17.49 ms | 6.4× | 2.44 ms | 35.21 ms | 14.4× |
+| ne_10m_countries | 63.24 ms | 60.72 ms | 0.96× | 71.41 ms | 99.19 ms | 1.39× |
+| ne_10m_populated_places | 105.87 ms | 602.49 ms | 5.7× | 37.55 ms | 770.23 ms | 20.5× |
 
 0.9.0 reads `Float64` by default; the 0.8.4 `read` row is its `Float32` default. On the coordinate-heavy
-file the two releases are within noise of each other on both operations; the `properties=false` read
+file the two releases are within noise of each other on the read; the `properties=false` read
 there (56.9 ms) and the lazy scan (53.1 ms) show the remaining time is the coordinate parse itself.
 
 ## Latency (fresh process)
@@ -60,7 +60,7 @@ milliseconds; the package image it produces is what raises the load time.
 |   ↳ `lfc[1]` (parse one feature) | 11.27 µs | 308 | 0.0 | — | — | 29.25 µs |
 |   ↳ parse all via `lfc[i]` | 2.82 ms | 53.7 k | 4.1 | 264 | 284 | 5.96 ms |
 |   ↳ `collect(lfc)` | 3.00 ms | 53.7 k | 4.1 | 281 | 267 | 6.16 ms |
-| `GeoJSON.write(fc)` | 4.40 ms | 52.3 k | 7.8 | 413 | 182 | 35.21 ms |
+| `GeoJSON.write(fc)` | 2.44 ms | 196 | 1.2 | 229 | 328 | 35.21 ms |
 | `JSON.parse` (untyped) | 4.58 ms | 152.7 k | 7.4 | 430 | 175 | 3.73 ms |
 
 ## ne_10m_countries.geojson — 12.7 MB, 258 features, 548.5 k coordinate points
@@ -73,7 +73,7 @@ milliseconds; the package image it produces is what raises the load time.
 |   ↳ `lfc[1]` (parse one feature) | 2.25 ms | 2.1 k | 0.9 | — | — | 1.35 ms |
 |   ↳ parse all via `lfc[i]` | 64.38 ms | 105.1 k | 28.8 | 117 | 197 | 50.98 ms |
 |   ↳ `collect(lfc)` | 61.99 ms | 105.1 k | 28.8 | 113 | 204 | 51.36 ms |
-| `GeoJSON.write(fc)` | 117.59 ms | 1.16 M | 136.3 | 214 | 108 | 99.19 ms |
+| `GeoJSON.write(fc)` | 71.41 ms | 277 | 24.1 | 130 | 177 | 99.19 ms |
 | `JSON.parse` (untyped) | 228.62 ms | 3.44 M | 185.5 | 417 | 55 | 185.96 ms |
 
 ## ne_10m_populated_places.geojson — 18.5 MB, 7.3 k features, 7.3 k coordinate points
@@ -86,7 +86,7 @@ milliseconds; the package image it produces is what raises the load time.
 |   ↳ `lfc[1]` (parse one feature) | 7.57 µs | 196 | 0.0 | — | — | 22.23 µs |
 |   ↳ parse all via `lfc[i]` | 92.71 ms | 1.54 M | 127.2 | 12627 | 199 | 191.26 ms |
 |   ↳ `collect(lfc)` | 105.28 ms | 1.54 M | 127.2 | 14339 | 175 | 519.44 ms |
-| `GeoJSON.write(fc)` | 149.44 ms | 1.02 M | 200.5 | 20354 | 124 | 770.23 ms |
+| `GeoJSON.write(fc)` | 37.55 ms | 7.4 k | 25.8 | 5114 | 492 | 770.23 ms |
 | `JSON.parse` (untyped) | 155.81 ms | 2.84 M | 134.6 | 21222 | 118 | 110.01 ms |
 
 ## Machine

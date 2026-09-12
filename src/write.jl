@@ -92,6 +92,22 @@ end
     _badvalue()
 end
 
+# Out of line and unspecialized: a `lower` call on `Any` inside the ladder below turns every branch
+# of it into a dynamic call.
+@noinline _lowered(st, @nospecialize(v)) = StructUtils.lower(st, v)
+
+# The scalar types the reader stores in `Properties`, plus `missing` from tables; each branch hands
+# `f` one concrete type, and any other value takes the general lowering path.
+@inline function _emitproperty(st, f, k, v)
+    v isa String && return f(k, v)
+    v isa Float64 && return f(k, v)
+    v isa Int64 && return f(k, v)
+    v === nothing && return f(k, nothing)
+    v === missing && return f(k, nothing)
+    v isa Bool && return f(k, v)
+    return f(k, _lowered(st, v))
+end
+
 # `G` of a `Feature` may be a union of several geometries; each branch hands `f` one of them.
 # A `Feature` falls through unchanged.
 function _emitgeometry(f, k, g)
@@ -140,6 +156,14 @@ end
 function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Members)
     for (k, v) in x.o
         ret = _emitvalue(f, k, v)
+        ret isa StructUtils.EarlyReturn && return ret
+    end
+    return StructUtils.defaultstate(st)
+end
+
+function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Properties)
+    for (k, v) in x.pairs
+        ret = _emitproperty(st, f, k, v)
         ret isa StructUtils.EarlyReturn && return ret
     end
     return StructUtils.defaultstate(st)
@@ -198,10 +222,65 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, x::FeatureCollection)
 end
 
 # A call with two style arguments also matches StructUtils' `applyeach(f, st, x)`; pin the style-first reading.
-for T in (Elements, Objects, Values, Members, Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
+for T in (Elements, Objects, Values, Members, Properties, Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
           GeometryCollection, Feature, FeatureCollection)
     @eval StructUtils.applyeach(st::JSON.JSONStyle, f::StructUtils.StructStyle, x::$T) =
         invoke(StructUtils.applyeach, Tuple{JSON.JSONStyle,Any,$T}, st, f, x)
+end
+
+# --- Output size estimate ------------------------------------------------------
+
+# `JSON.json` allocates its buffer at `sizeguess` bytes and grows it geometrically from 512 when a
+# type has no estimate. This one leans high: `String` takes an oversized buffer without copying,
+# and each shortfall copies everything written so far.
+_coordbytes(::Type{Float32}) = 13
+_coordbytes(::Type) = 20
+
+_npoints(::Tuple) = 1
+_npoints(c::Vector{<:Tuple}) = length(c)
+_npoints(c::Vector) = sum(_npoints, c; init=0)
+
+_bboxbytes(::Nothing) = 0
+_bboxbytes(b::Vector) = 12 + 24 * length(b)
+_propbytes(::Nothing) = 4
+_propbytes(p::Union{Properties,NamedTuple}) = 2 + 24 * length(p)
+_propbytes(p) = 512
+_extrasbytes(::Nothing) = 0
+_extrasbytes(e::Vector) = 64 * length(e)
+
+function JSON.sizeguess(g::AbstractGeometry{D,T}) where {D,T}
+    c = coordinates(g)
+    n = c === nothing ? 0 : _npoints(c)
+    return 40 + _bboxbytes(bbox(g)) + _extrasbytes(extras(g)) + n * (D * _coordbytes(T) + 4)
+end
+# A union-typed geometry reaches `sizeguess` as one concrete type. A GeometryCollection takes a flat
+# guess: an estimate that re-enters its own methods with a second signature is widened to `Any`.
+function _geombytes(g)
+    g === nothing && return 4
+    g isa Point && return JSON.sizeguess(g)
+    g isa LineString && return JSON.sizeguess(g)
+    g isa Polygon && return JSON.sizeguess(g)
+    g isa MultiPoint && return JSON.sizeguess(g)
+    g isa MultiLineString && return JSON.sizeguess(g)
+    g isa MultiPolygon && return JSON.sizeguess(g)
+    g isa GeometryCollection && return 48 + 512 * length(geometry(g))
+    return 512
+end
+function JSON.sizeguess(g::GeometryCollection)
+    n = 48 + _bboxbytes(bbox(g)) + _extrasbytes(extras(g))
+    for m in geometry(g)
+        n += _geombytes(m)
+    end
+    return n
+end
+JSON.sizeguess(x::Feature) =
+    64 + _bboxbytes(bbox(x)) + _geombytes(geometry(x)) + _propbytes(properties(x)) + _extrasbytes(extras(x))
+function JSON.sizeguess(x::FeatureCollection)
+    n = 40 + _bboxbytes(bbox(x)) + _extrasbytes(extras(x))
+    for f in features(x)
+        n += JSON.sizeguess(f)
+    end
+    return n
 end
 
 # --- GeoInterface and Tables inputs lower into the GeoJSON types --------------
