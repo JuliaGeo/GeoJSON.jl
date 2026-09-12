@@ -69,6 +69,18 @@ Extras
 DimMismatch
 ```
 
+### Accessors
+
+```@docs
+geometry
+coordinates
+properties
+id
+bbox
+extras
+typestring
+```
+
 ### Lazy tier
 
 ```@docs
@@ -95,5 +107,7 @@ Filter = t -> !(t in (GeoJSON, GeoJSON.read, GeoJSON.write, GeoJSON.Point, GeoJS
                       GeoJSON.FeatureCollection, GeoJSON.Properties, GeoJSON.Extras,
                       GeoJSON.DimMismatch, GeoJSON.LazyFeatureCollection, GeoJSON.LazyFeature,
                       GeoJSON.LazyGeometry, GeoJSON.LazyStream, GeoJSON.lazyfeature,
-                      GeoJSON.lazygeometry, GeoJSON.materialize, GeoJSON.features, Base.foreach))
+                      GeoJSON.lazygeometry, GeoJSON.materialize, GeoJSON.features, Base.foreach,
+                      GeoJSON.geometry, GeoJSON.coordinates, GeoJSON.properties, GeoJSON.id,
+                      GeoJSON.bbox, GeoJSON.extras, GeoJSON.typestring))
 ```

@@ -221,9 +221,17 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, x::FeatureCollection)
     return _emitextras(st, f, extras(x))
 end
 
+function StructUtils.applyeach(st::JSON.JSONStyle, f, x::LazyFeatureCollection)
+    @emit "type" "FeatureCollection"
+    bb = bbox(x)
+    bb === nothing || @emit "bbox" Elements(bb)
+    @emit "features" Objects(x)
+    return _emitextras(st, f, extras(x))
+end
+
 # A call with two style arguments also matches StructUtils' `applyeach(f, st, x)`; pin the style-first reading.
 for T in (Elements, Objects, Values, Members, Properties, Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
-          GeometryCollection, Feature, FeatureCollection)
+          GeometryCollection, Feature, FeatureCollection, LazyFeatureCollection)
     @eval StructUtils.applyeach(st::JSON.JSONStyle, f::StructUtils.StructStyle, x::$T) =
         invoke(StructUtils.applyeach, Tuple{JSON.JSONStyle,Any,$T}, st, f, x)
 end
@@ -286,6 +294,7 @@ end
 # --- GeoInterface and Tables inputs lower into the GeoJSON types --------------
 
 _lower(x::GeoJSONT, geometrycolumn) = x
+_lower(x::Union{LazyFeature,LazyGeometry}, geometrycolumn) = materialize(x)
 _lower(::Nothing, geometrycolumn) = nothing
 function _lower(obj, geometrycolumn)
     # A column table with a `geometry` column is also a GeoInterface NamedTuple feature; tables win.
@@ -382,12 +391,10 @@ function _lowertable(obj, geometrycolumn)
     sch = Tables.schema(rows)
     names = sch === nothing ? Tables.columnnames(Tables.columns(obj)) : sch.names
     propnames = Tuple(n for n in names if n !== geometrycolumn)
-    geoms = Any[]
-    props = Properties[]
-    for row in rows
-        push!(geoms, Tables.getcolumn(row, geometrycolumn))
-        push!(props, Properties(Pair{String,Any}[String(n) => Tables.getcolumn(row, n) for n in propnames]))
-    end
+    cells = [(Tables.getcolumn(row, geometrycolumn),
+              Properties(Pair{String,Any}[String(n) => Tables.getcolumn(row, n) for n in propnames])) for row in rows]
+    geoms = map(first, cells)
+    props = map(last, cells)
     v = Val(any(_is3d, geoms) ? 3 : 2)
     T = mapreduce(g -> _coordtype(g, v), promote_type, geoms; init=Union{})
     return _lowertable(geoms, props, v, T === Union{} ? Float64 : T)

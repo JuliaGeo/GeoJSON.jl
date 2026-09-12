@@ -10,8 +10,8 @@ Read GeoJSON into a [`FeatureCollection`](@ref), [`Feature`](@ref), or geometry,
 root `"type"`. The typed form parses straight into the given type and errors when the root
 `"type"` disagrees; the keyword form builds that type from its keywords.
 
-`src` is a file path, a JSON string, an `IO`, or a byte vector. A `String` naming an existing
-file is read as a path.
+`src` is a file path, a JSON string, an `IO`, or a byte vector. A string whose first non-blank
+byte is `{` or `[` is the document itself; any other string is a path.
 
 | keyword | effect |
 |---|---|
@@ -20,7 +20,8 @@ file is read as a path.
 | `geometries` | geometry type(s) admitted, e.g. `(Point, Polygon)`; `nothing` admits all seven |
 | `properties` | `true` for [`Properties`](@ref), `false` to skip the member, or a `NamedTuple`/struct schema |
 | `lazy` | `true` defers feature parsing to access time |
-| `mmap` | memory-map a path instead of reading it |
+| `mmap` | `true` memory-maps a path; the result borrows the mapping |
+| `lazyfc` | deprecated spelling of `lazy` |
 
 Every coordinate position must hold exactly `D` values; a [`DimMismatch`](@ref) names the
 offending feature.

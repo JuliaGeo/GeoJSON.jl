@@ -343,3 +343,4 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   Running `test/trim_tests.jl` in a temp environment that adds `Pkg` gives 9 pass / 0 fail:
   the read+write build verifies at 0 errors / 0 warnings in 10.7 s and its 5,390,704-byte binary
   prints `features 177`, `sumx 121572.13516100003`, `name Fiji`, `written 257731`.
+- Resolved: `Pkg` is in `[extras]` and the `test` target, so `Pkg.test()` runs the trim harness.

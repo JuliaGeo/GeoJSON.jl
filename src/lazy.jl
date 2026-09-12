@@ -220,7 +220,7 @@ end
 Base.:(==)(a::LazyFeatureCollection, b::AbstractFeatureCollection) = _fceq(a, b)
 Base.:(==)(a::AbstractFeatureCollection, b::LazyFeatureCollection) = _fceq(a, b)
 Base.:(==)(a::LazyFeatureCollection, b::LazyFeatureCollection) = _fceq(a, b)
-_fceq(a, b) = bbox(a) == bbox(b) && extras(a) == extras(b) && length(a) == length(b) &&
+_fceq(a, b) = bbox(a) == bbox(b) && isequal(extras(a), extras(b)) && length(a) == length(b) &&
               all(a[i] == b[i] for i in 1:length(a))
 
 Base.show(io::IO, fc::LazyFeatureCollection) = print(io, "LazyFeatureCollection with ", length(fc), " Features")
@@ -379,19 +379,22 @@ end
 struct NameSink
     names::Vector{Symbol}
 end
-(s::NameSink)(k::PtrString, ::LazyValues) = (push!(s.names, Symbol(convert(String, k))); 0)
+function (s::NameSink)(k::PtrString, ::LazyValues)
+    sym = Symbol(convert(String, k))
+    sym === :geometry || push!(s.names, sym)
+    return 0
+end
 
-_propnames(f::LazyFeature{D,T,G,Nothing}) where {D,T,G} = ()
-_propnames(f::LazyFeature{D,T,G,P}) where {D,T,G,P} = fieldnames(P)
-function _propnames(f::LazyFeature{D,T,G,P}) where {D,T,G,P<:AbstractDict}
+_pushnames!(names::Vector{Symbol}, f::LazyFeature{D,T,G,Nothing}) where {D,T,G} = names
+_pushnames!(names::Vector{Symbol}, f::LazyFeature{D,T,G,P}) where {D,T,G,P} = _pushnames!(names, fieldnames(P))
+function _pushnames!(names::Vector{Symbol}, f::LazyFeature{D,T,G,P}) where {D,T,G,P<:AbstractDict}
     buf = _buf(f)
     pos = memberpos(f, "properties")
-    (pos == 0 || _isnull(buf, pos)) && return ()
-    s = NameSink(Symbol[])
-    applyobject(s, lazyat(buf, pos))
-    return Tuple(s.names)
+    (pos == 0 || _isnull(buf, pos)) && return names
+    applyobject(NameSink(names), lazyat(buf, pos))
+    return names
 end
-Base.propertynames(f::LazyFeature) = (:geometry, filter(!=(:geometry), _propnames(f))...)
+Base.propertynames(f::LazyFeature)::Tuple{Vararg{Symbol}} = Tuple(_pushnames!(Symbol[:geometry], f))
 
 Base.:(==)(a::LazyFeature, b::Feature) = materialize(a) == b
 Base.:(==)(a::Feature, b::LazyFeature) = a == materialize(b)
@@ -422,7 +425,7 @@ GI.isgeometry(::Type{<:LazyGeometry}) = true
 GI.geomtrait(g::LazyGeometry) = KIND_TRAITS[kind(g)]
 GI.ncoord(::GI.AbstractTrait, ::LazyGeometry{D}) where {D} = D
 
-# --- GeoInterface, Tables, writing -----------------------------------------------
+# --- GeoInterface and Tables ------------------------------------------------------
 
 GI.isfeature(::Type{<:LazyFeature}) = true
 GI.trait(::LazyFeature) = GI.FeatureTrait()
@@ -431,21 +434,17 @@ GI.properties(f::LazyFeature) = properties(f)
 
 Tables.getcolumn(f::LazyFeature, k::Symbol) = k === :geometry ? something(geometry(f), missing) : getproperty(f, k)
 Tables.getcolumn(f::LazyFeature, i::Int) = Tables.getcolumn(f, propertynames(f)[i])
-Tables.columnnames(f::LazyFeature) = propertynames(f)
 
-Tables.schema(fc::LazyFeatureCollection) = Tables.Schema(_schema(fc)...)
-Base.propertynames(fc::LazyFeatureCollection) = first(_schema(fc))
-function Base.getproperty(fc::LazyFeatureCollection, k::Symbol)
-    hasfield(typeof(fc), k) && return getfield(fc, k)
-    names, types = _schema(fc)
-    i = findfirst(==(k), names)
-    T = i === nothing ? Missing : types[i]
-    return T[Tables.getcolumn(f, k) for f in lazyfeatures(fc)]
+_column(fc::LazyFeatureCollection{D,T,G,P}, k::Symbol) where {D,T,G,P} = _column(lazyfeatures(fc), G, P, k)
+function _propertyvalue(f::LazyFeature, key::String)
+    pos = _proppos(f, key)
+    return pos == 0 ? Absent() : _propvalue(f, key, pos)
 end
 
-# One walk per feature: the properties parse and the geometry kind, with coordinates skipped.
+# One walk per feature: the geometry kind with coordinates skipped, plus the properties when
+# their keys are the schema.
 struct SchemaRow{P}
-    properties::P
+    properties::Union{Nothing,P}
     kind::UInt8
 end
 
@@ -457,7 +456,7 @@ end
 
 function (s::SchemaSink{P})(k::PtrString, v::LazyValues) where {P}
     if k == "properties"
-        (P === Nothing || gettype(v) == NULL) && return 0
+        (!(P <: AbstractDict) || gettype(v) == NULL) && return 0
         val, pos = readprops(s.st, P, v)
         s.properties = val
         return pos
@@ -470,32 +469,25 @@ end
 function StructUtils.make(st::JSON.JSONStyle, ::Type{SchemaRow{P}}, src::LazyValues) where {P}
     s = SchemaSink{P,typeof(st)}(st, nothing, KUNKNOWN)
     pos = applyobject(s, src)::Int
-    props = s.properties
-    props === nothing && (props = emptyprops(P))
-    return SchemaRow{P}(props, s.kind), pos
+    return SchemaRow{P}(s.properties, s.kind), pos
 end
 StructUtils.make(st::JSON.JSONStyle, ::Type{SchemaRow{P}}, src::LazyValues, tags) where {P} =
     StructUtils.make(st, SchemaRow{P}, src)
 
-# Geometry-free features feed the eager property schema pass; the geometry column comes from the kinds.
+# Dict-keyed properties feed the same per-row schema step as an eager collection; a static `P`
+# names its columns up front, so each row contributes only its geometry kind.
 function _schema(fc::LazyFeatureCollection{D,T,G,P}) where {D,T,G,P}
     buf = _buf(fc)
-    rows = [JSON.parse(lazyat(buf, pos), SchemaRow{P}; style=GeoJSONStyle()) for pos in _offsets(fc)]
-    feats = Feature{D,T,G,P}[Feature{D,T,G,P}(nothing, nothing, nothing, r.properties, nothing) for r in rows]
-    names, types = _propertyschema(FeatureCollection{D,T,G,P}(nothing, feats, nothing), P)
-    gt = mapreduce(r -> r.kind == KUNKNOWN ? Missing : kindtype(r.kind, Val(D), T), _widen, rows; init=Union{})
+    offsets = _offsets(fc)
+    pass = P <: AbstractDict ? SchemaPass() : nothing
+    gt = Union{}
+    for (n, pos) in enumerate(offsets)
+        row = JSON.parse(lazyat(buf, pos), SchemaRow{P}; style=GeoJSONStyle())
+        pass === nothing || _schemarow!(pass, n, row.properties)
+        gt = _widen(gt, row.kind == KUNKNOWN ? Missing : kindtype(row.kind, Val(D), T))
+    end
+    names, types = pass === nothing ? _propertyschema(offsets, P) : _finish(pass, length(offsets))
     push!(names, :geometry)
     push!(types, gt === Union{} ? G : gt)
     return names, types
 end
-
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::LazyFeatureCollection)
-    @emit "type" "FeatureCollection"
-    bb = bbox(x)
-    bb === nothing || @emit "bbox" Elements(bb)
-    @emit "features" Objects(x)
-    return _emitextras(st, f, extras(x))
-end
-StructUtils.applyeach(st::JSON.JSONStyle, f::StructUtils.StructStyle, x::LazyFeatureCollection) =
-    invoke(StructUtils.applyeach, Tuple{JSON.JSONStyle,Any,LazyFeatureCollection}, st, f, x)
-_lower(x::Union{LazyFeature,LazyGeometry}, geometrycolumn) = materialize(x)

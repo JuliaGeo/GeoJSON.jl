@@ -17,10 +17,10 @@ include("read/geometry.jl")
 include("read/feature.jl")
 include("read/discover.jl")
 include("read/read.jl")
-include("write.jl")
 include("geointerface.jl")
 include("table.jl")
 include("lazy.jl")
+include("write.jl")
 include("precompile.jl")
 
 end # module

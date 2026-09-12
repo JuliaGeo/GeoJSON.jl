@@ -43,9 +43,6 @@ function _coord_dim(x::LazyValue)::Union{Int,Found}
 end
 
 mutable struct DimScan
-    minD::Int
-    maxD::Int
-    npoints::Int
     feature::Int
     badfeature::Int
     expect::Int
@@ -54,16 +51,15 @@ end
 """
     scan_dims(bytes; expect=0) -> DimScan
 
-Count the elements of every coordinate position by byte scanning. Records the min and max
-dimension, the point count, and the first feature index whose dimension differs from
-`expect` (or from the first position seen when `expect` is 0). Runs only on the error path,
-to name the feature in a [`DimMismatch`](@ref).
+Byte-scan every coordinate position for the first feature whose dimension differs from
+`expect`, or from the first position seen when `expect` is 0; its index is `badfeature` (0
+when every position agrees). Runs only on the error path, to name the feature in a
+[`DimMismatch`](@ref).
 """
 scan_dims(bytes; expect::Int=0) = scan_dims(JSON.lazy(bytes); expect)
 function scan_dims(x::LazyValue; expect::Int=0)
-    s = DimScan(typemax(Int), 0, 0, 0, 0, expect)
+    s = DimScan(0, 0, expect)
     _scan(x, s)
-    s.npoints == 0 && (s.minD = 0)
     return s
 end
 
@@ -94,9 +90,6 @@ function _scan_coords(x::LazyValue, s::DimScan)::Int
     n, endpos = flatcount(buf, getpos(x), getlength(buf))
     n < 0 && return applyarray((_, e) -> _scan_coords(e, s), x)
     n == 0 && return endpos
-    s.npoints += 1
-    s.minD = min(s.minD, n)
-    s.maxD = max(s.maxD, n)
     s.expect == 0 && (s.expect = n)
     n != s.expect && s.badfeature == 0 && (s.badfeature = s.feature)
     return endpos

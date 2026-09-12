@@ -8,6 +8,9 @@ const Geom = Union{GeoJSON.Polygon{2,Float64},GeoJSON.MultiPolygon{2,Float64}}
 const Props = NamedTuple{(:NAME, :POP_EST),Tuple{Union{Missing,String},Union{Missing,Float64}}}
 const Untyped = GeoJSON.FeatureCollection{2,Float64,Geom,Nothing}
 const Typed = GeoJSON.FeatureCollection{2,Float64,Geom,Props}
+const LazyProps = NamedTuple{(:NAME,),Tuple{Union{Missing,String}}}
+const Lazy = GeoJSON.LazyFeatureCollection{2,Float64,Geom,LazyProps}
+const Stream = GeoJSON.LazyStream{2,Float64,Geom,LazyProps}
 
 sumx(::Nothing) = 0.0
 function sumx(g::GeoJSON.Polygon{2,Float64})
@@ -43,6 +46,19 @@ function firstname(fc::Typed)
     return n isa String ? n : "missing"
 end
 
+function lazyname(lfc::Lazy)
+    length(lfc) == 0 && return "<none>"
+    n = GeoJSON.properties(lfc[1]).NAME
+    return n isa String ? n : "missing"
+end
+
+# A `Ref` counter keeps the closure's captured field concretely typed under `--trim`.
+function streamcount(path)
+    n = Ref(0)
+    foreach(_ -> n[] += 1, GeoJSON.read(path, Stream))
+    return n[]
+end
+
 function @main(args)
     length(args) == 1 || (println(Core.stdout, "usage: trimgeojson <file.geojson>"); return 1)
     path = args[1]
@@ -51,6 +67,10 @@ function @main(args)
     println(Core.stdout, "sumx ", sumx(fc))
     typed = GeoJSON.read(read(path), Typed)
     println(Core.stdout, "name ", firstname(typed))
+    lazy = GeoJSON.read(path, Lazy)
+    println(Core.stdout, "lazylength ", length(lazy))
+    println(Core.stdout, "lazyname ", lazyname(lazy))
+    println(Core.stdout, "streamed ", streamcount(path))
     @static if WRITE
         println(Core.stdout, "written ", sizeof(GeoJSON.write(fc)))
     end

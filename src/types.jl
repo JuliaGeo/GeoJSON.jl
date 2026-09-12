@@ -91,8 +91,6 @@ Feature{D,T,G,P}(; id=nothing, bbox=nothing, geometry=nothing, properties=Proper
     Feature{D,T,G,P}(id, bbox, geometry, properties, extras)
 Feature{D,T}(; kw...) where {D,T} = Feature{D,T,AnyGeometry{D,T},Properties}(; kw...)
 Feature(; geometry::AbstractGeometry{D,T}, kw...) where {D,T} = Feature{D,T}(; geometry, kw...)
-Base.convert(::Type{F}, f::Feature) where {F<:Feature} =
-    f isa F ? f : F(getfield(f, :id), getfield(f, :bbox), getfield(f, :geometry), getfield(f, :properties), getfield(f, :extras))
 typestring(::Type{<:Feature}) = "Feature"
 
 """
@@ -117,18 +115,71 @@ typestring(::Type{Nothing}) = "null"
 typestring(::Type{Missing}) = "null"
 typestring(x) = typestring(typeof(x))
 
+"""
+    bbox(x) -> Union{Nothing,Vector{T}}
+
+The `bbox` member of a geometry, `Feature`, or collection: `[minx, miny, maxx, maxy]` (six values in 3-D), or `nothing`.
+"""
 bbox(x::GeoJSONT) = getfield(x, :bbox)
+
+"""
+    extras(x) -> Extras
+
+The foreign members of `x` in document order, or `nothing`.
+"""
 extras(x::GeoJSONT) = getfield(x, :extras)
+
+"""
+    coordinates(g) -> coordinate tree
+    coordinates(f::Feature)
+
+The `coordinates` of a geometry as nested vectors of `NTuple{D,T}` (`nothing` for an empty
+geometry); for a `GeometryCollection`, one tree per member; for a `Feature`, those of its geometry.
+"""
 coordinates(g::AbstractGeometry) = getfield(g, :coordinates)
 coordinates(g::GeometryCollection) = coordinates.(geometry(g))
 coordinates(f::Feature) = coordinates(geometry(f))
+
+"""
+    geometry(f::Feature) -> Union{Nothing,G}
+    geometry(gc::GeometryCollection) -> Vector
+
+The geometry of a `Feature` (`nothing` when its `geometry` member is null), or the member
+geometries of a `GeometryCollection`.
+"""
 geometry(g::GeometryCollection) = getfield(g, :geometries)
 geometry(f::Feature) = getfield(f, :geometry)
+
+"""
+    id(f::Feature) -> Union{Nothing,String,Int64,Float64}
+
+The `id` member of a feature, or `nothing`.
+"""
 id(f::Feature) = getfield(f, :id)
+
+"""
+    properties(f::Feature) -> P
+
+The properties container of a feature: a [`Properties`](@ref), a `NamedTuple`, a user struct,
+or `nothing` when properties were skipped.
+"""
 properties(f::Feature) = getfield(f, :properties)
+
+"""
+    features(fc) -> Vector{Feature}
+
+The features of a collection; a [`LazyFeatureCollection`](@ref) materializes every feature.
+"""
 features(fc::FeatureCollection) = getfield(fc, :features)
 
-# Geometries index and iterate over their coordinates; a GeometryCollection over its geometries.
+"""
+    typestring(x) -> String
+
+The GeoJSON `"type"` name of a value or type: `"Point"`, `"Feature"`, and so on; `"null"` for
+`nothing` and `missing`.
+"""
+typestring
+
 _items(g::AbstractGeometry) = coordinates(g)
 _items(g::GeometryCollection) = geometry(g)
 Base.length(g::AbstractGeometry) = length(_items(g))
@@ -180,13 +231,39 @@ _haskey(p::NamedTuple, k::Symbol) = haskey(p, k)
 _haskey(p, k::Symbol) = hasproperty(p, k)
 _getkey(p::AbstractDict, k::Symbol) = p[k]
 _getkey(p, k::Symbol) = getproperty(p, k)
-_keys(::Nothing) = ()
-_keys(p::AbstractDict) = Tuple(Symbol(k) for k in keys(p))
-_keys(p) = propertynames(p)
+_pushnames!(names::Vector{Symbol}, ::Nothing) = names
+_pushnames!(names::Vector{Symbol}, p::AbstractDict) = _pushnames!(names, keys(p))
+_pushnames!(names::Vector{Symbol}, p) = _pushnames!(names, propertynames(p))
+function _pushnames!(names::Vector{Symbol}, keys::Union{Base.KeySet,Tuple})
+    for k in keys
+        s = Symbol(k)
+        s === :geometry || push!(names, s)
+    end
+    return names
+end
+# The n-th property after `geometry` is dropped, in the order `propertynames` lists them.
+function _nthproperty(p::AbstractDict, n::Int)
+    i = n
+    for (k, v) in pairs(p)
+        Symbol(k) === :geometry && continue
+        i -= 1
+        i == 0 && return v
+    end
+    throw(BoundsError(p, n))
+end
+function _nthproperty(p, n::Int)
+    i = n
+    for k in propertynames(p)
+        k === :geometry && continue
+        i -= 1
+        i == 0 && return getproperty(p, k)
+    end
+    throw(BoundsError(p, n))
+end
 
 const FEATURE_FIELDS = (:id, :bbox, :geometry, :properties, :extras)
 
-Base.propertynames(f::Feature) = (:geometry, filter(!=(:geometry), _keys(properties(f)))...)
+Base.propertynames(f::Feature)::Tuple{Vararg{Symbol}} = Tuple(_pushnames!(Symbol[:geometry], properties(f)))
 function Base.getproperty(f::Feature, k::Symbol)
     p = properties(f)
     v = if _haskey(p, k)
@@ -211,11 +288,11 @@ function Base.get(f::Feature, k::Union{AbstractString,Symbol}, default)
     return _haskey(p, s) ? _getkey(p, s) : default
 end
 Base.IteratorSize(::Type{<:Feature}) = Base.SizeUnknown()
-function Base.iterate(f::Feature, state=1)
-    names = propertynames(f)
-    state > length(names) && return nothing
-    k = names[state]
-    (k => getproperty(f, k), state + 1)
+function Base.iterate(f::Feature, state=(propertynames(f), 1))
+    names, i = state
+    i > length(names) && return nothing
+    k = @inbounds names[i]
+    return (k => getproperty(f, k), (names, i + 1))
 end
 
 Base.eltype(::Type{FeatureCollection{D,T,G,P}}) where {D,T,G,P} = Feature{D,T,G,P}

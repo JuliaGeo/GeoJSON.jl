@@ -110,9 +110,13 @@ function check_binary(exe::String; write::Bool)
 
     fc = GeoJSON.read(TRIM_DATA, TrimGeoJSON.Untyped)
     typed = GeoJSON.read(TRIM_DATA, TrimGeoJSON.Typed)
+    lazy = GeoJSON.read(TRIM_DATA, TrimGeoJSON.Lazy)
     @test parse(Int, got["features"]) == length(GeoJSON.features(fc))
     @test parse(Float64, got["sumx"]) == TrimGeoJSON.sumx(fc)
     @test got["name"] == TrimGeoJSON.firstname(typed)
+    @test parse(Int, got["lazylength"]) == length(lazy)
+    @test got["lazyname"] == TrimGeoJSON.lazyname(lazy)
+    @test parse(Int, got["streamed"]) == TrimGeoJSON.streamcount(TRIM_DATA)
     if write
         @test parse(Int, got["written"]) == sizeof(GeoJSON.write(fc))
     else
