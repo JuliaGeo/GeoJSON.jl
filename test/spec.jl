@@ -422,6 +422,8 @@ import GeoFormatTypes
                 @test lfc.a == [1]
                 @test GeoJSON.write(lfc) == GeoJSON.write(GeoJSON.read(docs.extras_everywhere; properties=P))
             end
+        end
+
         @testset "NamedTuple typed slots" begin
             NTT = NamedTuple{(:f, :v, :b, :s),Tuple{Float64,Union{Missing,Vector{Float64}},Bool,Union{Missing,String}}}
             FCT = GeoJSON.FeatureCollection{2,Float64,P2,NTT}
