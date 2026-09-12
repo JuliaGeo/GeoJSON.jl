@@ -26,7 +26,8 @@ Every coordinate position must hold exactly `D` values; a [`DimMismatch`](@ref) 
 offending feature.
 """
 function read(src; ndim=nothing, numbertype::Type=Float64, geometries=nothing, properties=true,
-              lazy::Bool=false, mmap::Bool=false)
+              lazy::Bool=false, mmap::Bool=false, lazyfc::Bool=false)
+    lazyfc && (Base.depwarn("`lazyfc=true` is deprecated; use `lazy=true`", :read; force=true); lazy = true)
     lazy && return read_lazy(src; ndim, numbertype, geometries, properties, mmap)
     bytes = _bytes(src, mmap)
     return _readkw(bytes, _ndim(ndim, bytes), numbertype, geometries, _proptype(properties))
@@ -41,7 +42,11 @@ read(src::GeoFormatTypes.GeoJSON, ::Type{X}; kw...) where {X<:GeoJSONT} =
 read(src::GeoFormatTypes.GeoJSON{<:AbstractDict}, ::Type{X}; kw...) where {X<:GeoJSONT} =
     read(JSON.json(GeoFormatTypes.val(src)), X; kw...)
 
-read_lazy(src; kw...) = throw(ArgumentError("lazy reading arrives in a later package"))
+function read_lazy(src; ndim, numbertype::Type, geometries, properties, mmap::Bool)
+    bytes = _bytes(src, mmap)
+    return _readlazy(bytes, _ndim(ndim, bytes), numbertype, geometries, _proptype(properties),
+                     LazyFeatureCollection)
+end
 
 _bytes(src::AbstractVector{UInt8}, mmap::Bool) = src
 _bytes(io::IO, mmap::Bool) = Base.read(io)
