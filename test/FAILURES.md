@@ -187,3 +187,90 @@ absent because `src/lazy.jl` was empty when the package was written.
   Elements(bb)`, an `if` for coordinates) as trim-e2e's writer does. The second also drops `Omit`
   from the hot path. The `Elements` wrapper, the geometry `Union` on its own, nullable coordinates,
   `id`, and the `Feature`-level `bbox` are each innocent.
+
+# T2: spec and schema edge cases
+
+`test/spec.jl` runs 255 assertions across 8 testsets: 247 pass, 0 fail, 8 broken. Each entry below
+is one `@test_broken` there, recorded against `json1-rewrite` with the lazy reader present in
+`src/lazy.jl`.
+
+## An absent property key under a `NamedTuple` schema throws
+
+- Test: `test/spec.jl`, testset `spec / schemas / NamedTuple properties`
+- Expected: reading `"properties":{"a":1}` into
+  `FeatureCollection{2,Float64,Point{2,Float64},NamedTuple{(:a,:b),Tuple{Union{Missing,Int64},Union{Missing,String}}}}`
+  gives `(a = 1, b = missing)`
+- Got: `TypeError: in typeassert, expected Union{Missing, String}, got a value of type Nothing`
+- Source: `src/read/feature.jl:60`, `readprops!` hands the schema to `StructUtils.make`;
+  `StructUtils.fielddefaults(GeoJSONStyle(), NT)` is `NamedTuple()`, so an absent key arrives as
+  `nothing` and fails the field type assert
+- Verdict: code (WP1). The contract is a `NamedTuple` with `Union{Missing,T}` fields "and
+  `fielddefaults` in field order"; nothing supplies those defaults. A `make` method for
+  `NamedTuple` targets that fills `missing`, or a `StructUtils.fielddefaults` method that maps every
+  `Union{Missing,T}` field to `missing`, fixes it. A *null value* on a present key already reads as
+  `missing`, so only the absent key is broken.
+
+## A null or absent `"properties"` member under a `NamedTuple` schema throws
+
+- Test: `test/spec.jl`, testset `spec / schemas / NamedTuple properties`
+- Expected: `"properties":null` gives the empty schema `(a = missing, b = missing)`; the read
+  pipeline in `spikes/PLAN.md` specifies "`properties` (null → empty `P`, else `make(P)`)"
+- Got: `ArgumentError: "properties" is null or missing; the schema @NamedTuple{a::Union{Missing, Int64}, b::Union{Missing, String}} needs an object`
+- Source: `src/read/feature.jl:40-42,99`, `emptyprops(::Type{P}) = _noprops(P)` for every `P` other than
+  `Properties` and `Nothing`
+- Verdict: code (WP1), same root cause as the entry above: with field defaults available,
+  `emptyprops` can build the all-`missing` schema instead of throwing.
+
+## `==` on a feature whose properties hold `missing` throws
+
+- Test: `test/spec.jl`, testset `spec / schemas / NamedTuple properties`,
+  `GeoJSON.read(GeoJSON.write(fc), FCN) == fc`
+- Expected: `true` (the round-trip contract), or at worst `missing`
+- Got: `TypeError: non-boolean (Missing) used in boolean context`
+- Source: `src/types.jl:143`, `==(a::Feature, b::Feature)` chains field comparisons with `&&`, and
+  `(a = 1, b = missing) == (a = 1, b = missing)` is `missing`
+- Verdict: code (WP0). Every schema read that leaves a `missing` in a property makes `==` throw, and
+  `isequal` inherits it through the default `isequal(x, y) = x == y`. Comparing properties with
+  `isequal`, or replacing `&&` with `&` so the result is three-valued, restores the round trip.
+  Writing is unaffected: `missing` writes as `null`.
+
+## `ndim=Val(3)` does not give a concretely inferred read
+
+- Test: `test/spec.jl`, testset `spec / dimensions / ndim`
+- Expected: `@inferred GeoJSON.read(bytes; ndim=Val(3))`, per the plan's "`ndim=Val(N)` for a
+  concrete return type"
+- Got: `@inferred` fails; `Base.return_types` is a ten-member union — the seven geometries
+  (concrete, `{3,Float64}`), plus `Feature`, `FeatureCollection` and `LazyFeatureCollection`, each
+  with `P` free
+- Source: `src/read/read.jl`, `_read` picks the root kind from a runtime `rootkind` peek;
+  `_proptype(properties::Bool)` and `lazy::Bool` are runtime values, so `P` and the lazy branch stay
+  in the union
+- Verdict: code or documentation (WP1). `Val(3)` does pin `D` — every member is `{3,Float64}`, and
+  the geometry members are concrete — so the keyword delivers dimension inference but not a concrete
+  type. The typed read is already clean: `@inferred read(bytes, FeatureCollection{2,Float64,Point{2,Float64},Nothing})`
+  passes. Either document `Val` as pinning `D` alone, or take the root kind and `properties` as
+  `Val`s too. The union widened from nine to ten members, and `Feature`/`FeatureCollection` lost
+  their concrete `P`, when the lazy reader landed.
+
+## An empty Point position throws instead of reading as an unlocated point
+
+- Test: `test/spec.jl`, testset `spec / RFC 7946 shapes / empty coordinates`
+- Expected: `{"type":"Point","coordinates":[]}` reads as `Point{2,Float64}(nothing, nothing)`, which
+  is what `"coordinates":null` already gives and what the `Union{Nothing,NTuple{D,T}}` field holds
+- Got: `GeoJSON.DimMismatch`, printed as ``coordinate with 0 values in a 2-D read; pass `ndim=0` ``
+- Source: `src/read/points.jl:49`, `readpoint`'s `n == D || throw(DimMismatch(D, n, 0))`
+- Verdict: code (WP1). The other five coordinate geometries read `[]` as an empty collection, so the
+  Point is the odd one out, and T3's open question on `GI.testgeometry(Point(nothing, nothing))`
+  turns on this representation. The advice in the message is unreachable as well: `ndim=0` throws
+  `ArgumentError: ndim must be 2, 3, or 4`.
+
+## A `Feature` has no `getindex`
+
+- Test: `test/spec.jl`, testset `spec / Properties`, `f["f"]` and `f[:f]`
+- Expected: indexing a feature reaches its properties, as `f.f` already does
+- Got: `MethodError: no method matching getindex(::GeoJSON.Feature{...}, ::String)`
+- Source: `src/types.jl:203`; `getindex` covers geometries and `FeatureCollection` only
+- Verdict: contract question (WP0). `spikes/EXECUTION.md` gives indexing to `Properties` and
+  `getproperty` to `Feature`, and 0.8.4 had no feature indexing either, so this is a gap in the
+  brief rather than a regression. `Base.getindex(f::Feature, k::Union{AbstractString,Symbol}) = properties(f)[k]`
+  would satisfy both tests.
