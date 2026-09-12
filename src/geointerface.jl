@@ -9,6 +9,10 @@ GI.geomtrait(::MultiPolygon) = GI.MultiPolygonTrait()
 GI.geomtrait(::GeometryCollection) = GI.GeometryCollectionTrait()
 
 GI.ncoord(::GI.AbstractTrait, ::AbstractGeometry{D}) where {D} = D
+# An unlocated point holds no coordinates, so `GI.testgeometry` skips `getcoord` on it.
+GI.ncoord(::GI.PointTrait, g::Point{D}) where {D} = coordinates(g) === nothing ? 0 : D
+GI.isempty(::GI.PointTrait, g::Point) = coordinates(g) === nothing
+GI.isempty(::GI.AbstractGeometryTrait, g::AbstractGeometry) = _ngeom(g) == 0
 GI.coordinates(::GI.AbstractGeometryTrait, g::AbstractGeometry) = coordinates(g)
 GI.coordinates(::GI.AbstractPointTrait, g::AbstractGeometry) = coordinates(g)  # resolves ambiguity with GI's point fallback
 
@@ -27,7 +31,7 @@ GI.getgeom(::GI.MultiPointTrait, g::MultiPoint, i::Integer) = g[i]
 GI.ngeom(::GI.PolygonTrait, g::Polygon) = _ngeom(g)
 GI.getgeom(::GI.PolygonTrait, g::Polygon{D,T}, i::Integer) where {D,T} = LineString{D,T}(nothing, g[i])
 GI.getexterior(::GI.PolygonTrait, g::Polygon{D,T}) where {D,T} = LineString{D,T}(nothing, first(g))
-GI.nhole(::GI.PolygonTrait, g::Polygon) = _ngeom(g) - 1
+GI.nhole(::GI.PolygonTrait, g::Polygon) = max(_ngeom(g) - 1, 0)
 GI.gethole(::GI.PolygonTrait, g::Polygon{D,T}, i::Integer) where {D,T} = LineString{D,T}(nothing, g[i+1])
 
 GI.ngeom(::GI.MultiLineStringTrait, g::MultiLineString) = _ngeom(g)

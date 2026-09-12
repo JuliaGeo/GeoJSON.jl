@@ -439,7 +439,7 @@ include("geojson_samples.jl")
     end
 
     # The spec, GeoInterface conformance, Tables and Aqua suites live in their own files.
-    for file in ("spec.jl", "geointerface.jl", "tables.jl", "aqua.jl")
+    for file in ("spec.jl", "geointerface.jl", "tables.jl", "aqua.jl", "trim_tests.jl")
         isfile(joinpath(@__DIR__, file)) && include(file)
     end
 end  # testset "GeoJSON"

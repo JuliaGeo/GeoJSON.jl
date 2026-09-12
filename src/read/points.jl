@@ -13,7 +13,7 @@ end
 function Base.showerror(io::IO, e::DimMismatch)
     print(io, "coordinate with ", e.got, " values in a ", e.expected, "-D read")
     e.feature > 0 && print(io, " (feature ", e.feature, ")")
-    print(io, "; pass `ndim=", e.got, "`")
+    2 <= e.got <= 4 && print(io, "; pass `ndim=", e.got, "`")
 end
 
 @noinline _nested() = throw(ArgumentError("a coordinate position must be a flat array of numbers"))
@@ -41,13 +41,29 @@ end
 
 # JSON.jl's `maketuple` silently drops elements past `D` and throws a generic parse error on
 # fewer, so the element count is checked on bytes first.
-@inline function readpoint(st, ::Type{NTuple{D,T}}, x::LazyValues) where {D,T}
+@inline function positioncount(x::LazyValues)
     gettype(x) == ARRAY || _nested()
     buf = getbuf(x)
-    n, _ = flatcount(buf, getpos(x), getlength(buf))
+    n, pos = flatcount(buf, getpos(x), getlength(buf))
     n < 0 && _nested()
+    return n, pos
+end
+
+@inline function readpoint(st, ::Val{D}, ::Type{T}, x::LazyValues) where {D,T}
+    n, _ = positioncount(x)
     n == D || throw(DimMismatch(D, n, 0))
     return StructUtils.maketuple(st, NTuple{D,T}, x)
+end
+
+# A Point's own position may be empty: the unlocated point that `"coordinates": null` also gives.
+@inline function readposition(st, ::Val{D}, ::Type{T}, x::LazyValues) where {D,T}
+    n, pos = positioncount(x)
+    val::Union{Nothing,NTuple{D,T}} = nothing
+    if n != 0
+        n == D || throw(DimMismatch(D, n, 0))
+        val, pos = StructUtils.maketuple(st, NTuple{D,T}, x)
+    end
+    return val, pos
 end
 
 struct CoordSink{E,S}
@@ -61,7 +77,7 @@ end
     return pos
 end
 
-readcoords(st, ::Type{NTuple{D,T}}, x::LazyValues) where {D,T} = readpoint(st, NTuple{D,T}, x)
+readcoords(st, ::Type{E}, x::LazyValues) where {E<:Tuple} = readpoint(st, Val(fieldcount(E)), eltype(E), x)
 function readcoords(st, ::Type{Vector{E}}, x::LazyValues) where {E}
     gettype(x) == ARRAY || _nested()
     out = E[]
@@ -75,6 +91,6 @@ const Solid{D,T} = Vector{Vector{Vector{NTuple{D,T}}}}
 
 # Inference barriers: each nesting depth is its own parse tower, and inlining all four into
 # one geometry method costs seconds of first-call inference.
-@noinline readring(st, ::Type{NTuple{D,T}}, x::LazyValues) where {D,T} = readcoords(st, Ring{D,T}, x)
-@noinline readsurface(st, ::Type{NTuple{D,T}}, x::LazyValues) where {D,T} = readcoords(st, Surface{D,T}, x)
-@noinline readsolid(st, ::Type{NTuple{D,T}}, x::LazyValues) where {D,T} = readcoords(st, Solid{D,T}, x)
+@noinline readring(st, ::Val{D}, ::Type{T}, x::LazyValues) where {D,T} = readcoords(st, Ring{D,T}, x)
+@noinline readsurface(st, ::Val{D}, ::Type{T}, x::LazyValues) where {D,T} = readcoords(st, Surface{D,T}, x)
+@noinline readsolid(st, ::Val{D}, ::Type{T}, x::LazyValues) where {D,T} = readcoords(st, Solid{D,T}, x)

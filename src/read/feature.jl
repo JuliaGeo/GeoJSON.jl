@@ -16,7 +16,7 @@ StructUtils.make(st::JSON.JSONStyle, ::Type{Properties}, x::LazyValues, tags) =
 
 @noinline _badid() = throw(ArgumentError("\"id\" must be a string or a number"))
 
-# Single exit, as for geometries: the four-member id union must survive the tuple merge.
+# Single exit: two returns would merge tuple types and widen the four-member id union to `Any`.
 function readid(v::LazyValues)
     t = gettype(v)
     id::Union{Nothing,String,Int64,Float64} = nothing
@@ -37,8 +37,51 @@ end
 
 @noinline _noprops(::Type{P}) where {P} =
     throw(ArgumentError("\"properties\" is null or missing; the schema $P needs an object"))
+@noinline _nokey(name::String) =
+    throw(ArgumentError("\"properties\" has no \"$name\" member and the schema field admits no missing"))
+
+# One slot per NamedTuple schema field, `missing` until its key arrives.
+struct SchemaSlots{P,S}
+    st::S
+    vals::Vector{Any}
+end
+_slots(::Type{P}) where {P} = fill!(Vector{Any}(undef, fieldcount(P)), missing)
+
+@inline function fillslot!(s::SchemaSlots, i::Int, ::Type{FT}, v::LazyValues) where {FT}
+    val, pos = StructUtils.make(s.st, FT, v)
+    @inbounds s.vals[i] = val
+    return pos::Int
+end
+
+# Field names are spliced as string literals, so a key compares by bytes with no Symbol interning.
+@generated function (s::SchemaSlots{P})(k::PtrString, v::LazyValues) where {P}
+    ex = Expr(:block)
+    for i in 1:fieldcount(P)
+        name = String(fieldname(P, i))
+        push!(ex.args, :(StructUtils.keyeq(k, $name) && return fillslot!(s, $i, $(fieldtype(P, i)), v)))
+    end
+    push!(ex.args, :(return 0))
+    return ex
+end
+
+@inline slotvalue(v, ::Type{FT}, name::String) where {FT} = v isa FT ? v : _nokey(name)
+@generated function schematuple(::Type{P}, vals::Vector{Any}) where {P<:NamedTuple}
+    args = [:(slotvalue(@inbounds(vals[$i]), $(fieldtype(P, i)), $(String(fieldname(P, i)))))
+            for i in 1:fieldcount(P)]
+    return :(P(($(args...),)))
+end
+
+function readprops(st, ::Type{P}, v::LazyValues) where {P<:NamedTuple}
+    gettype(v) == OBJECT || _notobject("\"properties\"")
+    s = SchemaSlots{P,typeof(st)}(st, _slots(P))
+    pos = applyobject(s, v)::Int
+    return schematuple(P, s.vals), pos
+end
+readprops(st, ::Type{P}, v::LazyValues) where {P} = StructUtils.make(st, P, v)
+
 emptyprops(::Type{Properties}) = Properties()
 emptyprops(::Type{Nothing}) = nothing
+emptyprops(::Type{P}) where {P<:NamedTuple} = schematuple(P, _slots(P))
 emptyprops(::Type{P}) where {P} = _noprops(P)
 
 mutable struct FeatureSink{D,T,G,P,S}
@@ -57,7 +100,7 @@ FeatureSink{D,T,G,P}(st::S) where {D,T,G,P,S} =
 readprops!(::FeatureSink{D,T,G,Nothing}, v::LazyValues) where {D,T,G} = JSON.skip(v)
 function readprops!(f::FeatureSink{D,T,G,P}, v::LazyValues) where {D,T,G,P}
     gettype(v) == NULL && return 0
-    val, pos = StructUtils.make(f.st, P, v)
+    val, pos = readprops(f.st, P, v)
     f.properties = val
     return pos
 end

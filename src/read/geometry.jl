@@ -113,19 +113,19 @@ function readdepth!(f::GeomSink{D,T}, v::LazyValues, d::Int) where {D,T}
     st = f.st
     f.depth = d % UInt8
     if d == 1
-        val, pos = readpoint(st, NTuple{D,T}, v)
+        val, pos = readposition(st, Val(D), T, v)
         f.point = val
         return pos
     elseif d == 2
-        val, pos = readring(st, NTuple{D,T}, v)
+        val, pos = readring(st, Val(D), T, v)
         f.ring = val
         return pos
     elseif d == 3
-        val, pos = readsurface(st, NTuple{D,T}, v)
+        val, pos = readsurface(st, Val(D), T, v)
         f.surface = val
         return pos
     elseif d == 4
-        val, pos = readsolid(st, NTuple{D,T}, v)
+        val, pos = readsolid(st, Val(D), T, v)
         f.solid = val
         return pos
     end
@@ -233,18 +233,6 @@ function StructUtils.make(st::JSON.JSONStyle, ::Type{G}, src::LazyValues) where 
 end
 StructUtils.make(st::JSON.JSONStyle, ::Type{G}, src::LazyValues, tags) where {D,T,G<:AbstractGeometry{D,T}} =
     StructUtils.make(st, G, src)
-
-# A single exit keeps the full union: two returns would merge tuple types, and `tuplemerge`
-# widens any element union longer than three members to `Any`.
-function StructUtils.make(st::JSON.JSONStyle, ::Type{Union{Nothing,G}}, src::LazyValues) where {D,T,G<:AbstractGeometry{D,T}}
-    if gettype(src) == NULL
-        g = nothing
-        pos = getpos(src) + 4
-    else
-        g, pos = StructUtils.make(st, G, src)
-    end
-    return g, pos
-end
 
 @noinline _unparameterized(::Type{G}) where {G} =
     throw(ArgumentError("geometry type $G needs its dimension and number type, e.g. $(G){2,Float64}"))

@@ -24,6 +24,11 @@ file is read as a path.
 
 Every coordinate position must hold exactly `D` values; a [`DimMismatch`](@ref) names the
 offending feature.
+
+The typed form is the inferable entry: `read(src, FeatureCollection{2,Float64,Point{2,Float64},Properties})`
+infers exactly that type. The keyword form resolves the root kind, `properties` and `lazy` at run
+time, so its return type is a union over the seven geometries, `Feature`, `FeatureCollection` and
+`LazyFeatureCollection`; `ndim=Val(N)` pins `D` on every member of that union.
 """
 function read(src; ndim=nothing, numbertype::Type=Float64, geometries=nothing, properties=true,
               lazy::Bool=false, mmap::Bool=false, lazyfc::Bool=false)

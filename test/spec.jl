@@ -126,12 +126,15 @@ import GeoFormatTypes
             @test GeoJSON.coordinates(p) === nothing
             @test GeoJSON.write(p) == docs.null_coordinates
 
-            # Broken: an empty position throws instead of reading as that unlocated point.
-            e = thrown(() -> GeoJSON.read("""{"type":"Point","coordinates":[]}"""))
+            # An empty position is the same unlocated point.
+            @test GeoJSON.read("""{"type":"Point","coordinates":[]}""") == P2(nothing, nothing)
+            @test GeoJSON.coordinates(GeoJSON.read("""{"type":"Point","coordinates":[]}""")) === nothing
+            @test GeoJSON.coordinates(GeoJSON.read("""{"coordinates":[],"type":"Point"}""")) === nothing
+            # An empty position inside a ring is a mismatch no `ndim` could satisfy.
+            e = thrown(() -> GeoJSON.read("""{"type":"LineString","coordinates":[[1,2],[]]}"""))
             @test e isa GeoJSON.DimMismatch
             @test (e::GeoJSON.DimMismatch).got == 0
-            @test occursin("pass `ndim=0`", sprint(showerror, e))
-            @test_broken GeoJSON.coordinates(GeoJSON.read("""{"type":"Point","coordinates":[]}""")) === nothing
+            @test !occursin("ndim=", sprint(showerror, e))
         end
 
         @testset "null geometry and properties" begin
@@ -243,8 +246,9 @@ import GeoFormatTypes
             # The seven geometries are concrete; the three feature containers keep `P` free,
             # because `properties` reaches `_proptype` as a runtime `Bool`.
             @test count(isconcretetype, members) == 7
-            # Broken: the root kind stays a ten-member union, so the call is not concretely inferred.
-            @test_broken (@inferred GeoJSON.read(bytes; ndim=Val(3))) isa GeoJSON.FeatureCollection{3,Float64}
+            # The typed read is the inferable entry; `Val(3)` only pins `D` on the keyword form.
+            FC3 = GeoJSON.FeatureCollection{3,Float64,GeoJSON.AnyGeometry{3,Float64},Props}
+            @test (@inferred GeoJSON.read(bytes, FC3)) isa FC3
 
             @test thrown(() -> GeoJSON.read(docs.dims_4d; ndim=5)) isa ArgumentError
         end
@@ -348,26 +352,31 @@ import GeoFormatTypes
             @test isequal(props(feature("""{"a":null,"b":"x"}""")), (a = missing, b = "x"))
             @test isequal(props(feature("""{"a":1,"b":null}""")), (a = Int64(1), b = missing))
 
-            # Broken: an absent key throws instead of taking the `missing` field default.
-            @test_broken isequal(props(feature("""{"a":1}""")), (a = Int64(1), b = missing))
-            @test_broken isequal(props(feature("{}")), (a = missing, b = missing))
-            e = thrown(() -> props(feature("""{"a":1}""")))
-            @test e isa TypeError
-            @test (e::TypeError).expected == Union{Missing,String}
-            @test (e::TypeError).got === nothing
-
-            # Broken: a null or absent "properties" member throws instead of an empty schema.
-            @test_broken isequal(props(feature("null")), (a = missing, b = missing))
-            @test thrown(() -> props(feature("null"))) isa ArgumentError
+            # An absent key takes the `missing` field default.
+            @test isequal(props(feature("""{"a":1}""")), (a = Int64(1), b = missing))
+            @test isequal(props(feature("{}")), (a = missing, b = missing))
+            # A null or absent "properties" member is the empty schema.
+            @test isequal(props(feature("null")), (a = missing, b = missing))
+            noprops = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":null}]}"""
+            @test isequal(props(noprops), (a = missing, b = missing))
+            # A field without `Missing` rejects both an absent key and a null value.
+            NTS = NamedTuple{(:a, :b),Tuple{Int64,Union{Missing,String}}}
+            FCS = GeoJSON.FeatureCollection{2,Float64,P2,NTS}
+            @test isequal(GeoJSON.properties(GeoJSON.read(feature("""{"a":1}"""), FCS)[1]), (a = Int64(1), b = missing))
+            @test thrown(() -> GeoJSON.read(feature("""{"b":"x"}"""), FCS)) isa ArgumentError
+            @test thrown(() -> GeoJSON.read(feature("null"), FCS)) isa ArgumentError
+            @test thrown(() -> GeoJSON.read(feature("""{"a":null}"""), FCS)) !== nothing
 
             # `missing` writes as null.
             fc = GeoJSON.read(feature("""{"a":1,"b":null}"""), FCN)
             @test GeoJSON.write(fc) ==
                   """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[1.0,2.0]},"properties":{"a":1,"b":null}}]}"""
             @test GeoJSON.write(GeoJSON.read(GeoJSON.write(fc), FCN)) == GeoJSON.write(fc)
-            # Broken: `==` on a feature whose properties hold `missing` throws.
-            @test_broken GeoJSON.read(GeoJSON.write(fc), FCN) == fc
-            @test thrown(() -> GeoJSON.read(GeoJSON.write(fc), FCN) == fc) isa TypeError
+            # `==` and `isequal` treat a `missing` property as equal to itself, and `hash` agrees.
+            @test GeoJSON.read(GeoJSON.write(fc), FCN) == fc
+            @test isequal(GeoJSON.read(GeoJSON.write(fc), FCN), fc)
+            @test hash(GeoJSON.read(GeoJSON.write(fc), FCN)) == hash(fc)
+            @test GeoJSON.read(feature("""{"a":2,"b":null}"""), FCN) != fc
         end
 
         @testset "properties=false" begin
@@ -506,9 +515,13 @@ import GeoFormatTypes
         delete!(p, "nosuchkey")
         @test length(p) == 7
 
-        # Broken: a Feature has no `getindex`; property lookup goes through `Properties`.
-        @test_broken f["f"] == 1.5
-        @test_broken f[:f] == 1.5
+        # Indexing a feature reaches its properties container.
+        @test f["f"] == 1.5
+        @test f[:f] == 1.5
+        @test haskey(f, "f") && haskey(f, :f) && !haskey(f, "zz")
+        @test get(f, "zz", 42) == 42
+        @test get(f, :f, 42) == 1.5
+        @test_throws KeyError f["zz"]
     end
 
     @testset "inference" begin

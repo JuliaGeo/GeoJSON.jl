@@ -9,13 +9,13 @@ Foreign members of a GeoJSON object in document order; `nothing` when the object
 """
 const Extras = Union{Nothing,Vector{Pair{String,Any}}}
 
-for (name, C) in (
-    (:Point, :(NTuple{D,T})),
-    (:LineString, :(Vector{NTuple{D,T}})),
-    (:MultiPoint, :(Vector{NTuple{D,T}})),
-    (:Polygon, :(Vector{Vector{NTuple{D,T}}})),
-    (:MultiLineString, :(Vector{Vector{NTuple{D,T}}})),
-    (:MultiPolygon, :(Vector{Vector{Vector{NTuple{D,T}}}})),
+for (name, C, K) in (
+    (:Point, :(NTuple{D,T}), :E),
+    (:LineString, :(Vector{NTuple{D,T}}), :(Vector{E})),
+    (:MultiPoint, :(Vector{NTuple{D,T}}), :(Vector{E})),
+    (:Polygon, :(Vector{Vector{NTuple{D,T}}}), :(Vector{Vector{E}})),
+    (:MultiLineString, :(Vector{Vector{NTuple{D,T}}}), :(Vector{Vector{E}})),
+    (:MultiPolygon, :(Vector{Vector{Vector{NTuple{D,T}}}}), :(Vector{Vector{Vector{E}}})),
 )
     @eval begin
         """
@@ -34,8 +34,8 @@ for (name, C) in (
         end
         $name{D,T}(; bbox=nothing, coordinates=nothing, extras=nothing) where {D,T} =
             $name{D,T}(bbox, coordinates, extras)
-        $name(; coordinates::$C, bbox=nothing, extras=nothing) where {D,T} =
-            $name{D,T}(bbox, coordinates, extras)
+        $name(; coordinates::$K, bbox=nothing, extras=nothing) where {E<:Tuple} =
+            $name{fieldcount(E),eltype(E)}(bbox, coordinates, extras)
         typestring(::Type{<:$name}) = $(String(name))
     end
 end
@@ -77,7 +77,8 @@ Base.eltype(::Type{GeometryCollection{D,T}}) where {D,T} = AnyGeometry{D,T}
 
 A GeoJSON Feature. `G` is the geometry type (`AnyGeometry{D,T}` by default) and `P` the properties
 container: `Properties`, `Nothing` for skipped properties, a `NamedTuple`, or a user struct.
-`f.name` returns property `name` when present, else the field `name`, else `missing`.
+`f.name` returns property `name` when present, else the field `name`, else `missing`;
+`f["name"]`, `get(f, "name", default)` and `haskey(f, "name")` reach the properties container.
 """
 struct Feature{D,T,G,P} <: GeoJSONT{D,T}
     id::Union{Nothing,String,Int64,Float64}
@@ -138,13 +139,26 @@ Base.getindex(g::AbstractGeometry, i::Int) = getindex(_items(g), i)
 Base.IndexStyle(::Type{<:AbstractGeometry}) = Base.IndexLinear()
 Base.iterate(g::AbstractGeometry, state=1) = iterate(_items(g), state)
 
+# Properties and extras hold `missing` and `Any`, so they compare with `isequal` and `==` stays a Bool.
 Base.:(==)(a::AbstractGeometry, b::AbstractGeometry) =
-    typeof(a) === typeof(b) && _items(a) == _items(b) && extras(a) == extras(b)
+    typeof(a) === typeof(b) && _items(a) == _items(b) && isequal(extras(a), extras(b))
+Base.isequal(a::AbstractGeometry, b::AbstractGeometry) =
+    typeof(a) === typeof(b) && isequal(_items(a), _items(b)) && isequal(extras(a), extras(b))
+Base.hash(g::AbstractGeometry, h::UInt) = hash(_items(g), hash(extras(g), hash(typeof(g), h)))
 Base.:(==)(a::Feature, b::Feature) =
     id(a) == id(b) && bbox(a) == bbox(b) && geometry(a) == geometry(b) &&
-    properties(a) == properties(b) && extras(a) == extras(b)
+    isequal(properties(a), properties(b)) && isequal(extras(a), extras(b))
+Base.isequal(a::Feature, b::Feature) =
+    isequal(id(a), id(b)) && isequal(bbox(a), bbox(b)) && isequal(geometry(a), geometry(b)) &&
+    isequal(properties(a), properties(b)) && isequal(extras(a), extras(b))
+Base.hash(f::Feature, h::UInt) =
+    hash(extras(f), hash(properties(f), hash(geometry(f), hash(bbox(f), hash(id(f), hash(Feature, h))))))
 Base.:(==)(a::FeatureCollection, b::FeatureCollection) =
-    bbox(a) == bbox(b) && features(a) == features(b) && extras(a) == extras(b)
+    bbox(a) == bbox(b) && features(a) == features(b) && isequal(extras(a), extras(b))
+Base.isequal(a::FeatureCollection, b::FeatureCollection) =
+    isequal(bbox(a), bbox(b)) && isequal(features(a), features(b)) && isequal(extras(a), extras(b))
+Base.hash(fc::FeatureCollection, h::UInt) =
+    hash(extras(fc), hash(features(fc), hash(bbox(fc), hash(FeatureCollection, h))))
 
 Base.show(io::IO, ::Point{D,T}) where {D,T} = print(io, D, "D Point")
 function Base.show(io::IO, g::AbstractGeometry{D,T}) where {D,T}
@@ -183,6 +197,18 @@ function Base.getproperty(f::Feature, k::Symbol)
         missing
     end
     v === nothing ? missing : v
+end
+Base.haskey(f::Feature, k::Union{AbstractString,Symbol}) = _haskey(properties(f), Symbol(k))
+function Base.getindex(f::Feature, k::Union{AbstractString,Symbol})
+    p = properties(f)
+    s = Symbol(k)
+    _haskey(p, s) || throw(KeyError(k))
+    return _getkey(p, s)
+end
+function Base.get(f::Feature, k::Union{AbstractString,Symbol}, default)
+    p = properties(f)
+    s = Symbol(k)
+    return _haskey(p, s) ? _getkey(p, s) : default
 end
 Base.IteratorSize(::Type{<:Feature}) = Base.SizeUnknown()
 function Base.iterate(f::Feature, state=1)

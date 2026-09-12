@@ -168,10 +168,17 @@ import GeoInterface as GI
         )
         for g in empties
             @test GI.testgeometry(g)
+            @test GI.isempty(g)
             @test GI.ngeom(g) == 0
             @test GI.ncoord(g) == 2
             @test Extents.extent(g) === nothing
         end
+        @test !GI.isempty(polygon2)
+        @test !GI.isempty(point2)
+        unlocated = GeoJSON.Point{2,Float64}(nothing, nothing)
+        @test GI.testgeometry(unlocated)
+        @test GI.isempty(unlocated)
+        @test GI.ncoord(unlocated) == 0
     end
 
     @testset "isclosed" begin
