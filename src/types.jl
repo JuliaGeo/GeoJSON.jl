@@ -1,0 +1,207 @@
+abstract type GeoJSONT{D,T} end
+abstract type AbstractGeometry{D,T} <: GeoJSONT{D,T} end
+abstract type AbstractFeatureCollection{D,T} <: GeoJSONT{D,T} end
+
+"""
+    Extras
+
+Foreign members of a GeoJSON object in document order; `nothing` when the object has none.
+"""
+const Extras = Union{Nothing,Vector{Pair{String,Any}}}
+
+for (name, C) in (
+    (:Point, :(NTuple{D,T})),
+    (:LineString, :(Vector{NTuple{D,T}})),
+    (:MultiPoint, :(Vector{NTuple{D,T}})),
+    (:Polygon, :(Vector{Vector{NTuple{D,T}}})),
+    (:MultiLineString, :(Vector{Vector{NTuple{D,T}}})),
+    (:MultiPolygon, :(Vector{Vector{Vector{NTuple{D,T}}}})),
+)
+    @eval begin
+        """
+            $($name){D,T}(bbox, coordinates[, extras])
+            $($name){D,T}(; bbox=nothing, coordinates=nothing, extras=nothing)
+            $($name)(; coordinates, bbox=nothing, extras=nothing)
+
+        A $($name) geometry with `D` dimensions and coordinate type `T`; `coordinates` is `$($(string(C)))`.
+        The bare constructor infers `D` and `T` from `coordinates`.
+        """
+        struct $name{D,T} <: AbstractGeometry{D,T}
+            bbox::Union{Nothing,Vector{T}}
+            coordinates::Union{Nothing,$C}
+            extras::Extras
+            $name{D,T}(bbox, coordinates, extras=nothing) where {D,T} = new{D,T}(bbox, coordinates, extras)
+        end
+        $name{D,T}(; bbox=nothing, coordinates=nothing, extras=nothing) where {D,T} =
+            $name{D,T}(bbox, coordinates, extras)
+        $name(; coordinates::$C, bbox=nothing, extras=nothing) where {D,T} =
+            $name{D,T}(bbox, coordinates, extras)
+        typestring(::Type{<:$name}) = $(String(name))
+    end
+end
+
+Base.eltype(::Type{Point{D,T}}) where {D,T} = T
+Base.eltype(::Type{LineString{D,T}}) where {D,T} = NTuple{D,T}
+Base.eltype(::Type{MultiPoint{D,T}}) where {D,T} = NTuple{D,T}
+Base.eltype(::Type{Polygon{D,T}}) where {D,T} = Vector{NTuple{D,T}}
+Base.eltype(::Type{MultiLineString{D,T}}) where {D,T} = Vector{NTuple{D,T}}
+Base.eltype(::Type{MultiPolygon{D,T}}) where {D,T} = Vector{Vector{NTuple{D,T}}}
+
+"""
+    GeometryCollection{D,T}(bbox, geometries[, extras])
+    GeometryCollection{D,T}(; bbox=nothing, geometries=AnyGeometry{D,T}[], extras=nothing)
+    GeometryCollection(; geometries, bbox=nothing, extras=nothing)
+
+A GeometryCollection holding any of the seven GeoJSON geometries with `D` dimensions.
+"""
+struct GeometryCollection{D,T} <: AbstractGeometry{D,T}
+    bbox::Union{Nothing,Vector{T}}
+    geometries::Vector{Union{Point{D,T},LineString{D,T},Polygon{D,T},MultiPoint{D,T},
+                             MultiLineString{D,T},MultiPolygon{D,T},GeometryCollection{D,T}}}
+    extras::Extras
+    GeometryCollection{D,T}(bbox, geometries, extras=nothing) where {D,T} = new{D,T}(bbox, geometries, extras)
+end
+const AnyGeometry{D,T} = Union{Point{D,T},LineString{D,T},Polygon{D,T},MultiPoint{D,T},
+                               MultiLineString{D,T},MultiPolygon{D,T},GeometryCollection{D,T}}
+GeometryCollection{D,T}(; bbox=nothing, geometries=AnyGeometry{D,T}[], extras=nothing) where {D,T} =
+    GeometryCollection{D,T}(bbox, geometries, extras)
+GeometryCollection(; geometries::AbstractVector{<:AbstractGeometry{D,T}}, bbox=nothing, extras=nothing) where {D,T} =
+    GeometryCollection{D,T}(bbox, geometries, extras)
+typestring(::Type{<:GeometryCollection}) = "GeometryCollection"
+Base.eltype(::Type{GeometryCollection{D,T}}) where {D,T} = AnyGeometry{D,T}
+
+"""
+    Feature{D,T,G,P}(id, bbox, geometry, properties, extras)
+    Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=Properties(), extras=nothing)
+    Feature(; geometry::AbstractGeometry{D,T}, ...)
+
+A GeoJSON Feature. `G` is the geometry type (`AnyGeometry{D,T}` by default) and `P` the properties
+container: `Properties`, `Nothing` for skipped properties, a `NamedTuple`, or a user struct.
+`f.name` returns property `name` when present, else the field `name`, else `missing`.
+"""
+struct Feature{D,T,G,P} <: GeoJSONT{D,T}
+    id::Union{Nothing,String,Int64,Float64}
+    bbox::Union{Nothing,Vector{T}}
+    geometry::Union{Nothing,G}
+    properties::P
+    extras::Extras
+end
+Feature{D,T,G,P}(; id=nothing, bbox=nothing, geometry=nothing, properties=Properties(), extras=nothing) where {D,T,G,P} =
+    Feature{D,T,G,P}(id, bbox, geometry, properties, extras)
+Feature{D,T}(; kw...) where {D,T} = Feature{D,T,AnyGeometry{D,T},Properties}(; kw...)
+Feature(; geometry::AbstractGeometry{D,T}, kw...) where {D,T} = Feature{D,T}(; geometry, kw...)
+Base.convert(::Type{F}, f::Feature) where {F<:Feature} =
+    f isa F ? f : F(getfield(f, :id), getfield(f, :bbox), getfield(f, :geometry), getfield(f, :properties), getfield(f, :extras))
+typestring(::Type{<:Feature}) = "Feature"
+
+"""
+    FeatureCollection{D,T,G,P}(bbox, features, extras)
+    FeatureCollection{D,T}(; bbox=nothing, features=Feature{D,T}[], extras=nothing)
+    FeatureCollection(; features::Vector{<:Feature{D,T}}, ...)
+
+A GeoJSON FeatureCollection; indexes and iterates as a vector of `Feature{D,T,G,P}`.
+"""
+struct FeatureCollection{D,T,G,P} <: AbstractFeatureCollection{D,T}
+    bbox::Union{Nothing,Vector{T}}
+    features::Vector{Feature{D,T,G,P}}
+    extras::Extras
+end
+FeatureCollection{D,T,G,P}(; bbox=nothing, features=Feature{D,T,G,P}[], extras=nothing) where {D,T,G,P} =
+    FeatureCollection{D,T,G,P}(bbox, features, extras)
+FeatureCollection{D,T}(; kw...) where {D,T} = FeatureCollection{D,T,AnyGeometry{D,T},Properties}(; kw...)
+FeatureCollection(; features::AbstractVector{Feature{D,T,G,P}}, bbox=nothing, extras=nothing) where {D,T,G,P} =
+    FeatureCollection{D,T,G,P}(bbox, features, extras)
+typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
+typestring(::Type{Nothing}) = "null"
+typestring(::Type{Missing}) = "null"
+typestring(x) = typestring(typeof(x))
+
+bbox(x::GeoJSONT) = getfield(x, :bbox)
+extras(x::GeoJSONT) = getfield(x, :extras)
+coordinates(g::AbstractGeometry) = getfield(g, :coordinates)
+coordinates(g::GeometryCollection) = coordinates.(geometry(g))
+coordinates(f::Feature) = coordinates(geometry(f))
+geometry(g::GeometryCollection) = getfield(g, :geometries)
+geometry(f::Feature) = getfield(f, :geometry)
+id(f::Feature) = getfield(f, :id)
+properties(f::Feature) = getfield(f, :properties)
+features(fc::FeatureCollection) = getfield(fc, :features)
+
+# Geometries index and iterate over their coordinates; a GeometryCollection over its geometries.
+_items(g::AbstractGeometry) = coordinates(g)
+_items(g::GeometryCollection) = geometry(g)
+Base.length(g::AbstractGeometry) = length(_items(g))
+Base.lastindex(g::AbstractGeometry) = length(_items(g))
+Base.size(g::AbstractGeometry) = size(_items(g))
+Base.axes(g::AbstractGeometry) = axes(_items(g))
+Base.getindex(g::AbstractGeometry, i::Int) = getindex(_items(g), i)
+Base.IndexStyle(::Type{<:AbstractGeometry}) = Base.IndexLinear()
+Base.iterate(g::AbstractGeometry, state=1) = iterate(_items(g), state)
+
+Base.:(==)(a::AbstractGeometry, b::AbstractGeometry) =
+    typeof(a) === typeof(b) && _items(a) == _items(b) && extras(a) == extras(b)
+Base.:(==)(a::Feature, b::Feature) =
+    id(a) == id(b) && bbox(a) == bbox(b) && geometry(a) == geometry(b) &&
+    properties(a) == properties(b) && extras(a) == extras(b)
+Base.:(==)(a::FeatureCollection, b::FeatureCollection) =
+    bbox(a) == bbox(b) && features(a) == features(b) && extras(a) == extras(b)
+
+Base.show(io::IO, ::Point{D,T}) where {D,T} = print(io, D, "D Point")
+function Base.show(io::IO, g::AbstractGeometry{D,T}) where {D,T}
+    print(io, D, "D ", typestring(g))
+    c = coordinates(g)
+    get(io, :compact, false) || c === nothing || print(io, " with ", length(c), " sub-geometries")
+end
+Base.show(io::IO, g::GeometryCollection{D,T}) where {D,T} =
+    print(io, "GeometryCollection with ", length(g), " ", D, "D geometries")
+Base.show(io::IO, f::Feature{D,T}) where {D,T} =
+    print(io, "Feature with ", D, "D ", typestring(geometry(f)), " geometry and ",
+          length(propertynames(f)), " properties: ", propertynames(f))
+Base.show(io::IO, fc::FeatureCollection) = print(io, "FeatureCollection with ", length(fc), " Features")
+
+# Property lookup for every supported container: a dict, a NamedTuple, nothing, or a user struct.
+_haskey(::Nothing, k::Symbol) = false
+_haskey(p::AbstractDict, k::Symbol) = haskey(p, k)
+_haskey(p::NamedTuple, k::Symbol) = haskey(p, k)
+_haskey(p, k::Symbol) = hasproperty(p, k)
+_getkey(p::AbstractDict, k::Symbol) = p[k]
+_getkey(p, k::Symbol) = getproperty(p, k)
+_keys(::Nothing) = ()
+_keys(p::AbstractDict) = Tuple(Symbol(k) for k in keys(p))
+_keys(p) = propertynames(p)
+
+const FEATURE_FIELDS = (:id, :bbox, :geometry, :properties, :extras)
+
+Base.propertynames(f::Feature) = (:geometry, filter(!=(:geometry), _keys(properties(f)))...)
+function Base.getproperty(f::Feature, k::Symbol)
+    p = properties(f)
+    v = if _haskey(p, k)
+        _getkey(p, k)
+    elseif k in FEATURE_FIELDS
+        getfield(f, k)
+    else
+        missing
+    end
+    v === nothing ? missing : v
+end
+Base.IteratorSize(::Type{<:Feature}) = Base.SizeUnknown()
+function Base.iterate(f::Feature, state=1)
+    names = propertynames(f)
+    state > length(names) && return nothing
+    k = names[state]
+    (k => getproperty(f, k), state + 1)
+end
+
+Base.eltype(::Type{FeatureCollection{D,T,G,P}}) where {D,T,G,P} = Feature{D,T,G,P}
+Base.eltype(::Type{<:AbstractFeatureCollection{D,T}}) where {D,T} = Feature{D,T}
+Base.IteratorEltype(::Type{<:AbstractFeatureCollection}) = Base.HasEltype()
+Base.IteratorSize(::Type{<:AbstractFeatureCollection}) = Base.HasLength()
+Base.length(fc::AbstractFeatureCollection) = length(features(fc))
+Base.lastindex(fc::AbstractFeatureCollection) = length(fc)
+Base.size(fc::AbstractFeatureCollection) = (length(fc),)
+Base.IndexStyle(::Type{<:AbstractFeatureCollection}) = Base.IndexLinear()
+Base.getindex(fc::FeatureCollection, i::Union{Int,UnitRange,Vector}) = features(fc)[i]
+function Base.iterate(fc::AbstractFeatureCollection, state=1)
+    (1 <= state <= length(fc)) || return nothing
+    return fc[state], state + 1
+end
