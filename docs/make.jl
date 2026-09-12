@@ -4,6 +4,8 @@ using Documenter
 makedocs(;
     modules=[GeoJSON],
     sitename="GeoJSON.jl",
+    # The Internals block on the index page collects every docstring except the module's, which is the README.
+    checkdocs=:none,
     format=Documenter.HTML(;
         repolink="https://github.com/JuliaGeo/GeoJSON.jl/",
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -12,6 +14,8 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Schemas and static compilation" => "schemas.md",
+        "Lazy reading" => "lazy.md",
     ],
 )
 
