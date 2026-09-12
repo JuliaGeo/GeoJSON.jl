@@ -387,6 +387,34 @@ import GeoFormatTypes
             @test GeoJSON.read(feature("""{"a":2,"b":null}"""), FCN) != fc
         end
 
+        @testset "NamedTuple typed slots" begin
+            NTT = NamedTuple{(:f, :v, :b, :s),Tuple{Float64,Union{Missing,Vector{Float64}},Bool,Union{Missing,String}}}
+            FCT = GeoJSON.FeatureCollection{2,Float64,P2,NTT}
+            feature(props) = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[1,2]},"properties":$props}]}"""
+            props(src) = GeoJSON.properties(GeoJSON.read(src, FCT)[1])
+
+            # A JSON integer fills a Float64 field, an array fills a Vector{Float64} field, and an
+            # absent key takes `missing`.
+            p = props(feature("""{"f":3,"v":[1,2.5],"b":true}"""))
+            @test p isa NTT
+            @test p.f === 3.0
+            @test p.v isa Vector{Float64} && p.v == [1.0, 2.5]
+            @test p.b === true
+            @test p.s === missing
+            @test isequal(props(feature("""{"f":1.5,"v":null,"b":false,"s":"x"}""")), (f = 1.5, v = missing, b = false, s = "x"))
+            # A value of the wrong kind, a null, or an absent key on a field without `Missing` is rejected.
+            @test thrown(() -> props(feature("""{"f":"3","b":true}"""))) isa ArgumentError
+            @test thrown(() -> props(feature("""{"f":3,"b":1}"""))) isa ArgumentError
+            @test thrown(() -> props(feature("""{"f":null,"b":true}"""))) isa ArgumentError
+            @test thrown(() -> props(feature("""{"f":3}"""))) isa ArgumentError
+            # Every feature of a collection reuses one slot buffer; a value never carries over.
+            two = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":null,"properties":{"f":1,"v":[1],"b":true,"s":"x"}},{"type":"Feature","geometry":null,"properties":{"f":2,"b":false}}]}"""
+            fc = GeoJSON.read(two, FCT)
+            @test isequal(GeoJSON.properties(fc[1]), (f = 1.0, v = [1.0], b = true, s = "x"))
+            @test isequal(GeoJSON.properties(fc[2]), (f = 2.0, v = missing, b = false, s = missing))
+            @test GeoJSON.read(GeoJSON.write(fc), FCT) == fc
+        end
+
         @testset "properties=false" begin
             fc = GeoJSON.read(polydoc; properties=false)
             @test fc isa GeoJSON.FeatureCollection{2,Float64,AG2,Nothing}
