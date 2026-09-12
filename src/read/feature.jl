@@ -1,18 +1,13 @@
-# Properties: insertion-ordered pairs on JSON.jl's own `applyvalue` materializer.
-struct PairSink
-    pairs::Vector{Pair{String,Any}}
+# Each value materializes in place through JSON.jl's `applyvalue`; StructUtils' per-value `make(style, Any, v)` is the slow path.
+struct DictSink{P}
+    dict::P
 end
-(s::PairSink)(k::PtrString, v::LazyValues) =
-    applyvalue(val -> push!(s.pairs, Pair{String,Any}(convert(String, k), val)), v, nothing)
+(s::DictSink)(k::PtrString, v::LazyValues) =
+    applyvalue(val -> _addkeyval!(s.dict, convert(String, k), val), v, nothing)
 
-function StructUtils.make(::JSON.JSONStyle, ::Type{Properties}, x::LazyValues)
-    gettype(x) == OBJECT || _notobject("\"properties\"")
-    pairs = Pair{String,Any}[]
-    pos = applyobject(PairSink(pairs), x)
-    return Properties(pairs), pos::Int
-end
-StructUtils.make(st::JSON.JSONStyle, ::Type{Properties}, x::LazyValues, tags) =
-    StructUtils.make(st, Properties, x)
+# Appending skips the linear duplicate-key scan in `setindex!(::Properties, ...)`.
+_addkeyval!(p::Properties, k::String, v) = push!(p.pairs, Pair{String,Any}(k, v))
+_addkeyval!(d::AbstractDict{String,Any}, k::String, v) = setindex!(d, v, k)
 
 @noinline _badid() = throw(ArgumentError("\"id\" must be a string or a number"))
 
@@ -77,9 +72,15 @@ function readprops(st, ::Type{P}, v::LazyValues) where {P<:NamedTuple}
     pos = applyobject(s, v)::Int
     return schematuple(P, s.vals), pos
 end
+function readprops(st, ::Type{P}, v::LazyValues) where {P<:AbstractDict{String,Any}}
+    gettype(v) == OBJECT || _notobject("\"properties\"")
+    d = P()
+    pos = applyobject(DictSink(d), v)
+    return d, pos::Int
+end
 readprops(st, ::Type{P}, v::LazyValues) where {P} = StructUtils.make(st, P, v)
 
-emptyprops(::Type{Properties}) = Properties()
+emptyprops(::Type{P}) where {P<:AbstractDict{String,Any}} = P()
 emptyprops(::Type{Nothing}) = nothing
 emptyprops(::Type{P}) where {P<:NamedTuple} = schematuple(P, _slots(P))
 emptyprops(::Type{P}) where {P} = _noprops(P)

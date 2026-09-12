@@ -32,8 +32,21 @@ julia> f.NAME, f.POP_EST
 julia> GeoJSON.geometry(f)
 2D MultiPolygon with 3 sub-geometries
 
-julia> GeoJSON.properties(f)["NAME"]    # an ordered AbstractDict{String,Any}; Symbol keys work too
+julia> GeoJSON.properties(f)["NAME"]    # a Dict{String,Any}
 "Fiji"
+```
+
+Properties land in a plain `Dict{String,Any}`, so they iterate in hash order; `f.NAME`, `f[:NAME]`
+and `f["NAME"]` all reach the same entry. `properties=GeoJSON.Properties` keeps document order:
+
+```julia
+julia> fc = GeoJSON.read("countries.geojson"; properties=GeoJSON.Properties);
+
+julia> collect(keys(GeoJSON.properties(fc[1])))[1:3]    # the order the file lists them
+3-element Vector{String}:
+ "featurecla"
+ "scalerank"
+ "LABELRANK"
 ```
 
 Keywords shape the result:
@@ -43,6 +56,7 @@ Keywords shape the result:
 | `ndim=3` | coordinate dimension; discovered from the first coordinate by default |
 | `numbertype=Float32` | coordinate element type; `Float64` by default |
 | `geometries=(Point, Polygon)` | geometry types admitted; every other kind is an error |
+| `properties=GeoJSON.Properties` | property container: `Dict{String,Any}` by default, `Properties` for document order, or a `NamedTuple`/struct schema |
 | `properties=false` | skip the `"properties"` member entirely |
 | `lazy=true` | keep the bytes and parse each feature on access |
 | `mmap=true` | memory-map a path |
@@ -140,6 +154,6 @@ GeoJSON.write(fc)
 
 These forms are JIT-only and fail trim verification:
 
-- `Properties` as `P`, and `AnyGeometry` as `G`: `Any`-valued containers cannot be verified.
+- `Dict{String,Any}` or `Properties` as `P`, and `AnyGeometry` as `G`: `Any`-valued containers cannot be verified.
 - Dimension discovery, i.e. `read(src)` without `ndim`: the return type is chosen at run time.
 - The keyword sugar (`ndim=`, `geometries=`, `properties=`): it builds the target type at run time.

@@ -18,7 +18,7 @@ byte is `{` or `[` is the document itself; any other string is a path.
 | `ndim` | coordinate dimension `D`: `2`, `3`, `4`, or `Val(N)` for an inferable return type. Discovered from the first coordinate when `nothing` |
 | `numbertype` | coordinate number type `T` |
 | `geometries` | geometry type(s) admitted, e.g. `(Point, Polygon)`; `nothing` admits all seven |
-| `properties` | `true` for [`Properties`](@ref), `false` to skip the member, or a `NamedTuple`/struct schema |
+| `properties` | `true` for `Dict{String,Any}`, [`Properties`](@ref) for document order, `false` to skip the member, or a `NamedTuple`/struct schema |
 | `lazy` | `true` defers feature parsing to access time |
 | `mmap` | `true` memory-maps a path; the result borrows the mapping |
 | `lazyfc` | deprecated spelling of `lazy` |
@@ -26,7 +26,7 @@ byte is `{` or `[` is the document itself; any other string is a path.
 Every coordinate position must hold exactly `D` values; a [`DimMismatch`](@ref) names the
 offending feature.
 
-The typed form is the inferable entry: `read(src, FeatureCollection{2,Float64,Point{2,Float64},Properties})`
+The typed form is the inferable entry: `read(src, FeatureCollection{2,Float64,Point{2,Float64},Dict{String,Any}})`
 infers exactly that type. The keyword form resolves the root kind, `properties` and `lazy` at run
 time, so its return type is a union over the seven geometries, `Feature`, `FeatureCollection` and
 `LazyFeatureCollection`; `ndim=Val(N)` pins `D` on every member of that union.
@@ -74,7 +74,7 @@ _ndim(::Nothing, bytes) = max(discover_dim(bytes), 2)
 _ndim(n::Integer, bytes) = Int(n)
 _ndim(v::Val, bytes) = v
 
-_proptype(keep::Bool) = keep ? Properties : Nothing
+_proptype(keep::Bool) = keep ? Dict{String,Any} : Nothing
 _proptype(::Type{P}) where {P} = P
 
 _geomtype(::Nothing, ::Val{D}, ::Type{T}) where {D,T} = AnyGeometry{D,T}
@@ -131,7 +131,7 @@ end
 _readtyped(bytes::AbstractVector{UInt8}, ::Type{X}) where {D,T,X<:GeoJSONT{D,T}} =
     _parse(bytes, JSON.lazy(bytes), X, Val(D))
 @noinline _readtyped(bytes, ::Type{X}) where {X} =
-    throw(ArgumentError("read(src, $X) needs the dimension and number type, e.g. FeatureCollection{2,Float64,AnyGeometry{2,Float64},Properties}"))
+    throw(ArgumentError("read(src, $X) needs the dimension and number type, e.g. FeatureCollection{2,Float64,AnyGeometry{2,Float64},Dict{String,Any}}"))
 
 # The feature index costs a second scan, so it is computed only once a mismatch is known.
 function _parse(bytes, x::LazyValue, ::Type{X}, ::Val{D}) where {X,D}

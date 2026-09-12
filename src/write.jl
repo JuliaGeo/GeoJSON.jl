@@ -96,8 +96,8 @@ end
 # of it into a dynamic call.
 @noinline _lowered(st, @nospecialize(v)) = StructUtils.lower(st, v)
 
-# The scalar types the reader stores in `Properties`, plus `missing` from tables; each branch hands
-# `f` one concrete type, and any other value takes the general lowering path.
+# The scalar types the reader stores in a properties dict, plus `missing` from tables; each branch
+# hands `f` one concrete type, and any other value takes the general lowering path.
 @inline function _emitproperty(st, f, k, v)
     v isa String && return f(k, v)
     v isa Float64 && return f(k, v)
@@ -161,13 +161,26 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Members)
     return StructUtils.defaultstate(st)
 end
 
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Properties)
-    for (k, v) in x.pairs
+"""
+    DictMembers(p::AbstractDict{String,Any})
+
+Object view for the JSON writer over a schema-less properties container: members reach it in
+the container's iteration order, each value with a concrete type.
+"""
+struct DictMembers{P}
+    p::P
+end
+
+function StructUtils.applyeach(st::JSON.JSONStyle, f, x::DictMembers)
+    for (k, v) in x.p
         ret = _emitproperty(st, f, k, v)
         ret isa StructUtils.EarlyReturn && return ret
     end
     return StructUtils.defaultstate(st)
 end
+
+_propview(st, p::AbstractDict{String,Any}) = DictMembers(p)
+_propview(st, p) = StructUtils.lower(st, p)
 
 function _emitextras(st, f, extras)
     extras === nothing && return StructUtils.defaultstate(st)
@@ -209,7 +222,7 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Feature)
     bb === nothing || @emit "bbox" Elements(bb)
     ret = _emitgeometry(f, "geometry", geometry(x))
     ret isa StructUtils.EarlyReturn && return ret
-    @emit "properties" StructUtils.lower(st, properties(x))
+    @emit "properties" _propview(st, properties(x))
     return _emitextras(st, f, extras(x))
 end
 
@@ -230,7 +243,7 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, x::LazyFeatureCollection)
 end
 
 # A call with two style arguments also matches StructUtils' `applyeach(f, st, x)`; pin the style-first reading.
-for T in (Elements, Objects, Values, Members, Properties, Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
+for T in (Elements, Objects, Values, Members, DictMembers, Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
           GeometryCollection, Feature, FeatureCollection, LazyFeatureCollection)
     @eval StructUtils.applyeach(st::JSON.JSONStyle, f::StructUtils.StructStyle, x::$T) =
         invoke(StructUtils.applyeach, Tuple{JSON.JSONStyle,Any,$T}, st, f, x)
@@ -251,7 +264,7 @@ _npoints(c::Vector) = sum(_npoints, c; init=0)
 _bboxbytes(::Nothing) = 0
 _bboxbytes(b::Vector) = 12 + 24 * length(b)
 _propbytes(::Nothing) = 4
-_propbytes(p::Union{Properties,NamedTuple}) = 2 + 24 * length(p)
+_propbytes(p::Union{AbstractDict,NamedTuple}) = 2 + 24 * length(p)
 _propbytes(p) = 512
 _extrasbytes(::Nothing) = 0
 _extrasbytes(e::Vector) = 64 * length(e)

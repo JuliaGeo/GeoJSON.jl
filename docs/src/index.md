@@ -22,9 +22,15 @@ using GeoJSON
 
 fc = GeoJSON.read("countries.geojson")           # FeatureCollection, Feature, or geometry
 fc[1].NAME                                       # property access
+GeoJSON.properties(fc[1])                        # a Dict{String,Any}
 GeoJSON.geometry(fc[1])                          # a GeoJSON geometry
 GeoJSON.write("out.geojson", fc)                 # or write(io, fc), write(fc) -> String
 ```
+
+Properties fill a `Dict{String,Any}` by default, so they iterate in hash order.
+`read(src; properties=GeoJSON.Properties)` keeps document order in a [`Properties`](@ref);
+`properties=false` skips the member, and a `NamedTuple` or struct type is a
+[schema](@ref "Schemas and static compilation").
 
 The document's root `"type"` picks the result type. `read` accepts a path, a JSON string, an `IO`,
 or a byte vector; its keywords (`ndim`, `numbertype`, `geometries`, `properties`, `lazy`, `mmap`)

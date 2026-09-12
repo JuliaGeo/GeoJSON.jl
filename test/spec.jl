@@ -5,12 +5,24 @@ import GeoFormatTypes
 
 @testset "spec" begin
 
-    # Type shorthands the assertions name repeatedly.
-    Props = GeoJSON.Properties
+    # Type shorthands the assertions name repeatedly; `Props` is the default read's container.
+    Props = Dict{String,Any}
     AG2 = GeoJSON.AnyGeometry{2,Float64}
     P2 = GeoJSON.Point{2,Float64}
     F2 = GeoJSON.Feature{2,Float64,AG2,Props}
     FC2 = GeoJSON.FeatureCollection{2,Float64,AG2,Props}
+
+    # A user-defined `AbstractDict{String,Any}`, for the container-agnostic reader and writer paths.
+    struct WrappedDict <: AbstractDict{String,Any}
+        d::Dict{String,Any}
+        WrappedDict() = new(Dict{String,Any}())
+    end
+    Base.setindex!(w::WrappedDict, v, k::String) = (w.d[k] = v; w)
+    Base.getindex(w::WrappedDict, k::String) = w.d[k]
+    Base.get(w::WrappedDict, k::String, default) = get(w.d, k, default)
+    Base.haskey(w::WrappedDict, k::String) = haskey(w.d, k)
+    Base.iterate(w::WrappedDict, s...) = iterate(w.d, s...)
+    Base.length(w::WrappedDict) = length(w.d)
 
     # The exception `f` throws, or `nothing`.
     function thrown(f)
@@ -297,7 +309,8 @@ import GeoFormatTypes
 
         @testset "property values keep their JSON types" begin
             p = GeoJSON.properties(GeoJSON.read(docs.property_types))
-            @test collect(keys(p)) == ["i", "f", "s", "b", "n", "o", "a"]
+            @test p isa Dict{String,Any}
+            @test Set(keys(p)) == Set(["i", "f", "s", "b", "n", "o", "a"])
             @test p["i"] === Int64(1)
             @test p["f"] === 1.5
             @test p["s"] === "x"
@@ -385,6 +398,30 @@ import GeoFormatTypes
             @test isequal(GeoJSON.read(GeoJSON.write(fc), FCN), fc)
             @test hash(GeoJSON.read(GeoJSON.write(fc), FCN)) == hash(fc)
             @test GeoJSON.read(feature("""{"a":2,"b":null}"""), FCN) != fc
+        end
+
+        @testset "properties container" begin
+            @test GeoJSON.read(docs.property_types) isa GeoJSON.Feature{2,Float64,AG2,Dict{String,Any}}
+            @test GeoJSON.read(docs.property_types; properties=true) isa GeoJSON.Feature{2,Float64,AG2,Dict{String,Any}}
+            @test GeoJSON.read(docs.property_types; properties=Dict{String,Any}) isa GeoJSON.Feature{2,Float64,AG2,Dict{String,Any}}
+            @test GeoJSON.read(docs.property_types; properties=GeoJSON.Properties) isa GeoJSON.Feature{2,Float64,AG2,GeoJSON.Properties}
+            @test GeoJSON.read(docs.property_types; properties=false) isa GeoJSON.Feature{2,Float64,AG2,Nothing}
+            # Any `AbstractDict{String,Any}` with `setindex!` fills through the same sink.
+            fo = GeoJSON.read(docs.property_types; properties=WrappedDict)
+            @test GeoJSON.properties(fo) isa WrappedDict
+            @test GeoJSON.properties(fo)["s"] == "x"
+            @test fo.s == "x" && fo[:s] == "x"
+            @test GeoJSON.read(GeoJSON.write(fo); properties=WrappedDict) == fo
+            for P in (Dict{String,Any}, GeoJSON.Properties)
+                f = GeoJSON.read(docs.property_types; properties=P)
+                @test GeoJSON.properties(f) == GeoJSON.properties(GeoJSON.read(docs.property_types))
+                @test GeoJSON.read(GeoJSON.write(f); properties=P) == f
+                lfc = GeoJSON.read(docs.extras_everywhere; lazy=true, properties=P)
+                @test GeoJSON.properties(GeoJSON.lazyfeature(lfc, 1)) isa P
+                @test GeoJSON.properties(lfc[1]) == Dict{String,Any}("a" => 1)
+                @test lfc.a == [1]
+                @test GeoJSON.write(lfc) == GeoJSON.write(GeoJSON.read(docs.extras_everywhere; properties=P))
+            end
         end
 
         @testset "properties=false" begin
@@ -480,10 +517,39 @@ import GeoFormatTypes
         rm(path)
     end
 
-    @testset "Properties" begin
+    @testset "Dict{String,Any} properties" begin
         f = GeoJSON.read(docs.property_types)
         p = GeoJSON.properties(f)
 
+        @test p isa Dict{String,Any}
+        @test p["i"] == 1
+        @test f.i == 1
+        @test f[:i] == 1
+        @test f["i"] == 1
+        @test haskey(f, "i") && haskey(f, :i) && !haskey(f, "zz")
+        @test get(f, "zz", 42) == 42
+        @test get(f, :i, 42) == 1
+        @test_throws KeyError f["zz"]
+        @test Set(keys(p)) == Set(["i", "f", "s", "b", "n", "o", "a"])
+        @test length(p) == 7
+
+        # `getproperty` maps both an absent key and a stored null to `missing`.
+        @test f.n === missing
+        @test f.zz === missing
+        @test first(propertynames(f)) === :geometry
+        @test Set(propertynames(f)) == Set((:geometry, :i, :f, :s, :b, :n, :o, :a))
+        @test f.geometry === missing
+
+        p["c"] = 3
+        @test f.c == 3                   # mutation lands in the feature, not a copy
+        @test :c in propertynames(f)
+    end
+
+    @testset "Properties" begin
+        f = GeoJSON.read(docs.property_types; properties=GeoJSON.Properties)
+        p = GeoJSON.properties(f)
+
+        @test p isa GeoJSON.Properties
         @test p isa AbstractDict{String,Any}
         @test p["i"] == 1
         @test p[:i] == 1

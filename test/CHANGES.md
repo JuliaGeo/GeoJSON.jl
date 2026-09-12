@@ -22,6 +22,23 @@ expectations below changed because the behaviour changed on purpose. Each reason
 | `Geometries` | `read(Samples.bbox_z, ndim=3)` names the dimension | `read(Samples.bbox_z)` discovers it, and `ndim=3` says the same thing | The 2D→3D silent retry is gone; discovery replaces it |
 | `GeoJSON` (top level) | `Aqua.test_all(GeoJSON)` inline | `include("aqua.jl")` when the file exists | `test/aqua.jl` is T3's file, per the file-ownership table |
 
+## Default properties container: `Dict{String,Any}`
+
+`read(src)` fills a `Dict{String,Any}`; `read(src; properties=GeoJSON.Properties)` selects the
+ordered container. Assertions on a default read compare `Dict`s or `Set`s of names, and every
+document-order assertion moved under an explicit `properties=GeoJSON.Properties` read.
+
+| Testset | Old expectation | New expectation |
+|---|---|---|
+| `Features` | `collect(pairs(properties(read(s)))) == p` in document order | `properties(read(s)) == Dict{String,Any}(p)`; the ordered comparison runs on `read(s; properties=Properties)` |
+| `Construct from NamedTuple` | `propertynames(f) === (:geometry, :a, :b)` | `Set(propertynames(f))`, `first(propertynames(f)) === :geometry`; the ordered tuple holds for a `Feature{…,Properties}` |
+| `FeatureCollection of one MultiPolygon` | `propertynames(f1) === (:geometry, :cartodb_id, …)`, `properties isa Properties` | `Set` comparison, `properties isa Dict{String,Any}`; the ordered tuple holds for `read(Samples.g; properties=Properties)` |
+| `Tables with missings` | `show` names `(:geometry, :a, :b)` on the default read | `Set(propertynames(t[1]))` on the default read; the `show` string holds for the `Properties` read |
+| `spec`: `Props` shorthand | `GeoJSON.Properties` | `Dict{String,Any}`; a `properties container` testset covers `true`, `Dict{String,Any}`, `Properties`, `false` and another `AbstractDict{String,Any}` on the eager and lazy readers and the writer |
+| `spec`: `Properties` | the container API on a default read | the same API on `read(…; properties=Properties)`; a `Dict{String,Any} properties` testset covers the default |
+| `tables.jl` | fixtures on `Feature{2,Float64}` | fixtures on `Feature{2,Float64,AnyGeometry{2,Float64},Properties}` so column order stays assertable; a `Dict{String,Any} properties` testset covers the default |
+| `geointerface.jl` | `properties2 = Properties(…)` | `properties2 = Dict{String,Any}(…)`, so `GI.properties(feature2) === properties2` holds on the default `P` |
+
 ## Added assertions
 
 New tests for behaviour the plan introduces, alongside the ported ones:

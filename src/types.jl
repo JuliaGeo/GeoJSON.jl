@@ -72,11 +72,13 @@ Base.eltype(::Type{GeometryCollection{D,T}}) where {D,T} = AnyGeometry{D,T}
 
 """
     Feature{D,T,G,P}(id, bbox, geometry, properties, extras)
-    Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=Properties(), extras=nothing)
+    Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=Dict{String,Any}(), extras=nothing)
     Feature(; geometry::AbstractGeometry{D,T}, ...)
 
 A GeoJSON Feature. `G` is the geometry type (`AnyGeometry{D,T}` by default) and `P` the properties
-container: `Properties`, `Nothing` for skipped properties, a `NamedTuple`, or a user struct.
+container: `Dict{String,Any}` by default, [`Properties`](@ref) for document order, `Nothing` for
+skipped properties, a `NamedTuple`, or a user struct. The keyword constructors accept Symbol-keyed
+`properties` (a `NamedTuple`, `pairs(nt)`) for a String-keyed `P`.
 `f.name` returns property `name` when present, else the field `name`, else `missing`;
 `f["name"]`, `get(f, "name", default)` and `haskey(f, "name")` reach the properties container.
 """
@@ -87,9 +89,14 @@ struct Feature{D,T,G,P} <: GeoJSONT{D,T}
     properties::P
     extras::Extras
 end
-Feature{D,T,G,P}(; id=nothing, bbox=nothing, geometry=nothing, properties=Properties(), extras=nothing) where {D,T,G,P} =
-    Feature{D,T,G,P}(id, bbox, geometry, properties, extras)
-Feature{D,T}(; kw...) where {D,T} = Feature{D,T,AnyGeometry{D,T},Properties}(; kw...)
+Feature{D,T,G,P}(; id=nothing, bbox=nothing, geometry=nothing, properties=emptyprops(P), extras=nothing) where {D,T,G,P} =
+    Feature{D,T,G,P}(id, bbox, geometry, _asprops(P, properties), extras)
+Feature{D,T}(; kw...) where {D,T} = Feature{D,T,AnyGeometry{D,T},Dict{String,Any}}(; kw...)
+_asprops(::Type{P}, x) where {P} = x isa P ? x : _keyed(P, x)
+_keyed(::Type{P}, x) where {P<:AbstractDict{String,Any}} = P(_key(k) => v for (k, v) in _pairs(x))
+_keyed(::Type{P}, x) where {P} = x
+_pairs(x::NamedTuple) = pairs(x)
+_pairs(x) = x
 Feature(; geometry::AbstractGeometry{D,T}, kw...) where {D,T} = Feature{D,T}(; geometry, kw...)
 typestring(::Type{<:Feature}) = "Feature"
 
@@ -107,7 +114,7 @@ struct FeatureCollection{D,T,G,P} <: AbstractFeatureCollection{D,T}
 end
 FeatureCollection{D,T,G,P}(; bbox=nothing, features=Feature{D,T,G,P}[], extras=nothing) where {D,T,G,P} =
     FeatureCollection{D,T,G,P}(bbox, features, extras)
-FeatureCollection{D,T}(; kw...) where {D,T} = FeatureCollection{D,T,AnyGeometry{D,T},Properties}(; kw...)
+FeatureCollection{D,T}(; kw...) where {D,T} = FeatureCollection{D,T,AnyGeometry{D,T},Dict{String,Any}}(; kw...)
 FeatureCollection(; features::AbstractVector{Feature{D,T,G,P}}, bbox=nothing, extras=nothing) where {D,T,G,P} =
     FeatureCollection{D,T,G,P}(bbox, features, extras)
 typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
@@ -160,8 +167,8 @@ id(f::Feature) = getfield(f, :id)
 """
     properties(f::Feature) -> P
 
-The properties container of a feature: a [`Properties`](@ref), a `NamedTuple`, a user struct,
-or `nothing` when properties were skipped.
+The properties container of a feature: a `Dict{String,Any}` by default, a [`Properties`](@ref),
+a `NamedTuple`, a user struct, or `nothing` when properties were skipped.
 """
 properties(f::Feature) = getfield(f, :properties)
 
@@ -227,9 +234,11 @@ Base.show(io::IO, fc::FeatureCollection) = print(io, "FeatureCollection with ", 
 # Property lookup for every supported container: a dict, a NamedTuple, nothing, or a user struct.
 _haskey(::Nothing, k::Symbol) = false
 _haskey(p::AbstractDict, k::Symbol) = haskey(p, k)
+_haskey(p::AbstractDict{String}, k::Symbol) = haskey(p, String(k))
 _haskey(p::NamedTuple, k::Symbol) = haskey(p, k)
 _haskey(p, k::Symbol) = hasproperty(p, k)
 _getkey(p::AbstractDict, k::Symbol) = p[k]
+_getkey(p::AbstractDict{String}, k::Symbol) = p[String(k)]
 _getkey(p, k::Symbol) = getproperty(p, k)
 _pushnames!(names::Vector{Symbol}, ::Nothing) = names
 _pushnames!(names::Vector{Symbol}, p::AbstractDict) = _pushnames!(names, keys(p))

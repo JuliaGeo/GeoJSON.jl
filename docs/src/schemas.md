@@ -34,10 +34,11 @@ The keyword form of [`read`](@ref) builds the same target type at run time:
 
 | keyword form | target type |
 |---|---|
-| `read(src)` | `FeatureCollection{D,Float64,AnyGeometry{D,Float64},Properties}`, `D` discovered |
-| `read(src; ndim=3, numbertype=Float32)` | `FeatureCollection{3,Float32,AnyGeometry{3,Float32},Properties}` |
+| `read(src)` | `FeatureCollection{D,Float64,AnyGeometry{D,Float64},Dict{String,Any}}`, `D` discovered |
+| `read(src; ndim=3, numbertype=Float32)` | `FeatureCollection{3,Float32,AnyGeometry{3,Float32},Dict{String,Any}}` |
 | `read(src; geometries=(Point, Polygon))` | `G = Union{Point{D,T},Polygon{D,T}}` |
 | `read(src; properties=false)` | `P = Nothing` |
+| `read(src; properties=GeoJSON.Properties)` | `P = Properties`, document order |
 | `read(src; properties=Props)` | `P = Props` |
 | `read(src; lazy=true)` | `LazyFeatureCollection{...}` |
 
@@ -50,7 +51,7 @@ A trimmed binary contains only code the compiler can prove reachable from concre
 | `read(src, FeatureCollection{D,T,G,P})` with concrete `G` and `P` a `NamedTuple`, struct, or `Nothing` | builds |
 | `read(src, LazyFeatureCollection{D,T,G,P})`, `read(src, LazyStream{D,T,G,P})` | builds |
 | `write(x)` for any GeoJSON type | builds |
-| `P = Properties`, or `G = AnyGeometry{D,T}` | JIT only: `Any`-valued containers |
+| `P = Dict{String,Any}` or `Properties`, or `G = AnyGeometry{D,T}` | JIT only: `Any`-valued containers |
 | `read(src)` with `ndim` unspecified | JIT only: the dimension is discovered at run time |
 | keyword sugar `ndim=`, `geometries=`, `properties=` | JIT only: the type is built at run time |
 

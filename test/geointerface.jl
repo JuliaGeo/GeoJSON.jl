@@ -35,7 +35,7 @@ import GeoInterface as GI
     geometries2 = (point2, line2, multipoint2, polygon2, multiline2, multipolygon2, collection2, nested2)
     geometries3 = (point3, line3, multipoint3, polygon3, multiline3, multipolygon3, collection3)
 
-    properties2 = GeoJSON.Properties("name" => "somewhere", "n" => 1)
+    properties2 = Dict{String,Any}("name" => "somewhere", "n" => 1)
     feature2 = GeoJSON.Feature{2,Float64}(; geometry=polygon2, properties=properties2)
     feature3 = GeoJSON.Feature{3,Float64}(; geometry=polygon3, properties=properties2)
     nogeom = GeoJSON.Feature{2,Float64}(; geometry=nothing, properties=properties2)

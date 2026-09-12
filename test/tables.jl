@@ -9,13 +9,15 @@ import GeoInterface as GI
 
 @testset "Tables" begin
     point(x, y) = GeoJSON.Point{2,Float64}(nothing, (x, y))
-    feature(g, ps...) = GeoJSON.Feature{2,Float64}(; geometry=g, properties=GeoJSON.Properties(ps...))
+    # The ordered container, so the schema assertions can name column order.
+    FP = GeoJSON.Feature{2,Float64,GeoJSON.AnyGeometry{2,Float64},GeoJSON.Properties}
+    feature(g, ps...) = FP(; geometry=g, properties=GeoJSON.Properties(ps...))
 
     p1, p2 = point(1.0, 2.0), point(3.0, 4.0)
     f1 = feature(p1, "name" => "a", "n" => 1)
     f2 = feature(p2, "name" => "b", "n" => 2, "extra" => true)
     f3 = feature(nothing, "name" => "c", "n" => nothing)
-    fc = GeoJSON.FeatureCollection{2,Float64}(; features=[f1, f2, f3])
+    fc = GeoJSON.FeatureCollection(; features=[f1, f2, f3])
 
     @testset "interface" begin
         @test Tables.istable(fc)
@@ -41,7 +43,7 @@ import GeoInterface as GI
     end
 
     @testset "widening" begin
-        allnothing = GeoJSON.FeatureCollection{2,Float64}(; features=[
+        allnothing = GeoJSON.FeatureCollection(; features=[
             feature(p1, "a" => 1, "b" => nothing),
             feature(p2, "a" => nothing, "b" => nothing),
         ])
@@ -50,7 +52,7 @@ import GeoInterface as GI
         @test schema.types == (Union{Missing,Int64}, Missing, GeoJSON.Point{2,Float64})
         @test allnothing.b isa Vector{Missing}
 
-        late = GeoJSON.FeatureCollection{2,Float64}(; features=[
+        late = GeoJSON.FeatureCollection(; features=[
             feature(p1, "a" => 1),
             feature(p2, "a" => 2, "late" => "here"),
         ])
@@ -58,7 +60,7 @@ import GeoInterface as GI
         @test Tables.schema(late).types == (Int64, Union{Missing,String}, GeoJSON.Point{2,Float64})
         @test all(late.late .=== [missing, "here"])
 
-        mixed = GeoJSON.FeatureCollection{2,Float64}(; features=[
+        mixed = GeoJSON.FeatureCollection(; features=[
             feature(p1, "a" => 1),
             feature(p2, "a" => "two"),
         ])
@@ -102,7 +104,7 @@ import GeoInterface as GI
 
     @testset "schema on demand" begin
         growing = feature(p1, "a" => 1)
-        growingfc = GeoJSON.FeatureCollection{2,Float64}(; features=[growing])
+        growingfc = GeoJSON.FeatureCollection(; features=[growing])
         @test Tables.schema(growingfc).names == (:a, :geometry)
         GeoJSON.properties(growing)["b"] = "later"
         @test Tables.schema(growingfc).names == (:a, :b, :geometry)
@@ -125,7 +127,7 @@ import GeoInterface as GI
 
     @testset "property named geometry" begin
         shadowed = feature(p1, "geometry" => "not a geometry", "a" => 1)
-        shadowedfc = GeoJSON.FeatureCollection{2,Float64}(; features=[shadowed])
+        shadowedfc = GeoJSON.FeatureCollection(; features=[shadowed])
         @test propertynames(shadowed) == (:geometry, :a)
         @test shadowed.geometry == "not a geometry"
         @test GeoJSON.geometry(shadowed) === p1
@@ -178,6 +180,42 @@ import GeoInterface as GI
         @test isempty(empty.geometry)
         @test isempty(Tables.rowtable(empty))
         @test size(DataFrame(empty)) == (0, 1)
+    end
+
+    @testset "Dict{String,Any} properties" begin
+        dfeature(g, ps...) = GeoJSON.Feature{2,Float64}(; geometry=g, properties=Dict{String,Any}(ps...))
+        d1 = dfeature(p1, "name" => "a", "n" => 1)
+        d2 = dfeature(p2, "name" => "b", "n" => 2, "extra" => true)
+        d3 = dfeature(nothing, "name" => "c", "n" => nothing)
+        dfc = GeoJSON.FeatureCollection{2,Float64}(; features=[d1, d2, d3])
+        @test dfc isa GeoJSON.FeatureCollection{2,Float64,GeoJSON.AnyGeometry{2,Float64},Dict{String,Any}}
+        @test GeoJSON.properties(d1) isa Dict{String,Any}
+        schema = Tables.schema(dfc)
+        @test Set(schema.names) == Set((:name, :n, :extra, :geometry))
+        @test last(schema.names) === :geometry
+        types = Dict(zip(schema.names, schema.types))
+        @test types[:name] == String
+        @test types[:n] == Union{Missing,Int64}
+        @test types[:extra] == Union{Missing,Bool}
+        @test types[:geometry] == Union{Missing,GeoJSON.Point{2,Float64}}
+        @test Set(propertynames(dfc)) == Set(Tables.columnnames(dfc))
+        @test dfc.name == ["a", "b", "c"]
+        @test isequal(dfc.n, [1, 2, missing])
+        @test isequal(dfc.extra, [missing, true, missing])
+        @test isequal(dfc.geometry, [p1, p2, missing])
+        @test d1.name == "a"
+        @test d1.n === 1
+        @test d1.extra === missing
+        @test d3.n === missing
+        @test Tables.getcolumn(d1, :name) == "a"
+        @test Tables.getcolumn(d1, 2) === Tables.getcolumn(d1, propertynames(d1)[2])
+        columns = Tables.columntable(dfc)
+        @test Set(keys(columns)) == Set((:name, :n, :extra, :geometry))
+        @test columns.name == ["a", "b", "c"]
+        df = DataFrame(dfc)
+        @test size(df) == (3, 4)
+        @test df.name == ["a", "b", "c"]
+        @test @inferred(dfc[1]) === d1
     end
 
     @testset "DataFrame" begin
