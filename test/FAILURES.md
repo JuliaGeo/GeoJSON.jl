@@ -112,3 +112,78 @@ failures are the ones already reported above, all from `test/geointerface.jl` an
 
 - **`using DataAPI` is unavailable under `Pkg.test()`** — resolved. `DataAPI` is now in `[extras]`,
   `[compat]` and the `test` target of `Project.toml`, committed with the ported suite.
+
+# WP5/T4: trim verification
+
+`test/trim_tests.jl` builds `test/trim/TrimGeoJSON` with JuliaC 0.3.10 on Julia 1.13.0 under
+`--trim=safe`, once with the writer and once read-only, and runs the binary on
+`test/trim/data.geojson` (`ne_110m_countries`, 177 features).
+
+| Build | Verifier | Build time | Binary |
+|---|---|---|---|
+| read (typed, `P = Nothing`) + read (`NamedTuple` schema) + `GeoJSON.write` | 22 errors, 0 warnings | 7.9 s | none |
+| read (typed, `P = Nothing`) + read (`NamedTuple` schema) | 0 errors, 0 warnings | 8.5 s | 4,391,720 B |
+
+The read-only binary prints `features 177`, `sumx 121572.13516100003`, `name Fiji`, equal to the
+in-process values. Both reads verify clean, including the path-string entry through `_bytes` and
+the `NamedTuple{(:NAME,:POP_EST),Tuple{Union{Missing,String},Union{Missing,Float64}}}` schema. All
+22 errors are in `src/write.jl`; the two entries below account for every one. The lazy step is
+absent because `src/lazy.jl` was empty when the package was written.
+
+## Trim: writer lowers `Any`-valued extras through a dynamic call
+
+- Test: `test/trim_tests.jl`, testset `Trim compile`, read+write build
+- Expected: 0 errors / 0 warnings
+- Got: 16 errors, one pair per `FeatureCollection`, `Feature`, `Polygon`, `MultiPolygon`, each
+  counted twice across the two entrypoint roots:
+  ```
+  Verifier error #1: unresolved call from statement (StructUtils.lower)(st::JSON.JSONWriteStyle, Base.getfield(φ ()::Pair{String, Any}, 2)::Any)::Any
+  Verifier error #2: unresolved call from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.FeatureCollection{2, Float64, Union{GeoJSON.MultiPolygon{2, Float64}, GeoJSON.Polygon{2, Float64}}, Nothing}, Nothing})(Base.getfield(φ ()::Pair{String, Any}, 1)::String, (StructUtils.lower)(st::JSON.JSONWriteStyle, Base.getfield(φ ()::Pair{String, Any}, 2)::Any)::Any)::Nothing
+  ```
+- Source: `src/write.jl:76`, `_emitextras`: `f(k, StructUtils.lower(st, v))` over
+  `Vector{Pair{String,Any}}`
+- Verdict: code (WP2). `Extras` carries `Any` values by contract, so the trimmed writer needs a
+  typed path: an `isa` ladder over the value types `applyvalue` produces (`String`, `Int64`,
+  `Float64`, `Bool`, `Nothing`, `Vector{Any}`, `JSON.Object{String,Any}`), recursing for the two
+  containers, is the shape trim-e2e's "Never do this" table prescribes. The alternative is a
+  documented JIT-only status for extras on write plus a schema knob that drops them, which the trim
+  package would then exercise.
+
+## Trim: geometry members unresolved beneath a union-typed `"geometry"` emit
+
+- Test: `test/trim_tests.jl`, testset `Trim compile`, read+write build
+- Expected: 0 errors / 0 warnings
+- Got: 6 errors, three per geometry type in the schema:
+  ```
+  Verifier error #5: unresolved invoke from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.Polygon{2, Float64}, Nothing})("bbox", φ ()::JSON.Omit)::Nothing
+  Verifier error #6: unresolved call from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.Polygon{2, Float64}, Nothing})("bbox", φ ()::Union{JSON.Omit, GeoJSON.Elements{Vector{Float64}}})::Nothing
+  Verifier error #7: unresolved call from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.Polygon{2, Float64}, Nothing})("coordinates", φ ()::Union{Nothing, GeoJSON.Elements{Vector{Vector{Tuple{Float64, Float64}}}}})::Nothing
+  Verifier error #10: unresolved invoke from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.MultiPolygon{2, Float64}, Nothing})("bbox", φ ()::JSON.Omit)::Nothing
+  Verifier error #11: unresolved call from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.MultiPolygon{2, Float64}, Nothing})("bbox", φ ()::Union{JSON.Omit, GeoJSON.Elements{Vector{Float64}}})::Nothing
+  Verifier error #12: unresolved call from statement (f::JSON.WriteClosure{JSON.WriteOptions{JSON.JSONWriteStyle}, false, GeoJSON.MultiPolygon{2, Float64}, Nothing})("coordinates", φ ()::Union{Nothing, GeoJSON.Elements{Vector{Vector{Vector{Tuple{Float64, Float64}}}}}})::Nothing
+  ```
+- Source: `src/write.jl:103`, `@emit "geometry" geometry(x)` hands
+  `Union{Nothing,Polygon{2,Float64},MultiPolygon{2,Float64}}` to the write closure; the geometry
+  writers at `src/write.jl:83-87` then hand `Union{JSON.Omit,Elements{Vector{T}}}` (`_bboxvalue`)
+  and `Union{Nothing,Elements{…}}` (`_coordsvalue`) to theirs. The errors need both unions plus one
+  array level above the `Feature`: a bare `Feature` or a bare geometry writes clean, and so does a
+  `Vector{Polygon}`. Standalone replicas of the `write.jl` pattern (JSON 1.8.0, StructUtils 2.8.5,
+  Julia 1.13.0, `JSON.json([feature])`):
+
+  | `"geometry"` emit | geometry `bbox`/`coordinates` emit | Verifier |
+  |---|---|---|
+  | `Union{Nothing,Poly}` as is | `Omit`/`Elements` unions | 3 errors |
+  | `Union{Nothing,Poly}` narrowed by `=== nothing` | `Omit`/`Elements` unions | clean |
+  | `Union{Poly,Poly2}` as is, no `Nothing` | `Omit`/`Elements` unions | 6 errors |
+  | `Union{Nothing,Poly,Poly2}` narrowed by `=== nothing` only | `Omit`/`Elements` unions | 6 errors |
+  | `Union{Nothing,Poly,Poly2}` through an `isa` ladder | `Omit`/`Elements` unions | clean |
+  | `Union{Nothing,Poly,Poly2}` through `@noinline` per-type emitters | `Omit`/`Elements` unions | clean |
+  | `Union{Poly,Poly2}` as is | `bb === nothing \|\| @emit`, `if` on coordinates | clean |
+  | `Union{Poly,Poly2}` as is | `Omit` kept, per-depth `Vector` `applyeach` | 6 errors |
+
+- Verdict: code (WP2). Either change alone verifies clean: split the geometry union before the
+  emit (an `isa` ladder over the members of `G`, or one `@noinline` emitter per geometry type), or
+  emit `bbox` and `coordinates` from a narrowed local (`bb = bbox(x); bb === nothing || @emit "bbox"
+  Elements(bb)`, an `if` for coordinates) as trim-e2e's writer does. The second also drops `Omit`
+  from the hot path. The `Elements` wrapper, the geometry `Union` on its own, nullable coordinates,
+  `id`, and the `Feature`-level `bbox` are each innocent.
