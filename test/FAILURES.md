@@ -32,6 +32,11 @@ Run: `test/geointerface.jl` 221 pass / 2 fail, `test/tables.jl` 110 pass / 0 fai
   two arguments are a style and a callable. Aqua's suggested fix is a three-argument method pinned to
   `(::JSON.JSONStyle, ::StructUtils.StructStyle, ::T)`; upstream argument order for `applyeach` needs
   a decision before the writer can be Aqua-clean.
+- Resolved: commit "Writer: resolve applyeach ambiguities and trim-verify clean". Each writer type carries a pinned
+  `applyeach(::JSON.JSONStyle, ::StructUtils.StructStyle, ::T)` that `invoke`s the style-first method,
+  so `f` stays unconstrained and `Aqua.detect_ambiguities(GeoJSON)` is empty. A single `Union`-typed pin
+  cannot resolve them: the resolver must be more specific than both methods, and a `Union` in the
+  third slot is less specific than the concrete type.
 
 ## Aqua: 12 methods with unbound type parameters
 
@@ -157,6 +162,12 @@ absent because `src/lazy.jl` was empty when the package was written.
   containers, is the shape trim-e2e's "Never do this" table prescribes. The alternative is a
   documented JIT-only status for extras on write plus a schema knob that drops them, which the trim
   package would then exercise.
+- Resolved: commit "Writer: resolve applyeach ambiguities and trim-verify clean". `_emitvalue` is an inlined `isa` ladder over
+  `Nothing`, `Bool`, `Int64`, `Float64`, `String`, `Vector{Any}`, `JSON.Object{String,Any}`, `BigInt`
+  and `BigFloat`; the two containers write through the `Values` (array) and `Members` (object) views,
+  each with its own `applyeach`, and any other value throws an `ArgumentError` with a literal message.
+  Two views are load-bearing: inference widens a closure that re-enters one method from itself with an
+  unrelated type, so a single parametric view left the array-in-object-in-array chain as a dynamic call.
 
 ## Trim: geometry members unresolved beneath a union-typed `"geometry"` emit
 
@@ -196,6 +207,16 @@ absent because `src/lazy.jl` was empty when the package was written.
   Elements(bb)`, an `if` for coordinates) as trim-e2e's writer does. The second also drops `Omit`
   from the hot path. The `Elements` wrapper, the geometry `Union` on its own, nullable coordinates,
   `id`, and the `Feature`-level `bbox` are each innocent.
+- Resolved: commit "Writer: resolve applyeach ambiguities and trim-verify clean". Both changes: `bbox`, `coordinates` and `id` are
+  read into a local and emitted from the non-`nothing` branch, and `"geometry"` goes through
+  `_emitgeometry`, an `isa` ladder over the seven geometry types that hands the closure one concrete
+  type; `GeometryCollection` members take the same ladder through the `Objects` view. `Objects` is a
+  view separate from `Elements` for feature and geometry arrays: with the chain from
+  `FeatureCollection` down to a position now fully inferable, `applyeach(::Elements)` recurring from
+  `Elements{Vector{Feature}}` to `Elements{NTuple}` was widened to a dynamic call in the pkgimage, at
+  two allocations per position. The read+write build verifies with 0 errors / 0 warnings, the binary
+  prints `written 257731`, writer output is byte-identical to `80a8083` over every sample fixture, and a
+  100k-point `MultiPolygon` writes in 20 pool allocations.
 
 # T2: spec and schema edge cases
 
@@ -222,6 +243,9 @@ is one `@test_broken` there, recorded against `json1-rewrite` with the lazy read
   one `missing`-initialized slot per field, a generated `keyeq` ladder over the field-name literals,
   and `StructUtils.make(st, fieldtype, v)` per present key; a field without `Missing` rejects an
   absent key with an `ArgumentError`. Struct schemas still go through `StructUtils.make`.
+- Resolved for the lazy reader: commit "Writer: resolve applyeach ambiguities and trim-verify clean".
+  `properties(::LazyFeature)` and the `SchemaSink` column pass call `readprops` too, the former with
+  the `JSON.JSONReadStyle` that `JSON.parse` builds; `test/spec.jl` checks both on a typed lazy read.
 
 ## A null or absent `"properties"` member under a `NamedTuple` schema throws
 

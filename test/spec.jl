@@ -359,6 +359,14 @@ import GeoFormatTypes
             @test isequal(props(feature("null")), (a = missing, b = missing))
             noprops = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":null}]}"""
             @test isequal(props(noprops), (a = missing, b = missing))
+            # The lazy reader fills absent keys the same way: on the feature view, the parsed
+            # feature, and the column pass.
+            LFCN = GeoJSON.LazyFeatureCollection{2,Float64,P2,NT}
+            two = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"a":1,"b":"x"}},{"type":"Feature","geometry":{"type":"Point","coordinates":[3,4]},"properties":{"a":2}}]}"""
+            lfc = GeoJSON.read(two, LFCN)
+            @test isequal(GeoJSON.properties(GeoJSON.lazyfeature(lfc, 2)), (a = Int64(2), b = missing))
+            @test isequal(GeoJSON.properties(lfc[2]), (a = Int64(2), b = missing))
+            @test isequal(lfc.b, ["x", missing])
             # A field without `Missing` rejects both an absent key and a null value.
             NTS = NamedTuple{(:a, :b),Tuple{Int64,Union{Missing,String}}}
             FCS = GeoJSON.FeatureCollection{2,Float64,P2,NTS}

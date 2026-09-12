@@ -291,12 +291,15 @@ function lazygeometry(f::LazyFeature{D,T,G,P,B}) where {D,T,G,P,B}
     return LazyGeometry{D,T,B}(buf, pos)
 end
 
+# The style `JSON.parse` hands `make`, for parsing a properties object on its own.
+const READ_STYLE = JSON.JSONReadStyle{JSON.DEFAULT_OBJECT_TYPE}(nothing, GeoJSONStyle(), true)
+
 properties(f::LazyFeature{D,T,G,Nothing}) where {D,T,G} = nothing
 function properties(f::LazyFeature{D,T,G,P}) where {D,T,G,P}
     buf = _buf(f)
     pos = memberpos(f, "properties")
     (pos == 0 || _isnull(buf, pos)) && return emptyprops(P)
-    return JSON.parse(lazyat(buf, pos), P; style=GeoJSONStyle())
+    return first(readprops(READ_STYLE, P, lazyat(buf, pos)))
 end
 
 mutable struct ExtrasSink
@@ -455,7 +458,7 @@ end
 function (s::SchemaSink{P})(k::PtrString, v::LazyValues) where {P}
     if k == "properties"
         (P === Nothing || gettype(v) == NULL) && return 0
-        val, pos = StructUtils.make(s.st, P, v)
+        val, pos = readprops(s.st, P, v)
         s.properties = val
         return pos
     elseif k == "geometry"
@@ -488,8 +491,11 @@ end
 
 function StructUtils.applyeach(st::JSON.JSONStyle, f, x::LazyFeatureCollection)
     @emit "type" "FeatureCollection"
-    @emit "bbox" _bboxvalue(bbox(x))
-    @emit "features" Elements(x)
+    bb = bbox(x)
+    bb === nothing || @emit "bbox" Elements(bb)
+    @emit "features" Objects(x)
     return _emitextras(st, f, extras(x))
 end
+StructUtils.applyeach(st::JSON.JSONStyle, f::StructUtils.StructStyle, x::LazyFeatureCollection) =
+    invoke(StructUtils.applyeach, Tuple{JSON.JSONStyle,Any,LazyFeatureCollection}, st, f, x)
 _lower(x::Union{LazyFeature,LazyGeometry}, geometrycolumn) = materialize(x)
