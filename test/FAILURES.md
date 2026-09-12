@@ -100,3 +100,15 @@ Behaviors that differ from 0.8.4 by design, encoded in the new tests rather than
   contract, so the test is written as
   `@inferred(Union{Nothing,Point{2,Float64}}, GeoJSON.geometry(f))`; the bare form fails because
   `@inferred` demands the inferred type equal `typeof(result)`.
+
+# T1: the ported 0.8.4 suite
+
+`test/runtests.jl` runs 272 assertions across 18 testsets, all passing, so it contributes no
+`@test_broken`. Every expectation that moved is an intentional change and is recorded in
+`test/CHANGES.md` instead.
+
+Full run, `julia --project=. -e 'using Pkg; Pkg.test()'`: 611 pass / 5 fail / 0 broken. The five
+failures are the ones already reported above, all from `test/geointerface.jl` and `test/aqua.jl`.
+
+- **`using DataAPI` is unavailable under `Pkg.test()`** — resolved. `DataAPI` is now in `[extras]`,
+  `[compat]` and the `test` target of `Project.toml`, committed with the ported suite.
