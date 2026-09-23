@@ -136,7 +136,7 @@ _readtyped(bytes::AbstractVector{UInt8}, ::Type{X}) where {D,T,X<:GeoJSONT{D,T}}
 # The feature index costs a second scan, so it is computed only once a mismatch is known.
 function _parse(bytes, x::LazyValue, ::Type{X}, ::Val{D}) where {X,D}
     err = try
-        return JSON.parse(x, X; style=GeoJSONStyle())
+        return JSON.parse(x, X)
     catch e
         (e isa DimMismatch && e.feature == 0) || rethrow()
         e::DimMismatch

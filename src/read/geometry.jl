@@ -176,7 +176,7 @@ function (f::GeomSink{D,T})(k::PtrString, v::LazyValues) where {D,T}
         f.bbox = val
         return pos
     end
-    ex, pos = _extra!(f.extras, k, v)
+    ex, pos = _extra!(f.st, f.extras, k, v)
     f.extras = ex
     return pos
 end

@@ -48,10 +48,9 @@ A trimmed binary contains only code the compiler can prove reachable from concre
 
 | form | trim |
 |---|---|
-| `read(src, FeatureCollection{D,T,G,P})` with concrete `G` and `P` a `NamedTuple`, struct, or `Nothing` | builds |
+| `read(src, FeatureCollection{D,T,G,P})` with any `G`, including `AnyGeometry{D,T}`, and `P` a `NamedTuple`, struct, `Dict{String,Any}`, `Properties`, or `Nothing` | builds |
 | `read(src, LazyFeatureCollection{D,T,G,P})`, `read(src, LazyStream{D,T,G,P})` | builds |
-| `write(x)` for any GeoJSON type | builds |
-| `P = Dict{String,Any}` or `Properties`, or `G = AnyGeometry{D,T}` | JIT only: `Any`-valued containers |
+| `write(x)` for any GeoJSON type | builds; a value in an `Any` container must be a type `read` stores (see [`GeoJSONStyle`](@ref)) |
 | `read(src)` with `ndim` unspecified | JIT only: the dimension is discovered at run time |
 | keyword sugar `ndim=`, `geometries=`, `properties=` | JIT only: the type is built at run time |
 

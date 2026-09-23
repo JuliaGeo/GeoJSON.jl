@@ -51,6 +51,7 @@ Foreign members of any object live in `extras(x)`.
 ```@docs
 read
 write
+GeoJSONStyle
 ```
 
 ### Geometries

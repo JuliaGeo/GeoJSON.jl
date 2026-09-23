@@ -11,5 +11,5 @@ StructUtils = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
 GeoJSON = {path = "../../.."}
 
 [compat]
-JSON = "1.8"
-StructUtils = "2.8.5"
+JSON = "1.9"
+StructUtils = "2.9.2"

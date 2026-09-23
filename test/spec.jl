@@ -401,6 +401,14 @@ import GeoFormatTypes
         end
 
         @testset "properties container" begin
+            # The keyword constructor lowers values outside the set `read` stores through JSON text;
+            # the positional constructor takes the container as it is, and `write` rejects it.
+            pt = GeoJSON.Point{2,Float64}(nothing, (1.0, 2.0), nothing)
+            f = GeoJSON.Feature(; geometry=pt, properties=Dict{String,Any}("i" => Int32(1), "v" => [1.5, 2.0], "s" => :x))
+            @test GeoJSON.properties(f) == Dict{String,Any}("i" => 1, "v" => Any[1.5, 2.0], "s" => "x")
+            @test GeoJSON.read(GeoJSON.write(f)) == f
+            raw = GeoJSON.Feature{2,Float64,typeof(pt),Dict{String,Any}}(nothing, nothing, pt, Dict{String,Any}("i" => Int32(1)), nothing)
+            @test_throws ArgumentError GeoJSON.write(raw)
             @test GeoJSON.read(docs.property_types) isa GeoJSON.Feature{2,Float64,AG2,Dict{String,Any}}
             @test GeoJSON.read(docs.property_types; properties=true) isa GeoJSON.Feature{2,Float64,AG2,Dict{String,Any}}
             @test GeoJSON.read(docs.property_types; properties=Dict{String,Any}) isa GeoJSON.Feature{2,Float64,AG2,Dict{String,Any}}
@@ -424,7 +432,7 @@ import GeoFormatTypes
             end
         end
 
-        @testset "NamedTuple typed slots" begin
+        @testset "NamedTuple field types" begin
             NTT = NamedTuple{(:f, :v, :b, :s),Tuple{Float64,Union{Missing,Vector{Float64}},Bool,Union{Missing,String}}}
             FCT = GeoJSON.FeatureCollection{2,Float64,P2,NTT}
             feature(props) = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[1,2]},"properties":$props}]}"""
@@ -439,12 +447,13 @@ import GeoFormatTypes
             @test p.b === true
             @test p.s === missing
             @test isequal(props(feature("""{"f":1.5,"v":null,"b":false,"s":"x"}""")), (f = 1.5, v = missing, b = false, s = "x"))
-            # A value of the wrong kind, a null, or an absent key on a field without `Missing` is rejected.
-            @test thrown(() -> props(feature("""{"f":"3","b":true}"""))) isa ArgumentError
-            @test thrown(() -> props(feature("""{"f":3,"b":1}"""))) isa ArgumentError
-            @test thrown(() -> props(feature("""{"f":null,"b":true}"""))) isa ArgumentError
-            @test thrown(() -> props(feature("""{"f":3}"""))) isa ArgumentError
-            # Every feature of a collection reuses one slot buffer; a value never carries over.
+            # A value `convert` rejects, a null, or an absent key on a field without `Missing` is an error.
+            @test_throws Union{ArgumentError,MethodError} props(feature("""{"f":"3","b":true}"""))
+            @test_throws Union{ArgumentError,MethodError} props(feature("""{"f":null,"b":true}"""))
+            @test_throws ArgumentError props(feature("""{"f":3}"""))
+            # Fields fill through `convert`, so a JSON 0 or 1 fills a Bool field.
+            @test props(feature("""{"f":3,"b":1}""")).b === true
+            # A value never carries over from one feature to the next.
             two = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":null,"properties":{"f":1,"v":[1],"b":true,"s":"x"}},{"type":"Feature","geometry":null,"properties":{"f":2,"b":false}}]}"""
             fc = GeoJSON.read(two, FCT)
             @test isequal(GeoJSON.properties(fc[1]), (f = 1.0, v = [1.0], b = true, s = "x"))

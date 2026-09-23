@@ -93,7 +93,8 @@ Feature{D,T,G,P}(; id=nothing, bbox=nothing, geometry=nothing, properties=emptyp
     Feature{D,T,G,P}(id, bbox, geometry, _asprops(P, properties), extras)
 Feature{D,T}(; kw...) where {D,T} = Feature{D,T,AnyGeometry{D,T},Dict{String,Any}}(; kw...)
 _asprops(::Type{P}, x) where {P} = x isa P ? x : _keyed(P, x)
-_keyed(::Type{P}, x) where {P<:AbstractDict{String,Any}} = P(_key(k) => v for (k, v) in _pairs(x))
+_asprops(::Type{P}, x::P) where {P<:AbstractDict{String,Any}} = all(_writable, values(x)) ? x : _keyed(P, x)
+_keyed(::Type{P}, x) where {P<:AbstractDict{String,Any}} = P(_key(k) => _jsonvalue(v) for (k, v) in _pairs(x))
 _keyed(::Type{P}, x) where {P} = x
 _pairs(x::NamedTuple) = pairs(x)
 _pairs(x) = x

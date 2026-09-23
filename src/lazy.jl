@@ -163,7 +163,7 @@ Base.eltype(::Type{<:LazyFeatureCollection{D,T,G,P}}) where {D,T,G,P} = Feature{
 
 function _feature(buf, pos::Int, ::Type{F}, i::Int) where {F<:Feature}
     try
-        return JSON.parse(lazyat(buf, pos), F; style=GeoJSONStyle())
+        return JSON.parse(lazyat(buf, pos), F)
     catch e
         (e isa DimMismatch && e.feature == 0) && throw(DimMismatch(e.expected, e.got, i))
         rethrow()
@@ -257,7 +257,7 @@ end
 Parse the whole value.
 """
 materialize(f::LazyFeature{D,T,G,P}) where {D,T,G,P} = _feature(_buf(f), _pos(f), Feature{D,T,G,P}, 0)
-materialize(g::LazyGeometry{D,T}) where {D,T} = JSON.parse(lazyat(g), AnyGeometry{D,T}; style=GeoJSONStyle())
+materialize(g::LazyGeometry{D,T}) where {D,T} = JSON.parse(lazyat(g), AnyGeometry{D,T})
 
 @inline memberpos(f::Union{LazyFeature,LazyGeometry}, key::String) = memberpos(_buf(f), _pos(f), key)
 
@@ -278,7 +278,7 @@ function geometry(f::LazyFeature{D,T,G}) where {D,T,G}
     buf = _buf(f)
     pos = memberpos(f, "geometry")
     (pos == 0 || _isnull(buf, pos)) && return nothing
-    return JSON.parse(lazyat(buf, pos), G; style=GeoJSONStyle())
+    return JSON.parse(lazyat(buf, pos), G)
 end
 
 """
@@ -291,31 +291,32 @@ function lazygeometry(f::LazyFeature{D,T,G,P,B}) where {D,T,G,P,B}
     return LazyGeometry{D,T,B}(buf, pos)
 end
 
-# The style `JSON.parse` hands `make`, for parsing a properties object on its own.
-const READ_STYLE = JSON.JSONReadStyle{JSON.DEFAULT_OBJECT_TYPE}(nothing, GeoJSONStyle(), true)
-
 properties(f::LazyFeature{D,T,G,Nothing}) where {D,T,G} = nothing
 function properties(f::LazyFeature{D,T,G,P}) where {D,T,G,P}
     buf = _buf(f)
     pos = memberpos(f, "properties")
     (pos == 0 || _isnull(buf, pos)) && return emptyprops(P)
-    return first(readprops(READ_STYLE, P, lazyat(buf, pos)))
+    return JSON.parse(lazyat(buf, pos), P)
 end
 
-mutable struct ExtrasSink
+struct LazyExtras end
+
+mutable struct ExtrasSink{S}
+    st::S
     extras::Extras
 end
 function (s::ExtrasSink)(k::PtrString, v::LazyValues)
     (k == "type" || k == "id" || k == "bbox" || k == "geometry" || k == "properties") && return 0
-    ex, pos = _extra!(s.extras, k, v)
+    ex, pos = _extra!(s.st, s.extras, k, v)
     s.extras = ex
     return pos
 end
-function extras(f::LazyFeature)
-    s = ExtrasSink(nothing)
-    applyobject(s, lazyat(f))
-    return s.extras
+function StructUtils.make(st::JSON.JSONStyle, ::Type{LazyExtras}, src::LazyValues)
+    s = ExtrasSink(st, nothing)
+    pos = applyobject(s, src)::Int
+    return s.extras, pos
 end
+extras(f::LazyFeature) = JSON.parse(lazyat(f), LazyExtras)
 
 # Offset of property `key`, or 0 when the schema or the document lacks it.
 _proppos(f::LazyFeature{D,T,G,Nothing}, key::String) where {D,T,G} = 0
@@ -326,26 +327,10 @@ function _proppos(f::LazyFeature{D,T,G,P}, key::String) where {D,T,G,P}
     return memberpos(_buf(f), pos, key)
 end
 
-# Strings, null and booleans parse in place, skipping the box JSON's untyped parse allocates per value.
-function _parseany(v::LazyValue)
-    t = gettype(v)
-    if t == STRING
-        buf = getbuf(v)
-        GC.@preserve buf return convert(String, first(parsestring(v)))
-    elseif t == NULL
-        return nothing
-    elseif t == JSONTypes.TRUE
-        return true
-    elseif t == JSONTypes.FALSE
-        return false
-    end
-    return JSON.parse(v)
-end
-
 _propvalue(f::LazyFeature{D,T,G,P}, key::String, pos::Int) where {D,T,G,P<:AbstractDict} =
-    _parseany(lazyat(_buf(f), pos))
+    JSON.parse(lazyat(_buf(f), pos))
 _propvalue(f::LazyFeature{D,T,G,P}, key::String, pos::Int) where {D,T,G,P} =
-    JSON.parse(lazyat(_buf(f), pos), fieldtype(P, Symbol(key)); style=GeoJSONStyle())
+    JSON.parse(lazyat(_buf(f), pos), fieldtype(P, Symbol(key)))
 
 function Base.getindex(f::LazyFeature, key::Union{AbstractString,Symbol})
     k = String(key)
@@ -482,7 +467,7 @@ function _schema(fc::LazyFeatureCollection{D,T,G,P}) where {D,T,G,P}
     pass = P <: AbstractDict ? SchemaPass() : nothing
     gt = Union{}
     for (n, pos) in enumerate(offsets)
-        row = JSON.parse(lazyat(buf, pos), SchemaRow{P}; style=GeoJSONStyle())
+        row = JSON.parse(lazyat(buf, pos), SchemaRow{P})
         pass === nothing || _schemarow!(pass, n, row.properties)
         gt = _widen(gt, row.kind == KUNKNOWN ? Missing : kindtype(row.kind, Val(D), T))
     end

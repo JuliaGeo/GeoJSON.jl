@@ -15,52 +15,30 @@ Write `obj` as GeoJSON text to a `String`, an `IO`, or a file at `path` (streame
 
 `pretty` is `true`, `false`, or an indent width. When pretty printing, arrays shorter than
 `inline_limit` stay on one line, so the default keeps 2-D positions as `[x, y]`.
+
+A properties or foreign member value of a GeoJSON object must be one of the types `read`
+stores (see [`GeoJSONStyle`](@ref)); GeoInterface and Tables inputs convert theirs on the way in.
 """
 write(obj; pretty=false, inline_limit=3, geometrycolumn=nothing) =
-    JSON.json(_lower(obj, geometrycolumn); pretty, inline_limit)
+    JSON.json(_lower(obj, geometrycolumn); pretty, inline_limit, sort_keys=false, style=GeoJSONStyle())
 write(io::IO, obj; pretty=false, inline_limit=3, geometrycolumn=nothing) =
-    JSON.json(io, _lower(obj, geometrycolumn); pretty, inline_limit)
+    JSON.json(io, _lower(obj, geometrycolumn); pretty, inline_limit, sort_keys=false, style=GeoJSONStyle())
 write(path::AbstractString, obj; pretty=false, inline_limit=3, geometrycolumn=nothing) =
-    JSON.json(path, _lower(obj, geometrycolumn); pretty, inline_limit)
-
-# --- applyeach on the default JSON style -------------------------------------
+    JSON.json(path, _lower(obj, geometrycolumn); pretty, inline_limit, sort_keys=false, style=GeoJSONStyle())
 
 """
-    Elements(v)
-    Objects(v)
+    GeoJSONStyle <: JSON.JSONStyle
 
-Array views for the JSON writer: elements reach it keyed by their integer index. `Elements`
-holds a coordinate tree and wraps nested vectors and tuples the same way, so positions write
-without per-element key strings. `Objects` holds features or geometries as its own view, so
-`applyeach` never re-enters itself from a feature array down to a position; inference widens
-that recursion to a dynamic call.
+Write style of [`write`](@ref). A value in an `Any` container (a properties dict, a foreign
+member) must be one of the types [`read`](@ref) stores: `nothing`, `missing`, `Bool`, `Int64`,
+`Float64`, `BigInt`, `BigFloat`, `String`, `Vector{Any}`, `JSON.Object{String,Any}` or
+`Dict{String,Any}`. Closing that set keeps every write statically resolvable under `--trim`.
 """
-struct Elements{V}
-    v::V
-end
-struct Objects{V}
-    v::V
-end
-StructUtils.arraylike(::Type{<:Union{Elements,Objects}}) = true
-Base.length(e::Union{Elements,Objects}) = length(e.v)
+struct GeoJSONStyle <: JSON.JSONStyle end
 
-"""
-    Values(v::Vector{Any})
-    Members(o::JSON.Object{String,Any})
-
-Array and object views for the JSON writer over a foreign-member value as [`read`](@ref) stores
-it: each value reaches the writer with a concrete type. One `applyeach` method per view keeps an
-array-in-object-in-array chain statically resolvable; inference widens a closure that re-enters
-one method from itself.
-"""
-struct Values
-    v::Vector{Any}
-end
-struct Members
-    o::JSON.Object{String,Any}
-end
-StructUtils.arraylike(::Type{Values}) = true
-Base.length(x::Values) = length(x.v)
+@noinline _badvalue() = throw(ArgumentError(
+    "a properties or foreign member value must be null, missing, Bool, Int64, Float64, BigInt, BigFloat, String, Vector{Any}, JSON.Object{String,Any} or Dict{String,Any}, as `read` stores them"))
+JSON.applyany(::GeoJSONStyle, f, key, @nospecialize(value)) = _badvalue()
 
 """
     @emit key value
@@ -74,42 +52,8 @@ macro emit(k, v)
     end)
 end
 
-@noinline _badvalue() = throw(ArgumentError(
-    "a foreign member value must be null, Bool, Int64, Float64, BigInt, BigFloat, String, Vector{Any} or JSON.Object{String,Any}, as `read` stores them"))
-
-# The value types the reader stores; each branch hands `f` one concrete type. Inlined, so the
-# recursion through the writer runs on `json!` alone and stays resolvable under `--trim`.
-@inline function _emitvalue(f, k, v)
-    v === nothing && return f(k, nothing)
-    v isa Bool && return f(k, v)
-    v isa Int64 && return f(k, v)
-    v isa Float64 && return f(k, v)
-    v isa String && return f(k, v)
-    v isa Vector{Any} && return f(k, Values(v))
-    v isa JSON.Object{String,Any} && return f(k, Members(v))
-    v isa BigInt && return f(k, v)
-    v isa BigFloat && return f(k, v)
-    _badvalue()
-end
-
-# Out of line and unspecialized: a `lower` call on `Any` inside the ladder below turns every branch
-# of it into a dynamic call.
-@noinline _lowered(st, @nospecialize(v)) = StructUtils.lower(st, v)
-
-# The scalar types the reader stores in a properties dict, plus `missing` from tables; each branch
-# hands `f` one concrete type, and any other value takes the general lowering path.
-@inline function _emitproperty(st, f, k, v)
-    v isa String && return f(k, v)
-    v isa Float64 && return f(k, v)
-    v isa Int64 && return f(k, v)
-    v === nothing && return f(k, nothing)
-    v === missing && return f(k, nothing)
-    v isa Bool && return f(k, v)
-    return f(k, _lowered(st, v))
-end
-
-# `G` of a `Feature` may be a union of several geometries; each branch hands `f` one of them.
-# A `Feature` falls through unchanged.
+# `G` of a `Feature` may be a union of up to seven geometries, past what inference splits;
+# each branch hands `f` one of them.
 function _emitgeometry(f, k, g)
     g === nothing && return f(k, nothing)
     g isa Point && return f(k, g)
@@ -122,95 +66,29 @@ function _emitgeometry(f, k, g)
     return f(k, g)
 end
 
-_element(st, x::Real) = x
-_element(st, x::Union{AbstractVector,Tuple}) = Elements(x)
-_element(st, x) = StructUtils.lower(st, x)
+# Foreign members write flat into the enclosing object.
+_emitextras(st, f, extras) =
+    extras === nothing ? StructUtils.defaultstate(st) : StructUtils.applyeach(st, f, extras)
 
-function StructUtils.applyeach(st::JSON.JSONStyle, f, e::Elements)
-    v = e.v
-    for i in eachindex(v)
-        ret = f(i, _element(st, @inbounds v[i]))
-        ret isa StructUtils.EarlyReturn && return ret
+function StructUtils.applyeach(st::JSON.JSONStyle, f,
+                               x::Union{Point,LineString,Polygon,MultiPoint,MultiLineString,MultiPolygon})
+    @emit "type" typestring(x)
+    bb = bbox(x)
+    bb === nothing || @emit "bbox" bb
+    c = coordinates(x)
+    if c === nothing
+        @emit "coordinates" nothing
+    else
+        @emit "coordinates" c
     end
-    return StructUtils.defaultstate(st)
-end
-
-function StructUtils.applyeach(st::JSON.JSONStyle, f, e::Objects)
-    v = e.v
-    for i in eachindex(v)
-        ret = _emitgeometry(f, i, @inbounds v[i])
-        ret isa StructUtils.EarlyReturn && return ret
-    end
-    return StructUtils.defaultstate(st)
-end
-
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Values)
-    v = x.v
-    for i in eachindex(v)
-        ret = _emitvalue(f, i, @inbounds v[i])
-        ret isa StructUtils.EarlyReturn && return ret
-    end
-    return StructUtils.defaultstate(st)
-end
-
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Members)
-    for (k, v) in x.o
-        ret = _emitvalue(f, k, v)
-        ret isa StructUtils.EarlyReturn && return ret
-    end
-    return StructUtils.defaultstate(st)
-end
-
-"""
-    DictMembers(p::AbstractDict{String,Any})
-
-Object view for the JSON writer over a schema-less properties container: members reach it in
-the container's iteration order, each value with a concrete type.
-"""
-struct DictMembers{P}
-    p::P
-end
-
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::DictMembers)
-    for (k, v) in x.p
-        ret = _emitproperty(st, f, k, v)
-        ret isa StructUtils.EarlyReturn && return ret
-    end
-    return StructUtils.defaultstate(st)
-end
-
-_propview(st, p::AbstractDict{String,Any}) = DictMembers(p)
-_propview(st, p) = StructUtils.lower(st, p)
-
-function _emitextras(st, f, extras)
-    extras === nothing && return StructUtils.defaultstate(st)
-    for (k, v) in extras
-        ret = _emitvalue(f, k, v)
-        ret isa StructUtils.EarlyReturn && return ret
-    end
-    return StructUtils.defaultstate(st)
-end
-
-for G in (:Point, :LineString, :Polygon, :MultiPoint, :MultiLineString, :MultiPolygon)
-    @eval function StructUtils.applyeach(st::JSON.JSONStyle, f, x::$G)
-        @emit "type" $(String(G))
-        bb = bbox(x)
-        bb === nothing || @emit "bbox" Elements(bb)
-        c = coordinates(x)
-        if c === nothing
-            @emit "coordinates" nothing
-        else
-            @emit "coordinates" Elements(c)
-        end
-        return _emitextras(st, f, extras(x))
-    end
+    return _emitextras(st, f, extras(x))
 end
 
 function StructUtils.applyeach(st::JSON.JSONStyle, f, x::GeometryCollection)
     @emit "type" "GeometryCollection"
     bb = bbox(x)
-    bb === nothing || @emit "bbox" Elements(bb)
-    @emit "geometries" Objects(geometry(x))
+    bb === nothing || @emit "bbox" bb
+    @emit "geometries" geometry(x)
     return _emitextras(st, f, extras(x))
 end
 
@@ -219,35 +97,25 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Feature)
     i = id(x)
     i === nothing || @emit "id" i
     bb = bbox(x)
-    bb === nothing || @emit "bbox" Elements(bb)
+    bb === nothing || @emit "bbox" bb
     ret = _emitgeometry(f, "geometry", geometry(x))
     ret isa StructUtils.EarlyReturn && return ret
-    @emit "properties" _propview(st, properties(x))
+    @emit "properties" properties(x)
     return _emitextras(st, f, extras(x))
 end
 
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::FeatureCollection)
+_featureview(x::FeatureCollection) = features(x)
+_featureview(x::LazyFeatureCollection) = lazyfeatures(x)
+
+function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Union{FeatureCollection,LazyFeatureCollection})
     @emit "type" "FeatureCollection"
     bb = bbox(x)
-    bb === nothing || @emit "bbox" Elements(bb)
-    @emit "features" Objects(features(x))
+    bb === nothing || @emit "bbox" bb
+    @emit "features" _featureview(x)
     return _emitextras(st, f, extras(x))
 end
 
-function StructUtils.applyeach(st::JSON.JSONStyle, f, x::LazyFeatureCollection)
-    @emit "type" "FeatureCollection"
-    bb = bbox(x)
-    bb === nothing || @emit "bbox" Elements(bb)
-    @emit "features" Objects(x)
-    return _emitextras(st, f, extras(x))
-end
-
-# A call with two style arguments also matches StructUtils' `applyeach(f, st, x)`; pin the style-first reading.
-for T in (Elements, Objects, Values, Members, DictMembers, Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon,
-          GeometryCollection, Feature, FeatureCollection, LazyFeatureCollection)
-    @eval StructUtils.applyeach(st::JSON.JSONStyle, f::StructUtils.StructStyle, x::$T) =
-        invoke(StructUtils.applyeach, Tuple{JSON.JSONStyle,Any,$T}, st, f, x)
-end
+StructUtils.lower(::JSON.JSONStyle, x::LazyFeature) = materialize(x)
 
 # --- Output size estimate ------------------------------------------------------
 
@@ -378,10 +246,15 @@ function _bbox(ext::Extents.Extent, ::Type{T}) where {T}
     return T[ext.X[1], ext.Y[1], ext.X[2], ext.Y[2]]
 end
 
+# A value outside the set `GeoJSONStyle` writes takes one trip through JSON text, which lowers
+# it the way `JSON.json` would. The check is shallow: a `Vector{Any}` passes as it is.
+_writable(v) = v isa Union{Nothing,Missing,Bool,Int64,Float64,BigInt,BigFloat,String,
+                           Vector{Any},JSON.Object{String,Any},Dict{String,Any}}
+_jsonvalue(v) = _writable(v) ? v : JSON.parse(JSON.json(v))
+
 _properties(::Nothing) = Properties()
-_properties(p::Properties) = p
-_properties(p::AbstractDict) = Properties(p)
-_properties(p) = Properties(k => getproperty(p, k) for k in propertynames(p))
+_properties(p::AbstractDict) = Properties(Pair{String,Any}[_key(k) => _jsonvalue(v) for (k, v) in p])
+_properties(p) = Properties(Pair{String,Any}[String(k) => _jsonvalue(getproperty(p, k)) for k in propertynames(p)])
 
 _feature(geom, props, ext, v::Val{D}, ::Type{T}) where {D,T} =
     Feature{D,T,AnyGeometry{D,T},Properties}(nothing, _bbox(ext, T), _lowergeom(geom, v, T), props, nothing)
@@ -405,7 +278,7 @@ function _lowertable(obj, geometrycolumn)
     names = sch === nothing ? Tables.columnnames(Tables.columns(obj)) : sch.names
     propnames = Tuple(n for n in names if n !== geometrycolumn)
     cells = [(Tables.getcolumn(row, geometrycolumn),
-              Properties(Pair{String,Any}[String(n) => Tables.getcolumn(row, n) for n in propnames])) for row in rows]
+              Properties(Pair{String,Any}[String(n) => _jsonvalue(Tables.getcolumn(row, n)) for n in propnames])) for row in rows]
     geoms = map(first, cells)
     props = map(last, cells)
     v = Val(any(_is3d, geoms) ? 3 : 2)
