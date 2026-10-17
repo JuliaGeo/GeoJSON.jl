@@ -1,29 +1,51 @@
-# Hack to get force the type field into the JSON
-# Adapted from StructTypes.jl, with the addition of the typestring(T) line
-@inline function StructTypes.foreachfield(f, x::T) where {T<:GeoJSONT}
-    N = fieldcount(T)
-    nms = StructTypes.names(T)
-    kwargs = StructTypes.keywordargs(T)
-    emp = StructTypes.omitempties(T) === true ? fieldnames(T) : StructTypes.omitempties(T)
-    f(0, :type, String, typestring(T))
-    Base.@nexprs 8 i -> begin
-        k_i = fieldname(T, i)
-        if isdefined(x, i)
-            v_i = Core.getfield(x, i)
-            if !StructTypes.symbolin(emp, k_i) || !StructTypes.isempty(T, x, i)
-                if haskey(kwargs, k_i)
-                    f(i, StructTypes.serializationname(nms, k_i), fieldtype(T, i), v_i; kwargs[k_i]...)
-                else
-                    f(i, StructTypes.serializationname(nms, k_i), fieldtype(T, i), v_i)
-                end
-            end
-        end
-        N == i && @goto done
-    end
+_omitoptional(x) = x === nothing || x === missing
+_omitoptional(x::Union{AbstractString,AbstractArray,AbstractDict}) = isempty(x)
 
-    @label done
-    return
+# Estimate from the numeric payload; JSON grows the buffer if more space is needed.
+_coordinatesize(::Nothing) = 4
+function _coordinatesize(x::Vector{C}) where {C<:Tuple}
+    D = fieldcount(C)
+    width = D == 0 ? 0 : D * (2 * sizeof(eltype(C)) + 1)
+    2 + length(x) * (3 + width)
 end
+_coordinatesize(x::Vector) = 2 + length(x) + sum(_coordinatesize, x; init = 0)
+
+function JSON.sizeguess(
+    x::Union{
+        LineString{D,T},
+        MultiPoint{D,T},
+        MultiLineString{D,T},
+        Polygon{D,T},
+        MultiPolygon{D,T},
+    },
+) where {D,T<:Union{Float32,Float64}}
+    box = getfield(x, :bbox)
+    64 +
+    _coordinatesize(coordinates(x)) +
+    (box === nothing ? 0 : length(box) * (2 * sizeof(T) + 1))
+end
+
+@generated function StructUtils.applyeach(
+    style::JSON.JSONStyle,
+    f,
+    x::T,
+) where {T<:GeoJSONT}
+    body = Expr(:block, :(f("type", typestring(T))))
+    for name in fieldnames(T)
+        name in (:names, :types) && continue
+        value = :(getfield(x, $(QuoteNode(name))))
+        emit = :(f($(String(name)), StructUtils.lower(style, $value)))
+        if name in (:id, :bbox, :crs)
+            emit = :(_omitoptional($value) || $emit)
+        end
+        push!(body.args, emit)
+    end
+    push!(body.args, :(nothing))
+    body
+end
+
+StructUtils.lower(::JSON.JSONStyle, x::LazyFeature{D,T}) where {D,T} =
+    _parse(codeunits(x), Feature{D,T})
 
 missT(::Type{Nothing}) = Missing
 missT(::Type{T}) where {T} = T

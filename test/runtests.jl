@@ -3,7 +3,7 @@ import GeoInterface as GI
 import GeoFormatTypes
 import Aqua
 using Extents
-using JSON3
+using JSON
 using Tables
 using Test
 using Plots
@@ -11,6 +11,7 @@ using Makie
 using DataFrames
 
 include("geojson_samples.jl")
+include("json.jl")
 
 @testset "GeoJSON" begin
     @testset "Aqua.jl" begin
