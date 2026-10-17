@@ -96,17 +96,7 @@ end
         "-1e-1000",
     )
     for T in (Float32, Float64), token in tokens
-        # Parsers 2 rounds through Float64; Parsers 3 rounds directly to Float32.
-        value =
-            if T === Float32 &&
-               token == "1.0000000596046448" &&
-               pkgversion(GeoJSON.Parsers) < v"3"
-                1.0f0
-            elseif token == "-1e-1000"
-                -zero(T)
-            else
-                parse(T, token)
-            end
+        value = token == "-1e-1000" ? -zero(T) : parse(T, token)
         expected = (value, T(2))
         text = """{"type":"Point","coordinates":[$token,2]}"""
         @test isequal(GeoJSON.coordinates(GeoJSON.read(text; numbertype = T)), expected)
