@@ -150,12 +150,7 @@ Base.axes(g::GeometryCollection) = axes(geometry(g))
 Base.getindex(g::GeometryCollection, i::Int) = getindex(geometry(g), i::Int)
 Base.IndexStyle(::Type{<:GeometryCollection}) = Base.IndexLinear()
 
-function Base.iterate(g::GeometryCollection, state=1)
-    x = iterate(geometries(g), state)
-    x === nothing && return nothing
-    val, state = x
-    return val, state
-end
+Base.iterate(g::GeometryCollection, state = 1) = iterate(geometry(g), state)
 
 """
     Feature{D,T}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{T}}, geometry::Union{Nothing,AbstractGeometry{D,T}}, properties::Union{Nothing,Dict{String,Any}})
@@ -227,7 +222,7 @@ struct FeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     crs::Union{Nothing,CRS}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
-    function FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T}
+    function FeatureCollection{D,T}(bbox, features, crs) where {D,T}
         names, types = property_schema(features)
         return new{D,T}(bbox, features, crs, names, types)
     end
@@ -286,11 +281,6 @@ Base.size(fc::LazyFeatureCollection) = size(getfield(fc, :features))
 
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
 Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = _parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
-
-struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
-    obj::X
-end
-GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
 
 # symbol (from json string type) to struct mapping
 @inline function geom_mapping(D, T)

@@ -309,6 +309,9 @@ include("json.jl")
         fc = GeoJSON.read(Samples.collection)
         gc = GeoJSON.geometry(GI.getfeature(fc, 1))
         @test GI.geomtrait(gc) isa GI.GeometryCollectionTrait
+        @test collect(gc) == GeoJSON.geometry(gc)
+        @test iterate(gc, length(gc) + 1) === nothing
+        @test isempty(collect(GeoJSON.GeometryCollection{2,Float32}()))
 
         @testset "Mixed geometry types are returned" begin
             @test GI.getgeom(gc, 1) isa GeoJSON.Polygon
