@@ -96,14 +96,17 @@ end
         "-1e-1000",
     )
     for T in (Float32, Float64), token in tokens
-        # The numeric parser rounds through Float64 at this Float32 halfway boundary.
-        value = if T === Float32 && token == "1.0000000596046448"
-            1.0f0
-        elseif token == "-1e-1000"
-            -zero(T)
-        else
-            parse(T, token)
-        end
+        # Parsers 2 rounds through Float64; Parsers 3 rounds directly to Float32.
+        value =
+            if T === Float32 &&
+               token == "1.0000000596046448" &&
+               pkgversion(GeoJSON.Parsers) < v"3"
+                1.0f0
+            elseif token == "-1e-1000"
+                -zero(T)
+            else
+                parse(T, token)
+            end
         expected = (value, T(2))
         text = """{"type":"Point","coordinates":[$token,2]}"""
         @test isequal(GeoJSON.coordinates(GeoJSON.read(text; numbertype = T)), expected)
@@ -112,6 +115,16 @@ end
             GeoJSON.coordinates(GeoJSON.read(line; numbertype = T)),
             [expected, expected],
         )
+    end
+    for T in (Float32, Float64), token in ("1e400", "-1e400", "1e-1000", "-1e-1000")
+        expected = startswith(token, "-") ? -one(T) : one(T)
+        expected *= occursin("e-", token) ? zero(T) : T(Inf)
+        point = """{"type":"Point","coordinates":[$token,2],"bbox":[$token,1,2,3]}"""
+        for source in (point, Vector{UInt8}(point), IOBuffer(point))
+            object = GeoJSON.read(source; numbertype = T)
+            @test isequal(first(GeoJSON.coordinates(object)), expected)
+            @test isequal(first(GeoJSON.bbox(object)), expected)
+        end
     end
     for T in (Float16, BigFloat), token in ("-0", "-0.0")
         point = """{"type":"Point","coordinates":[$token,2],"bbox":[$token,1,2,3]}"""
@@ -135,6 +148,8 @@ end
         "+1",
         "NaN",
         "Infinity",
+        "0x1p2",
+        "0b10",
     )
         for kind in ("Point", "LineString")
             position = kind == "Point" ? "[$token,2]" : "[[$token,2]]"

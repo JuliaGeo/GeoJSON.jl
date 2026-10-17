@@ -111,18 +111,43 @@ end
         pos += 1
         pos <= len && UInt8('0') <= JSON.getbyte(buf, pos) <= UInt8('9') ||
             throw(ArgumentError("invalid coordinate fraction"))
+        @static if !isdefined(Parsers, :typeparser)
+            while pos <= len && UInt8('0') <= JSON.getbyte(buf, pos) <= UInt8('9')
+                pos += 1
+            end
+        end
     end
-    value, code, stop = Parsers.typeparser(
-        T,
-        buf,
-        first,
-        len,
-        JSON.getbyte(buf, first),
-        Int16(0),
-        Parsers.OPTIONS,
-    )
-    code > 0 || throw(ArgumentError("invalid coordinate number"))
-    value, stop
+    @static if isdefined(Parsers, :typeparser)
+        value, code, stop = Parsers.typeparser(
+            T,
+            buf,
+            first,
+            len,
+            JSON.getbyte(buf, first),
+            Int16(0),
+            Parsers.OPTIONS,
+        )
+        code > 0 || throw(ArgumentError("invalid coordinate number"))
+        return value, stop
+    else
+        # Parsers 3 converts a complete token span; GeoJSON owns JSON syntax.
+        if pos <= len && JSON.getbyte(buf, pos) in (UInt8('e'), UInt8('E'))
+            pos += 1
+            if pos <= len && JSON.getbyte(buf, pos) in (UInt8('+'), UInt8('-'))
+                pos += 1
+            end
+            pos <= len && UInt8('0') <= JSON.getbyte(buf, pos) <= UInt8('9') ||
+                throw(ArgumentError("invalid coordinate exponent"))
+            while pos <= len && UInt8('0') <= JSON.getbyte(buf, pos) <= UInt8('9')
+                pos += 1
+            end
+        end
+        bytes = buf isa AbstractString ? codeunits(buf) : buf
+        value, code = Parsers.parsefloat(T, bytes, first, pos - 1)
+        code in (Parsers.RC_OK, Parsers.RC_OVERFLOW, Parsers.RC_UNDERFLOW) ||
+            throw(ArgumentError("invalid coordinate number"))
+        value, pos
+    end
 end
 
 # Consume fixed-size numeric positions without a LazyValue for every component.
