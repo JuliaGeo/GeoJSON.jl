@@ -150,12 +150,7 @@ Base.axes(g::GeometryCollection) = axes(geometry(g))
 Base.getindex(g::GeometryCollection, i::Int) = getindex(geometry(g), i::Int)
 Base.IndexStyle(::Type{<:GeometryCollection}) = Base.IndexLinear()
 
-function Base.iterate(g::GeometryCollection, state=1)
-    x = iterate(geometries(g), state)
-    x === nothing && return nothing
-    val, state = x
-    return val, state
-end
+Base.iterate(g::GeometryCollection, state = 1) = iterate(geometry(g), state)
 
 """
     Feature{D,T}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{T}}, geometry::Union{Nothing,AbstractGeometry{D,T}}, properties::Union{Nothing,Dict{String,Any}})
@@ -207,16 +202,13 @@ function Base.iterate(f::Feature, state=collect(propertynames(f)))
 end
 
 
-# This is a non-public type used to lazily construct a Feature from a JSON3.RawValue
-# It can be written again as String, which can also be used to parse to a Feature
+# A feature span retains its input buffer until it is materialized.
 struct LazyFeature{D,T} <: GeoJSONT{D,T}
     bytes::Any
     pos::Int
     len::Int
 end
-@inline StructTypes.construct(::Type{LazyFeature{D,T}}, x::JSON3.RawValue) where {D,T} = LazyFeature{D,T}(x.bytes, x.pos, x.len)
-@inline Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
-@inline JSON3.rawbytes(x::LazyFeature) = codeunits(x)
+@inline Base.codeunits(x::LazyFeature) = _featurebytes(x.bytes, x.pos, x.len)
 
 
 """
@@ -230,7 +222,7 @@ struct FeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     crs::Union{Nothing,CRS}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
-    function FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T}  # n, t = nothing required for StructTypes
+    function FeatureCollection{D,T}(bbox, features, crs) where {D,T}
         names, types = property_schema(features)
         return new{D,T}(bbox, features, crs, names, types)
     end
@@ -282,18 +274,13 @@ struct LazyFeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     bbox::Union{Nothing,Vector{T}}
     features::Vector{LazyFeature{D,T}}
     crs::Union{Nothing,CRS}
-    # TODO Use features::JSON3.Array directly once we can parse the tape to find the
-    # feature offsets in the buffer?
 end
 features(fc::LazyFeatureCollection) = collect(fc.features)
+Base.length(fc::LazyFeatureCollection) = length(getfield(fc, :features))
+Base.size(fc::LazyFeatureCollection) = size(getfield(fc, :features))
 
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
-Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = JSON3.read(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
-
-struct GeoJSONWrapper{D,T,X<:GeoJSONT{D,T}}
-    obj::X
-end
-GeoJSONWrapper{D,T}(obj::X) where {D,T,X<:GeoJSONT{D,T}} = GeoJSONWrapper{D,T,X}(obj)
+Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T} = _parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
 
 # symbol (from json string type) to struct mapping
 @inline function geom_mapping(D, T)
@@ -313,9 +300,6 @@ end
         FeatureCollection=FeatureCollection{D,T}
     )
 end
-@inline StructTypes.StructType(::Type{<:GeoJSONWrapper}) = StructTypes.CustomStruct()
-@inline StructTypes.lower(x::GeoJSONWrapper) = x.obj
-@inline StructTypes.lowertype(::Type{<:GeoJSONWrapper{D,T}}) where {D,T} = GeoJSONT{D,T}
 
 typestring(::Type{<:Point}) = "Point"
 typestring(::Type{<:MultiPoint}) = "MultiPoint"
@@ -329,25 +313,4 @@ typestring(::Type{<:FeatureCollection}) = "FeatureCollection"
 typestring(::Type{Nothing}) = "null"
 typestring(::Type{Missing}) = "null"
 
-@inline StructTypes.StructType(::Type{<:GeoJSONT}) = StructTypes.AbstractType()
-@inline StructTypes.StructType(::Type{<:AbstractGeometry}) = StructTypes.AbstractType()
-@inline StructTypes.StructType(::Type{<:Point}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:LineString}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:Polygon}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiPoint}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiLineString}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:MultiPolygon}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:GeometryCollection}) = StructTypes.Struct()
-@inline StructTypes.subtypekey(::Type{<:AbstractGeometry}) = :type
-@inline StructTypes.subtypes(::Type{<:AbstractGeometry{D,T}}) where {D,T} = geom_mapping(D, T)
-@inline StructTypes.subtypekey(::Type{<:GeoJSONT}) = :type
-@inline StructTypes.subtypes(::Type{<:GeoJSONT{D,T}}) where {D,T} = merge(geom_mapping(D, T), obj_mapping(D, T))
-
-@inline StructTypes.StructType(::Type{<:Feature}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{<:LazyFeature}) = JSON3.RawType()
-@inline StructTypes.StructType(::Type{<:FeatureCollection}) = StructTypes.Struct()
-@inline StructTypes.excludes(::Type{<:FeatureCollection}) = (:names, :types,)
-@inline StructTypes.StructType(::Type{<:LazyFeatureCollection}) = StructTypes.Struct()
-@inline StructTypes.StructType(::Type{CRS}) = StructTypes.Struct()
-
-@inline StructTypes.omitempties(::Type{<:GeoJSONT}) = (:id, :crs, :bbox,)
+typestring(::Type{<:LazyFeatureCollection}) = "FeatureCollection"
