@@ -13,6 +13,9 @@ mutable struct PositionState{D,T,S}
     values::NTuple{D,T}
     count::Int
     style::S
+
+    PositionState{D,T,S}(values, count, style) where {D,T,S} =
+        new{D,T,S}(values, count, style)
 end
 
 @inline function StructUtils.make(
@@ -221,6 +224,9 @@ mutable struct GeometryState{C,T,S}
     coordinates::Union{Nothing,C}
     bbox::Union{Nothing,Vector{T}}
     style::S
+
+    GeometryState{C,T,S}(coordinates, bbox, style) where {C,T,S} =
+        new{C,T,S}(coordinates, bbox, style)
 end
 
 @inline function (state::GeometryState{C,T})(key, source) where {C,T}

@@ -90,13 +90,18 @@ end
         "1e+2",
         "16777217",
         "9007199254740993",
+        "1.0000000596046447",
+        "1.000000059604644775390625",
         "1.0000000596046448",
         "3.4028234e38",
         "1e-45",
         "-1e-1000",
     )
     for T in (Float32, Float64), token in tokens
-        value = token == "-1e-1000" ? -zero(T) : parse(T, token)
+        # Avoid platform-dependent rounding in Base.parse(Float32, token).
+        value = setprecision(BigFloat, 256) do
+            T(parse(BigFloat, token))
+        end
         expected = (value, T(2))
         text = """{"type":"Point","coordinates":[$token,2]}"""
         @test isequal(GeoJSON.coordinates(GeoJSON.read(text; numbertype = T)), expected)
