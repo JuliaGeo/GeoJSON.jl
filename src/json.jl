@@ -14,8 +14,9 @@ mutable struct PositionState{D,T,S}
     count::Int
     style::S
 
-    PositionState{D,T,S}(values, count, style) where {D,T,S} =
-        new{D,T,S}(values, count, style)
+    function PositionState{D,T}(style::S) where {D,T,S}
+        new{D,T,S}(ntuple(_ -> zero(T), Val(D)), 0, style)
+    end
 end
 
 @inline function StructUtils.make(
@@ -74,7 +75,7 @@ end
         return _position(C, source)
     end
     style = JSON.JSONReadStyle{Dict{String,Any}}(nothing)
-    state = PositionState{D,T,typeof(style)}(ntuple(_ -> zero(T), Val(D)), 0, style)
+    state = PositionState{D,T}(style)
     # Inlining the loop keeps the mutable accumulator off the heap.
     pos = @inline JSON.applyarray(state, source)
     state.count == D || throw(CoordinateDimensionError(D))
@@ -225,8 +226,9 @@ mutable struct GeometryState{C,T,S}
     bbox::Union{Nothing,Vector{T}}
     style::S
 
-    GeometryState{C,T,S}(coordinates, bbox, style) where {C,T,S} =
-        new{C,T,S}(coordinates, bbox, style)
+    function GeometryState{C,T}(style::S) where {C,T,S}
+        new{C,T,S}(nothing, nothing, style)
+    end
 end
 
 @inline function (state::GeometryState{C,T})(key, source) where {C,T}
@@ -250,7 +252,7 @@ function StructUtils.make(
     source,
 ) where {D,T,G<:CoordinateGeometry{D,T}}
     C = Base.nonnothingtype(fieldtype(G, :coordinates))
-    state = GeometryState{C,T,typeof(style)}(nothing, nothing, style)
+    state = GeometryState{C,T}(style)
     pos = JSON.applyobject(state, source)
     G(state.bbox, state.coordinates), pos
 end
