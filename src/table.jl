@@ -3,7 +3,23 @@ Tables.istable(::Type{<:AbstractFeatureCollection}) = true
 Tables.rowaccess(::Type{<:AbstractFeatureCollection}) = true
 Tables.rows(fc::AbstractFeatureCollection) = fc
 Tables.schema(::LazyFeatureCollection) = nothing
-Tables.schema(fc::FeatureCollection) = Tables.Schema(collect(keys(getfield(fc, :types))), values(getfield(fc, :types)))
+const SCHEMA_LOCK = ReentrantLock()
+function _schema(fc::FeatureCollection)
+    lock(SCHEMA_LOCK) do
+        ready = getfield(fc, :schema_ready)
+        if !ready[]
+            names, types = property_schema(features(fc))
+            append!(getfield(fc, :names), names)
+            merge!(getfield(fc, :types), types)
+            ready[] = true
+        end
+        return getfield(fc, :names), getfield(fc, :types)
+    end
+end
+function Tables.schema(fc::FeatureCollection)
+    _, types = _schema(fc)
+    Tables.Schema(collect(keys(types)), values(types))
+end
 
 
 # Adapted from JSONTables.jl jsontable method
