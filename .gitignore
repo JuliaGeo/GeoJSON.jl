@@ -3,3 +3,6 @@
 /dev/
 /docs/build
 /docs/Manifest.toml
+
+/test/trim/Manifest.toml
+/test/trim/TrimGeoJSON/Manifest.toml
