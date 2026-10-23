@@ -45,3 +45,11 @@ Run the standalone trim check with:
 ```sh
 julia --project=test/trim -e 'using Pkg; Pkg.instantiate(); include("test/trim/runtests.jl")'
 ```
+
+Collection column names and types are discovered on the first `Tables.schema`,
+`propertynames`, `.names`, or `.types` access and cached thereafter. Reading,
+indexing, iterating, and writing do not perform this scan. Discovery is synchronized
+across tasks; concurrent mutation of feature properties is not supported. Property
+changes before discovery are reflected in the schema, while later changes do not
+invalidate the cached snapshot. `FeatureCollection` remains immutable and non-isbits;
+its internal layout gains a cache-state reference.

@@ -234,9 +234,9 @@ struct FeatureCollection{D,T,G,P} <: AbstractFeatureCollection{D,T}
     crs::Union{Nothing,CRS}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
+    schema_ready::Base.RefValue{Bool}
     function FeatureCollection{D,T,G,P}(bbox, features, crs) where {D,T,G,P}
-        names, types = P === DefaultProperties ? property_schema(features) : (Symbol[], Dict{Symbol,Type}())
-        return new{D,T,G,P}(bbox, features, crs, names, types)
+        return new{D,T,G,P}(bbox, features, crs, Symbol[], Dict{Symbol,Type}(), Ref(false))
     end
 end
 FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T} =
@@ -253,7 +253,11 @@ features(fc::FeatureCollection) = getfield(fc, :features)
 Base.propertynames(fc::FeatureCollection) = first(_schema(fc))
 
 function Base.getproperty(fc::FeatureCollection, name::Symbol)
-    if hasfield(typeof(fc), name)
+    if name === :names
+        first(_schema(fc))
+    elseif name === :types
+        last(_schema(fc))
+    elseif name in (:bbox, :features, :crs)
         getfield(fc, name)
     else
         getproperty.(fc, name)

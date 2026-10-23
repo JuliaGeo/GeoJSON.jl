@@ -14,6 +14,7 @@
         @test GeoJSON.geometry(fc[1]) isa GeoJSON.Point{2,Float64}
         @test isequal(GeoJSON.properties(GeoJSON.read(GeoJSON.write(fc), FC)[1]), GeoJSON.properties(fc[1]))
         @test Set(propertynames(fc)) == Set((:geometry, :name, :count))
+        @test fc.names === propertynames(fc)
         @test Set(Tables.schema(fc).names) == Set((:geometry, :name, :count))
     end
     f = @inferred GeoJSON.read(feature, F)
@@ -63,4 +64,42 @@ end
     @test_throws ArgumentError GeoJSON.read(replace(text, "\"type\":\"Feature\""=>"\"type\":1"), F)
     FC = GeoJSON.FeatureCollection{2,Float64,GeoJSON.Point{2,Float64},P}
     @test_throws ArgumentError GeoJSON.read("""{"type":true,"features":[]}""", FC)
+end
+
+@testset "Collection schema is discovered once on demand" begin
+    text = """{"type":"FeatureCollection","features":[
+        {"type":"Feature","geometry":null,"properties":{"value":1}},
+        {"type":"Feature","geometry":null,"properties":{"value":null,"extra":"x"}}
+    ]}"""
+    for access in (propertynames, Tables.schema, fc -> fc.names, fc -> fc.types)
+        fc = GeoJSON.read(text)
+        # Reading, indexing, iterating and writing do not discover the schema.
+        @test length(collect(fc)) == 2
+        @test JSON.parse(GeoJSON.write(fc))["features"][1]["properties"]["value"] == 1
+        GeoJSON.properties(fc[1])[:before] = true
+        access(fc)
+        @test :before in fc.names
+        @test fc.types[:before] === Union{Missing,Bool}
+        @test fc.types[:value] === Union{Missing,Int64}
+        @test fc.types[:extra] === Union{Missing,String}
+        # As before, an already discovered schema is a snapshot, not a live view.
+        GeoJSON.properties(fc[1])[:after] = 1
+        @test :after ∉ propertynames(fc)
+        @test fc.names === propertynames(fc)
+        @test fc.types === fc.types
+    end
+    fc = GeoJSON.read(text)
+    fc = GeoJSON.FeatureCollection(features=repeat(GeoJSON.features(fc), 1000))
+    schemas = fetch.([Threads.@spawn propertynames(fc) for _ in 1:16])
+    @test all(names -> names === first(schemas), schemas)
+    @test length(fc.names) == 3
+    empty = GeoJSON.FeatureCollection{2,Float32}()
+    @test isempty(propertynames(empty))
+    @test isempty(Tables.schema(empty).names)
+    @test empty.names === propertynames(empty)
+    push!(GeoJSON.features(empty), GeoJSON.read(text)[1])
+    @test isempty(propertynames(empty))
+    # New cache storage must not shadow a feature property of the same name.
+    GeoJSON.properties(fc[1])[:schema_ready] = true
+    @test isequal(fc.schema_ready[1:2], [true, missing])
 end

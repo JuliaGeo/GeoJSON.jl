@@ -14,3 +14,7 @@
   bytes-written return value and preserve null geometry/properties.
 - Buffer IO once so a 3D retry works. Preserve long file paths and buffer lifetime
   for lazy feature spans. Avoid copying the lazy feature vector for `length`.
+- Discover and cache collection table metadata on first `Tables.schema`,
+  `propertynames`, `.names`, or `.types` access, rather than during parsing.
+  Initialization is synchronized; property changes before first access are
+  reflected in the schema. Later changes do not invalidate the cached snapshot.

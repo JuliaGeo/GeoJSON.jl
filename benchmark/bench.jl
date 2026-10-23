@@ -38,7 +38,7 @@ for (name, text) in inputs()
         result = measure(f)
         println(join((get(ARGS,1,"current"),name,op,result.ms,result.bytes,result.allocations,sizeof(text)), ','))
     end
-    # Optional on the migration branch: isolate the preserved eager table schema.
+    # Optional on the migration branches: measure typed reads and the deferred scan.
     if get(ARGS, 2, "") == "schema"
         X = GeoJSON.FeatureCollection{2,Float64,GeoJSON.AbstractGeometry{2,Float64},Dict{Symbol,Any}}
         for (op,f) in (("schema_read", () -> GeoJSON.read(text, X)),
