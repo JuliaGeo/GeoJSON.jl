@@ -3,7 +3,13 @@ Tables.istable(::Type{<:AbstractFeatureCollection}) = true
 Tables.rowaccess(::Type{<:AbstractFeatureCollection}) = true
 Tables.rows(fc::AbstractFeatureCollection) = fc
 Tables.schema(::LazyFeatureCollection) = nothing
-Tables.schema(fc::FeatureCollection) = Tables.Schema(collect(keys(getfield(fc, :types))), values(getfield(fc, :types)))
+function _schema(fc::FeatureCollection{D,T,G,P}) where {D,T,G,P}
+    P === DefaultProperties ? (getfield(fc, :names), getfield(fc, :types)) : property_schema(features(fc))
+end
+function Tables.schema(fc::FeatureCollection)
+    _, types = _schema(fc)
+    Tables.Schema(collect(keys(types)), values(types))
+end
 
 
 # Adapted from JSONTables.jl jsontable method
