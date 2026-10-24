@@ -99,6 +99,9 @@ end
     @test_throws "Polygon is excluded" GeoJSON.read(
         """{"type":"Polygon","coordinates":[]}"""; geometrytype=selector)
     @test_throws "unsupported geometrytype selector" GeoJSON.read(point; geometrytype=Int)
+    # A runtime Type must remain inferred even when a caller does not specialize it.
+    runtime_mask(@nospecialize(selector::Type)) = GeoJSON._geometrymask(selector)
+    @test (@inferred runtime_mask(selector)) == 0x05
     maskallocations(::Type{G}) where {G} = @allocated GeoJSON._geometrymask(G)
     maskallocations(selector)
     @test maskallocations(selector) == 0

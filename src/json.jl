@@ -7,10 +7,13 @@ end
 GeometryReadStyle() = GeometryReadStyle(0x7f)
 
 _geometrymask(::Nothing) = 0x7f
-_geometrymask(geometrytype) = throw(ArgumentError(
-    "geometrytype must be nothing, AbstractGeometry (with optional parameters), or a built-in GeoJSON geometry kind or union of these types"))
+function _geometrymask(geometrytype)
+    geometrytype isa Type || throw(ArgumentError(
+        "geometrytype must be nothing, AbstractGeometry (with optional parameters), or a built-in GeoJSON geometry kind or union of these types"))
+    _geometrymasktype(geometrytype)
+end
 
-function _geometrymasktype(selector)
+Base.@assume_effects :foldable Base.@nospecializeinfer function _geometrymasktype(@nospecialize(selector))
     arm = Base.unwrap_unionall(selector)
     arm isa Union && return _geometrymasktype(arm.a) | _geometrymasktype(arm.b)
     arm isa DataType && arm.name === Base.unwrap_unionall(AbstractGeometry).name && return 0x7f
@@ -19,15 +22,6 @@ function _geometrymasktype(selector)
         arm !== Union{} && arm <: kinds[i] && return UInt8(1 << (i - 1))
     end
     throw(ArgumentError("unsupported geometrytype selector: expected AbstractGeometry or built-in GeoJSON geometry kinds (with optional parameters)"))
-end
-
-@generated function _geometrymask(::Type{G}) where {G}
-    try
-        _geometrymasktype(G)
-    catch e
-        e isa ArgumentError || rethrow()
-        :(throw(ArgumentError($(e.msg))))
-    end
 end
 
 _checkgeometry(style, index, kind) = nothing
