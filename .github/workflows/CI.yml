@@ -9,6 +9,7 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.version == 'nightly' }}
     strategy:
       fail-fast: false
       matrix:
@@ -46,3 +47,29 @@ jobs:
           files: lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  downgrade:
+    name: Julia 1.10 - minimum dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+      - uses: julia-actions/julia-downgrade-compat@v2
+        with:
+          mode: deps
+      - name: Keep the JSON migration floors fixed during test resolution
+        run: |
+          julia --project -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.pin(["JSON", "StructUtils"])
+          '
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+        env:
+          GEOJSON_TEST_FLOORS: 'true'
+        with:
+          allow_reresolve: false
+          force_latest_compatible_version: false

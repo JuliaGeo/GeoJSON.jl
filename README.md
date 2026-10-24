@@ -5,15 +5,20 @@
 [![CI](https://github.com/JuliaGeo/GeoJSON.jl/workflows/CI/badge.svg)](https://github.com/JuliaGeo/GeoJSON.jl/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/JuliaGeo/GeoJSON.jl/branch/main/graph/badge.svg?token=ccpOaPSi08)](https://codecov.io/gh/JuliaGeo/GeoJSON.jl)
 
-Read [GeoJSON](https://geojson.org/) files using [JSON3.jl](https://github.com/quinnj/JSON3.jl), and provide the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface.
+Read [GeoJSON](https://geojson.org/) files using [JSON.jl](https://github.com/JuliaIO/JSON.jl), and provide the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface.
 
 This package is heavily inspired by, and borrows code from, [JSONTables.jl](https://github.com/JuliaData/JSONTables.jl), which
 does the same thing for the general JSON format. GeoJSON puts the geometry in a `geometry` column, and adds all
 properties in the columns individually.
 
 ## Usage
-GeoJSON only provides simple `read` and `write` methods.
-`GeoJSON.read` takes a file path, string, IO, or bytes.
+GeoJSON requires Julia 1.10+, JSON.jl 1.12+ and StructUtils 2.10+.
+It provides simple `read` and `write` methods.
+`GeoJSON.read` takes a file path, string, IO, or bytes. Parsing follows strict JSON
+syntax, with `NaN`, `Inf`/`Infinity` and their negative infinity forms accepted for
+compatibility. Leading zeros, incomplete decimals such as `1.`, raw control
+characters in strings, trailing content, and the non-standard spellings `-NaN`,
+`+Inf`, `nan` and `inf` are rejected.
 
 ```julia
 julia> using GeoJSON, DataFrames

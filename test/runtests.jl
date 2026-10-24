@@ -13,6 +13,10 @@ using DataFrames
 include("geojson_samples.jl")
 
 @testset "GeoJSON" begin
+    if get(ENV, "GEOJSON_TEST_FLOORS", "false") == "true"
+        @test pkgversion(JSON) == v"1.12.0"
+        @test pkgversion(GeoJSON.StructUtils) == v"2.10.0"
+    end
     @testset "Aqua.jl" begin
         Aqua.test_all(GeoJSON)
     end
