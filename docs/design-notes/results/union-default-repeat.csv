@@ -1,0 +1,17 @@
+variant,mode,input,operation,ms,compile_ms,recompile_ms,new_package_specializations,bytes
+union_repeat,default,package_load,load,124.588121,0.0,0.0,0,8275832
+union_repeat,default,collections,read,4596.993773,4596.5686940000005,0.0,55,352184400
+union_repeat,default,collections,iterate,11.199049,11.169563,0.0,6,1045464
+union_repeat,default,collections,coordinates,365.157201,358.849403,0.01301,23,48091664
+union_repeat,default,polygon_multi,read,0.20942899999999998,0.0,0.0,0,242688
+union_repeat,default,polygon_multi,iterate,0.008886999999999999,0.0,0.0,0,0
+union_repeat,default,polygon_multi,coordinates,0.013566,0.0,0.0,0,3200
+union_repeat,default,polygons,read,0.091904,0.0,0.0,0,111960
+union_repeat,default,polygons,iterate,0.00025,0.0,0.0,0,0
+union_repeat,default,polygons,coordinates,0.006632,0.0,0.0,0,1600
+union_repeat,default,point_line,read,0.15906199999999998,0.0,0.0,0,177088
+union_repeat,default,point_line,iterate,0.00026,0.0,0.0,0,0
+union_repeat,default,point_line,coordinates,0.006352,0.0,0.0,0,1600
+union_repeat,default,interleaved,read,1.049976,0.0,0.0,0,1054456
+union_repeat,default,interleaved,iterate,0.0007120000000000001,0.0,0.0,0,16
+union_repeat,default,interleaved,coordinates,11.234757,0.023837,0.023837,0,1803216

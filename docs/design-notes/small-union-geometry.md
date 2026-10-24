@@ -81,7 +81,7 @@ Both variants read Float64 coordinates eagerly.
 
 Read allocation counts and bytes are identical. Union writes allocate 20,000
 fewer objects and approximately 1.76 MB less per dataset in this run. Iteration is
-allocation-free. Small timing differences need the repeat run for interpretation.
+allocation-free. The repeat below shows that small read/iteration timing differences are not uniform gains.
 The first interleaved coordinates walk allocates about 1.80 MB for U versus
 0.95 MB for B; closed unions do not guarantee better recursive broadcast behavior.
 
@@ -89,7 +89,26 @@ These geometry structs contain reference fields. `Geometry{2,Float64}` is not an
 isbits union and does **not** gain inline isbits-union storage. A fixed union also
 does not guarantee union splitting at every GeoInterface call or an inferred
 concrete coordinates result; inspect the workload rather than assuming a
-universal four-member rule. A runtime layout probe is queued after the repeat measurements.
+universal four-member rule. `results/union-layout.txt` confirms `isbitsunion=false`, `allocatedinline=false`,
+all seven members non-isbits, and a 32-byte feature header. Inference preserves
+the full nullable geometry union in the field getter; the GI coordinates return
+is a broad union including array types.
+
+## Repeat in independent fresh sessions
+
+The same script was rerun locally after both Gemini workers were cancelled.
+This is reproducibility evidence, **not** an independently authored experiment.
+
+| Workload | Compile seconds B / U, run 1 | Compile seconds B / U, repeat | New package specializations B / U, both runs |
+|---|---:|---:|---:|
+| Ordinary | 4.815 / 4.789 | 4.687 / 4.967 | 77 / 84 |
+| Varying explicit schemas | 8.815 / 7.093 | 9.199 / 7.017 | 153 / 83 |
+
+Ordinary compile-time direction reverses in the repeat; there is no reliable
+improvement. The varying-schema saving repeats at 19.5–23.7%, with identical
+specialization counts. Steady-state timing differences also vary (some read
+cases reverse direction); unchanged read allocations and reduced write
+allocations repeat exactly. See `results/*-repeat.csv`.
 
 ## Tests
 
@@ -117,7 +136,8 @@ lazy buffer lifetime and deferred errors, on-demand cached/concurrent schema
 behavior, Tables missing/absent columns and metadata, GeoInterface conformance,
 errors, and asserted smoke checks for both plotting extensions. Testset names
 state their contracts. The added regression file isolates GeometryCollection's
-existing `geometries(g)` iteration typo so it can fail on B and pass on U.
+existing `geometries(g)` iteration typo: it errors with `UndefVarError` on B
+and passes on U (confirmed by the standalone baseline run and final Pkg.test).
 
 ## Reproduction
 
@@ -145,8 +165,8 @@ storage benefit. Reassess after trim verification and independent review.
 
 The baseline `juliac --trim=safe` build reached C linking, then failed with
 `could not find a compiler, looked for gcc and clang`. Neither compiler is on
-PATH. The union build is in progress and executable verification is likewise
-blocked until a host compiler is available. The union trim fixture now covers
+PATH. The union build reached the same missing-compiler error. Both executable
+checks remain blocked until a host compiler is available (JuliaC 0.3.12). The union trim fixture now covers
 all seven kinds, nested collections and null geometry/properties, as well as
 the original Polygon/MultiPolygon fixture. No trim success is claimed.
 
@@ -154,5 +174,4 @@ Both requested agy/Gemini workers were launched, then cancelled by coordinator
 instruction because their harness stopped on permission_denied while using tools.
 No independent findings or second measurement were produced, so there are no
 review disagreements to reconcile yet. The coordinator plans to restart them
-after the agy lights-off fix. Local repeat measurements are queued in fresh
-Julia sessions and will be added when complete. Independent review remains owed.
+after the agy lights-off fix. Local fresh-session repeats are reported above. Independent review remains owed.

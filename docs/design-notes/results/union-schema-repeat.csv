@@ -1,0 +1,17 @@
+variant,mode,input,operation,ms,compile_ms,recompile_ms,new_package_specializations,bytes
+union_repeat,schema,package_load,load,131.907255,0.0,0.0,0,8275928
+union_repeat,schema,collections,read,6664.313442,6663.924824000001,0.0,54,410373240
+union_repeat,schema,collections,iterate,11.184671999999999,11.163742000000001,0.0,6,1045640
+union_repeat,schema,collections,coordinates,348.75975999999997,341.85868899999997,0.015617999999999998,23,48091328
+union_repeat,schema,polygon_multi,read,0.254955,0.0,0.0,0,159328
+union_repeat,schema,polygon_multi,iterate,0.005339999999999999,0.0,0.0,0,0
+union_repeat,schema,polygon_multi,coordinates,0.013345000000000001,0.0,0.0,0,3200
+union_repeat,schema,polygons,read,0.122844,0.0,0.0,0,70200
+union_repeat,schema,polygons,iterate,0.000351,0.0,0.0,0,0
+union_repeat,schema,polygons,coordinates,0.005841,0.0,0.0,0,1600
+union_repeat,schema,point_line,read,0.155606,0.0,0.0,0,93728
+union_repeat,schema,point_line,iterate,0.00028000000000000003,0.0,0.0,0,0
+union_repeat,schema,point_line,coordinates,0.012173,0.0,0.0,0,1600
+union_repeat,schema,interleaved,read,1.275414,0.0,0.0,0,721496
+union_repeat,schema,interleaved,iterate,0.000741,0.0,0.0,0,16
+union_repeat,schema,interleaved,coordinates,12.331781999999999,0.027970000000000002,0.027970000000000002,0,1803216

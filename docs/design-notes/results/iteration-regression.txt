@@ -1,0 +1,3 @@
+Standalone test/collection_iteration.jl against baseline d52e7b1: expected failure.
+UndefVarError: `geometries` not defined in `GeoJSON`
+Same test against the union variant: 1/1 passed in final Pkg.test().

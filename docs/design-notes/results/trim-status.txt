@@ -1,0 +1,8 @@
+Julia 1.13.2; JuliaC 0.3.12; --trim=safe, --experimental
+Baseline d52e7b1: compilation reported complete; C link blocked.
+Union f1241f9 production layout: compilation reported complete; C link blocked.
+Both: could not find a compiler, looked for gcc and clang
+No gcc, clang or cc found on PATH. No executable roundtrip verified.
+Standalone testset duration before failure: baseline 180.7 s, union 40.7 s.
+These are not comparable trim performance measurements (JuliaC dependencies warmed).
+Host compiler requested through the coordinator; rerun both standalone tests after installation.
