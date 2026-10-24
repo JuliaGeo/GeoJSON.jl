@@ -1,7 +1,34 @@
 # JSON's lazy parser passes an end position back from each materialization callback.
 # Keep span access and the strict coordinate adapter in this file.
 struct CoordinateStyle <: JSON.JSONStyle end
-struct GeometryReadStyle <: StructUtils.StructStyle end
+struct GeometryReadStyle <: StructUtils.StructStyle
+    geometrymask::UInt8
+end
+GeometryReadStyle() = GeometryReadStyle(0x7f)
+
+function _geometrymask(geometrytype)
+    geometrytype === nothing && return 0x7f
+    geometrytype === AbstractGeometry && return 0x7f
+    kinds = (Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon, GeometryCollection)
+    geometrytype isa Type && geometrytype !== Union{} ||
+        throw(ArgumentError("geometrytype must be a GeoJSON geometry type or union of geometry types"))
+    mask = 0x00
+    for arm in Base.uniontypes(geometrytype)
+        index = findfirst(kind -> arm <: kind, kinds)
+        index === nothing && throw(ArgumentError("geometrytype must contain only built-in GeoJSON geometry kinds"))
+        mask |= UInt8(1 << (index - 1))
+    end
+    mask
+end
+
+_checkgeometry(style, index, kind) = nothing
+_checkgeometry(style::JSON.JSONReadStyle{O,N,GeometryReadStyle}, index, kind) where {O,N} =
+    _checkgeometry(StructUtils.parentstyle(style), index, kind)
+function _checkgeometry(style::GeometryReadStyle, index, kind)
+    style.geometrymask & UInt8(1 << (index - 1)) != 0 ||
+        throw(ArgumentError("GeoJSON geometry kind $kind is excluded by geometrytype"))
+    nothing
+end
 
 struct CoordinateDimensionError <: Exception
     expected::Int
@@ -282,6 +309,7 @@ function StructUtils.make(style::StructUtils.StructStyle, ::Type{G}, source) whe
               Polygon{D,T}, MultiPolygon{D,T}, GeometryCollection{D,T})[i]
         if kind == typestring(GT)
             GT <: G || throw(ArgumentError("geometry type is not in the schema"))
+            _checkgeometry(style, i, typestring(GT))
             return _readgeometry(style, GT, source)
         end
     end
@@ -419,12 +447,12 @@ end
 _featurebytes(bytes::AbstractString, pos, len) = SubString(bytes, pos, pos + len - 1)
 _featurebytes(bytes::AbstractVector{UInt8}, pos, len) = view(bytes, pos:(pos+len-1))
 
-_parsedimensioned(input, type) =
-    JSON.parse(input, type; style=GeometryReadStyle())
+_parsedimensioned(input, type, style=GeometryReadStyle()) =
+    JSON.parse(input, type; style)
 
-function _parse(input, type)
+function _parse(input, type, style=GeometryReadStyle())
     try
-        _parsedimensioned(input, type)
+        _parsedimensioned(input, type, style)
     catch e
         e isa CoordinateDimensionError || rethrow()
         throw(ArgumentError(sprint(showerror, e)))

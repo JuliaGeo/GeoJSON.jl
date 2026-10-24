@@ -1,5 +1,5 @@
 """
-    GeoJSON.read(json; lazyfc=false, ndim=2, numbertype=Float32)
+    GeoJSON.read(json; lazyfc=false, ndim=2, numbertype=Float32, geometrytype=nothing)
 
 Read GeoJSON to a GeoInterface.jl compatible object.
 
@@ -9,18 +9,25 @@ Read GeoJSON to a GeoInterface.jl compatible object.
     set `lazyfc=true` to only parse them into memory when accessed.
 - `ndim::Int=2`: Use 3 for 3D geometries, which is also used when 2D parsing fails.
 - `numbertype::DataType=Float32`: Use Float64 when the precision is required.
+- `geometrytype=nothing`: Restrict geometry kinds, e.g. `Polygon` or
+    `Union{Polygon,MultiPolygon}`. Checks every geometry, including collection
+    children, while parsing. Null geometry is allowed. This validates kinds only;
+    `ndim` and `numbertype` still select coordinate types. Requires `lazyfc=false`.
 """
-function read(io; lazyfc = false, ndim = 2, numbertype = Float32)
+function read(io; lazyfc = false, ndim = 2, numbertype = Float32, geometrytype = nothing)
+    style = GeometryReadStyle(_geometrymask(geometrytype))
+    lazyfc && geometrytype !== nothing &&
+        throw(ArgumentError("geometrytype requires lazyfc=false so geometries can be validated while parsing"))
     input = _input(io)
     if lazyfc
         obj = _parse(input, LazyFeatureCollection{ndim,numbertype})
     else
         try
-            obj = _parsedimensioned(input, GeoJSONT{ndim,numbertype})
+            obj = _parsedimensioned(input, GeoJSONT{ndim,numbertype}, style)
         catch e
             if e isa CoordinateDimensionError
                 @warn "Failed to parse GeoJSON as 2D, trying 3D. Set `ndim` to 3 to avoid this warning."
-                obj = _parse(input, GeoJSONT{ndim + 1,numbertype})
+                obj = _parse(input, GeoJSONT{ndim + 1,numbertype}, style)
             else
                 rethrow(e)
             end
@@ -29,13 +36,15 @@ function read(io; lazyfc = false, ndim = 2, numbertype = Float32)
 end
 
 """
-    read(source, ::Type{X})
+    read(source, ::Type{X}; geometrytype=nothing)
 
 Parse a concrete geometry or `Feature[Collection]{D,T,P}` schema. Geometries use `Geometry{D,T}` and
 `P` is a concrete properties type, such as a NamedTuple.
+The `geometrytype` keyword restricts kinds just as in ordinary reads.
 This entry point does not retry dimensions and is suitable for `juliac --trim=safe`.
 """
-read(source, ::Type{X}) where {X<:GeoJSONT} = _parsedimensioned(_input(source), X)
+read(source, ::Type{X}; geometrytype = nothing) where {X<:GeoJSONT} =
+    _parsedimensioned(_input(source), X, GeometryReadStyle(_geometrymask(geometrytype)))
 
 _input(io::IO) = Base.read(io)
 _input(bytes::AbstractVector{UInt8}) = bytes
@@ -50,12 +59,12 @@ function _input(text::AbstractString)
     text
 end
 
-read(source::GeoFormatTypes.GeoJSON) = read(GeoFormatTypes.val(source))
+read(source::GeoFormatTypes.GeoJSON; kw...) = read(GeoFormatTypes.val(source); kw...)
 
-function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict})
+function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict}; kw...)
     dict = GeoFormatTypes.val(source)
     str = JSON.json(dict)
-    return read(str)
+    return read(str; kw...)
 end
 
 

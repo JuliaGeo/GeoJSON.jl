@@ -10,9 +10,14 @@
   types gain a property parameter; two-parameter constructors remain.
 - Spike `Geometry{D,T}`, a union of the seven spec geometry kinds, in features
   and geometry collections. Feature types no longer depend on geometry subsets;
-  migration-branch four-parameter schemas must drop `G` (geometry-subset validation
-  is no longer part of the feature schema). GeometryCollection iteration now
+  migration-branch four-parameter schemas must drop `G` and use `geometrytype`
+  for geometry-subset validation. GeometryCollection iteration now
   correctly visits its children, including nested collections.
+- Add `read(source; geometrytype=Polygon)` and the same keyword for schema reads.
+  Validate geometry kinds recursively without changing storage types; excluded
+  kinds raise `ArgumentError`, null remains allowed. Restrictions require eager
+  reads (`lazyfc=false`). Custom geometry subtypes still need external storage
+  or conversion to built-in kinds.
 - Use JSON.jl's direct parser and serializer; keep strict coordinate dimensions
   and Float32 rounding. Foreign members remain ignored.
 - Exclude internal collection `names`/`types` from JSON output. Retain the IO
