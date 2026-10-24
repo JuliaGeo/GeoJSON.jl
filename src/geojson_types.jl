@@ -169,7 +169,7 @@ function Base.iterate(g::GeometryCollection, state=1)
 end
 
 """
-    Feature{D,T}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{T}}, geometry::Union{Nothing,AbstractGeometry{D,T}}, properties::Union{Nothing,Dict{String,Any}})
+    Feature{D,T}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{T}}, geometry::Union{Nothing,Geometry{D,T}}, properties::Union{Nothing,Dict{Symbol,Any}})
 
 A Feature with `D` dimensional geometry.
 """
