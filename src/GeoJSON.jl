@@ -15,5 +15,6 @@ include("json.jl")
 include("io.jl")
 include("table.jl")
 include("utils.jl")
+include("precompile.jl")
 
 end # module
