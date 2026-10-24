@@ -1,0 +1,17 @@
+variant,mode,input,operation,ms,compile_ms,recompile_ms,new_package_specializations,bytes
+baseline,default,package_load,load,130.78440999999998,0.0,0.0,0,7849456
+baseline,default,collections,read,4551.505019,4551.087535,0.0,54,365605560
+baseline,default,collections,iterate,11.148684000000001,11.127924,0.0,6,1042968
+baseline,default,collections,coordinates,239.29460799999998,237.077499,0.012493,8,23485840
+baseline,default,polygon_multi,read,0.305501,0.0,0.0,0,242688
+baseline,default,polygon_multi,iterate,0.00533,0.0,0.0,0,0
+baseline,default,polygon_multi,coordinates,8.03777,7.97979,0.0,5,212224
+baseline,default,polygons,read,0.14762999999999998,0.0,0.0,0,111960
+baseline,default,polygons,iterate,0.00038,0.0,0.0,0,0
+baseline,default,polygons,coordinates,0.00535,0.0,0.0,0,0
+baseline,default,point_line,read,0.22215200000000002,0.0,0.0,0,177088
+baseline,default,point_line,iterate,0.000261,0.0,0.0,0,0
+baseline,default,point_line,coordinates,7.5122610000000005,7.435154,0.0,4,191280
+baseline,default,interleaved,read,15.577553,0.0,0.0,0,1054456
+baseline,default,interleaved,iterate,0.001122,0.0,0.0,0,16
+baseline,default,interleaved,coordinates,3.660599,0.025374,0.025374,0,946560

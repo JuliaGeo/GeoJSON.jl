@@ -1,0 +1,10 @@
+label,input,operation,ms,bytes,allocations,input_bytes
+baseline,large_fc,read,8.182293999999999,8486624,120022,1180041
+baseline,large_fc,iterate,0.01079,0,0,1180041
+baseline,large_fc,write,6.757906999999999,6420400,50006,1180041
+baseline,mixed,read,8.288667,9446496,133353,1260022
+baseline,mixed,iterate,0.010570000000000001,0,0,1260022
+baseline,mixed,write,9.551548,6533696,40007,1260022
+baseline,properties,read,18.033762,21126512,360015,1940041
+baseline,properties,iterate,0.017213,0,0,1940041
+baseline,properties,write,12.015411,7540576,70008,1940041

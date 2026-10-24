@@ -1,0 +1,18 @@
+Test Summary:      | Pass  Total   Time
+JSON typed parsing |   56     56  45.8s
+Test Summary:                  | Pass  Total  Time
+Numeric coordinates and bounds |  184    184  6.8s
+Test Summary:   | Pass  Total  Time
+Long file paths |    2      2  0.1s
+Test Summary:                         | Pass  Total  Time
+Schema reads preserve the default API |   40     40  4.0s
+Test Summary:        | Pass  Total  Time
+Writer compatibility |    7      7  0.7s
+Test Summary:                          | Pass  Total  Time
+Schema properties use JSON value types |    3      3  1.5s
+Test Summary:                                  | Pass  Total  Time
+Collection schema is discovered once on demand |   43     43  0.4s
+Test Summary: | Pass  Total   Time
+GeoJSON       |  234    234  29.3s
+Total: 569 passed; sum of rounded testset times: 88.6s
+     Testing GeoJSON tests passed 

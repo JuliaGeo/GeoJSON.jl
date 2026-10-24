@@ -1,0 +1,17 @@
+variant,mode,input,operation,ms,compile_ms,recompile_ms,new_package_specializations,bytes
+baseline_repeat,default,package_load,load,138.08701200000002,0.0,0.0,0,8484152
+baseline_repeat,default,collections,read,4421.075984,4420.655294,0.0,54,365467440
+baseline_repeat,default,collections,iterate,11.250898000000001,11.237312,0.0,6,1042968
+baseline_repeat,default,collections,coordinates,240.96056399999998,238.850022,0.012745000000000001,8,23487136
+baseline_repeat,default,polygon_multi,read,0.306282,0.0,0.0,0,242688
+baseline_repeat,default,polygon_multi,iterate,0.002324,0.0,0.0,0,0
+baseline_repeat,default,polygon_multi,coordinates,8.065111,8.002922000000002,0.0,5,212224
+baseline_repeat,default,polygons,read,0.116401,0.0,0.0,0,111960
+baseline_repeat,default,polygons,iterate,0.0006209999999999999,0.0,0.0,0,0
+baseline_repeat,default,polygons,coordinates,0.009528,0.0,0.0,0,0
+baseline_repeat,default,point_line,read,0.149534,0.0,0.0,0,177088
+baseline_repeat,default,point_line,iterate,0.00027,0.0,0.0,0,0
+baseline_repeat,default,point_line,coordinates,8.400519000000001,8.319524999999999,0.0,4,191280
+baseline_repeat,default,interleaved,read,1.113446,0.0,0.0,0,1054456
+baseline_repeat,default,interleaved,iterate,0.000852,0.0,0.0,0,16
+baseline_repeat,default,interleaved,coordinates,3.312658,0.024080999999999998,0.024080999999999998,0,946560

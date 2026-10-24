@@ -1,0 +1,158 @@
+# Small-union geometry spike
+
+## Scope and measurement
+
+Baseline **B** is PR #128 at `d52e7b1`; union **U** is `f1241f9` (production
+layout introduced in `2ae28cc`). Julia 1.13.2, Linux x86_64, Ryzen 5 3600,
+one Julia workload at a time per worker, one Julia thread. Dependencies include
+JSON 1.12.2, StructUtils 2.11.1, GeoInterface 1.6.2 and Tables 1.14.0.
+
+`Geometry{D,T}` is the closed union of all seven spec kinds, including recursive
+`GeometryCollection{D,T}`. Collections store a vector of that union; feature and
+feature-collection types become `{D,T,P}`. Two-parameter constructors, nulls,
+GeoInterface and Tables behavior remain covered. Four-parameter migration-branch
+schemas must drop `G`; restricted geometry validation is lost. Custom subtypes of
+`AbstractGeometry` can no longer be stored in these closed fields.
+
+Each variant/mode runs in a fresh process with precompiled package caches.
+`benchmark/compile_latency.jl` reads synthetic file contents: 100 features with
+nested mixed GeometryCollections, 200 Polygon/MultiPolygon features, 100 Polygons,
+200 Points/LineStrings, then 800 interleaved features. It measures read, iteration
+with a geometry count, and a GeoInterface coordinates walk with a length checksum.
+Input construction is outside the timer. `Base.invokelatest` keeps workload
+compilation inside `@timed`; without this barrier a typed closure could compile
+before the timer. Compile time uses `Base.cumulative_compile_timing(true)`.
+Specializations are newly cached `MethodInstance`s of discoverable GeoJSON-owned
+methods, including extensions to Base/GI/JSON/StructUtils/Tables: a package-local
+proxy, **not** a count of all compiler/native-code instances. Package load is
+recorded separately in CSV, excluded from the totals below.
+
+## Ordinary reads
+
+| Input | First read ms B / U | First iterate ms B / U | GI coordinates ms B / U | Compile ms B / U | New specializations B / U |
+|---|---:|---:|---:|---:|---:|
+| collections | 4551.505 / 4420.365 | 11.149 / 11.229 | 239.295 / 364.387 | 4799.29 / 4789.21 | 68 / 84 |
+| polygon_multi | 0.306 / 0.219 | 0.005 / 0.001 | 8.038 / 0.013 | 7.98 / 0.00 | 5 / 0 |
+| polygons | 0.148 / 0.093 | 0.000 / 0.000 | 0.005 / 0.006 | 0.00 / 0.00 | 0 / 0 |
+| point_line | 0.222 / 0.148 | 0.000 / 0.000 | 7.512 / 0.006 | 7.44 / 0.00 | 4 / 0 |
+| interleaved | 15.578 / 1.057 | 0.001 / 0.001 | 3.661 / 11.320 | 0.03 / 0.03 | 0 / 0 |
+| **Total compilation / specializations** | | | | 4814.73 / 4789.24 | 77 / 84 |
+
+Ordinary baseline reads already use `AbstractGeometry{D,T}` as a fixed `G`.
+Their feature types do not vary with file contents. This run shows essentially
+unchanged total compilation (4.815 vs 4.789 seconds), with more package
+specializations for the union (77 vs 84). The union front-loads the coordinates
+walk: 364 vs 239 ms on the first collection mix. It does not provide a general
+compile-time improvement for the default API.
+
+## Explicit property schemas
+
+For B, the experiment selects a geometry subset per file (`GeometryCollection`,
+Polygon/MultiPolygon union, Polygon, Point/LineString union, then abstract geometry).
+For U, every file uses the same `{2,Float64,P}`. This deliberately measures the
+benefit of giving up geometry-subset precision, rather than ordinary-read behavior.
+
+| Input | First read ms B / U | First iterate ms B / U | GI coordinates ms B / U | Compile ms B / U | New specializations B / U |
+|---|---:|---:|---:|---:|---:|
+| collections | 5660.592 / 6713.461 | 11.088 / 12.031 | 248.235 / 375.450 | 5917.59 / 7093.25 | 70 / 83 |
+| polygon_multi | 1355.806 / 15.462 | 11.496 / 0.004 | 10.090 / 0.016 | 1377.16 / 0.00 | 24 / 0 |
+| polygons | 481.589 / 0.087 | 11.481 / 0.000 | 9.247 / 0.006 | 502.18 / 0.00 | 19 / 0 |
+| point_line | 484.952 / 0.135 | 11.462 / 0.000 | 12.547 / 0.007 | 508.79 / 0.00 | 23 / 0 |
+| interleaved | 472.824 / 1.025 | 11.164 / 0.001 | 30.536 / 12.109 | 509.65 / 0.03 | 17 / 0 |
+| **Total compilation / specializations** | | | | 8815.36 / 7093.27 | 153 / 83 |
+
+Compilation falls from 8.815 to 7.093 seconds (19.5%); specialization growth falls
+from 153 to 83 (45.8%). The first typed read grows from 5.661 to 6.713 seconds;
+subsequent geometry mixes reuse the union feature type. A baseline caller can
+also keep a fixed `G` across files; the per-file specialization cost is conditional
+on choosing different explicit schemas.
+
+## Steady state
+
+`benchmark/bench.jl` retains its three existing datasets, adds iteration, warms
+four times, and takes the median of 21 samples with GC outside each timer.
+Both variants read Float64 coordinates eagerly.
+
+| 10,000 features | Read ms B / U | Iterate µs B / U | Write ms B / U |
+|---|---:|---:|---:|
+| large_fc | 8.182 / 7.608 | 10.790 / 9.859 | 6.758 / 5.986 |
+| mixed | 8.289 / 7.920 | 10.570 / 10.449 | 9.552 / 8.506 |
+| properties | 18.034 / 17.654 | 17.213 / 18.245 | 12.015 / 11.139 |
+
+Read allocation counts and bytes are identical. Union writes allocate 20,000
+fewer objects and approximately 1.76 MB less per dataset in this run. Iteration is
+allocation-free. Small timing differences need the repeat run for interpretation.
+The first interleaved coordinates walk allocates about 1.80 MB for U versus
+0.95 MB for B; closed unions do not guarantee better recursive broadcast behavior.
+
+These geometry structs contain reference fields. `Geometry{2,Float64}` is not an
+isbits union and does **not** gain inline isbits-union storage. A fixed union also
+does not guarantee union splitting at every GeoInterface call or an inferred
+concrete coordinates result; inspect the workload rather than assuming a
+universal four-member rule. A runtime layout probe is queued after the repeat measurements.
+
+## Tests
+
+| Suite | Passed checks | Sum of reported testset times |
+|---|---:|---:|
+| PR #128 | 569 | 88.6 s |
+| Retained/merged existing contracts | 390 | 83.6 s |
+| New union and iteration regressions | 19 | 6.6 s |
+| Final | **409** | **90.2 s** |
+
+Counts decrease 28.1%. No overall cold-suite runtime win is demonstrated: the new
+coverage offsets savings in the retained suites. Pkg.test wall times were 737.5 s
+baseline and 114.0 s union; the baseline installed/precompiled the test dependency
+stack, so that wall-time difference is **not** evidence of a code speedup. Times
+above sum rounded testset reports and exclude imports/setup. Both Pkg.test runs
+passed; raw summaries are in `results/*-tests.txt`.
+
+Removed repeated numeric-token × position-shape and overflow × transport products,
+mechanical subtype/coordinate-index assertions, repeated constructor/display
+checks, no-assertion parse smoke loops, duplicate schema assertions for each
+transport/accessor, and repeated plotting calls per feature. Retained strict
+numeric grammar and rounding boundaries, one vector-scanner check, spec sample
+roundtrips, nulls/empty collections, 3D, bbox/CRS, foreign members, IO/path handling,
+lazy buffer lifetime and deferred errors, on-demand cached/concurrent schema
+behavior, Tables missing/absent columns and metadata, GeoInterface conformance,
+errors, and asserted smoke checks for both plotting extensions. Testset names
+state their contracts. The added regression file isolates GeometryCollection's
+existing `geometries(g)` iteration typo so it can fail on B and pass on U.
+
+## Reproduction
+
+```sh
+# Extract the baseline under an ignored task directory and instantiate it.
+mkdir -p dev/baseline
+git archive d52e7b1 | tar -x -C dev/baseline
+julia --project=dev/baseline -e 'using Pkg; Pkg.instantiate()'
+# Use baseline or . as CHECKOUT; run each command in a fresh Julia process.
+julia --startup-file=no --project=CHECKOUT benchmark/compile_latency.jl LABEL default
+julia --startup-file=no --project=CHECKOUT benchmark/compile_latency.jl LABEL schema
+julia --startup-file=no --project=CHECKOUT benchmark/bench.jl LABEL
+julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=test/trim -e 'using Pkg; Pkg.instantiate(); include("test/trim/runtests.jl")'
+```
+
+Raw CSV files and test summaries are in `results/`.
+
+## Verification and provisional recommendation
+
+**Do not adopt the full replacement for #128 yet.** Ordinary-read compilation
+is unchanged; the measured explicit-schema savings trade away geometry-subset
+validation and increase the first typed-read cost. There is no inline-union
+storage benefit. Reassess after trim verification and independent review.
+
+The baseline `juliac --trim=safe` build reached C linking, then failed with
+`could not find a compiler, looked for gcc and clang`. Neither compiler is on
+PATH. The union build is in progress and executable verification is likewise
+blocked until a host compiler is available. The union trim fixture now covers
+all seven kinds, nested collections and null geometry/properties, as well as
+the original Polygon/MultiPolygon fixture. No trim success is claimed.
+
+Both requested agy/Gemini workers were launched, then cancelled by coordinator
+instruction because their harness stopped on permission_denied while using tools.
+No independent findings or second measurement were produced, so there are no
+review disagreements to reconcile yet. The coordinator plans to restart them
+after the agy lights-off fix. Local repeat measurements are queued in fresh
+Julia sessions and will be added when complete. Independent review remains owed.

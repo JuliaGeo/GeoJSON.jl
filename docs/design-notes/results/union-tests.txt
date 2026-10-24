@@ -1,0 +1,26 @@
+Test Summary:                                                    | Pass  Total   Time
+JSON dimensions, foreign members, nulls and lazy buffer lifetime |   41     41  45.1s
+Test Summary:                                                      | Pass  Total  Time
+Numeric rounding, signed zero, strict tokens and empty coordinates |  105    105  3.8s
+Test Summary:   | Pass  Total  Time
+Long file paths |    2      2  0.1s
+Test Summary:                         | Pass  Total  Time
+Schema reads preserve the default API |   24     24  6.3s
+Test Summary:                                                  | Pass  Total  Time
+Writers preserve ID omission, property order and custom values |    7      7  1.2s
+Test Summary:                          | Pass  Total  Time
+Schema properties use JSON value types |    3      3  1.5s
+Test Summary:                                  | Pass  Total  Time
+Collection schema is discovered once on demand |   21     21  0.5s
+Test Summary:                                                      | Pass  Total  Time
+Geometry kinds share feature types and preserve nested collections |   15     15  5.3s
+Test Summary:                               | Pass  Total  Time
+Property schemas accept every geometry kind |    3      3  1.1s
+Test Summary:                                                        | Pass  Total  Time
+GeometryCollection iteration visits children rather than coordinates |    1      1  0.2s
+Test Summary: | Pass  Total   Time
+GeoJSON       |  185    185  15.9s
+Test Summary:                             | Pass  Total  Time
+Plot extensions accept a polygon geometry |    2      2  9.2s
+Total: 409 passed; sum of rounded testset times: 90.2s
+     Testing GeoJSON tests passed 
