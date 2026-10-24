@@ -2,12 +2,33 @@
 
 ## Unreleased
 
+- Preserve property type `P` in inferred and two-parameter FeatureCollection
+  constructors given `Vector{Feature{D,T,P}}`. Positional Feature construction
+  preserves properties and converts bounding boxes to the geometry's number type.
+- Accept UnionAll geometry selectors and parameterized AbstractGeometry selectors;
+  parameters select kinds only. Schema reads also forward through GeoFormatTypes
+  string and dictionary wrappers.
+- Give GeometryCollection and LazyFeatureCollection iteration their declared
+  element types; explicitly dispatch collection children when writing.
+
+- Bind inferred positional `Feature` constructors to a non-null geometry; null
+  geometry requires explicit `Feature{D,T}` or `Feature{D,T,P}` parameters.
 - Replace JSON3/StructTypes with JSON.jl 1.x/StructUtils. Julia 1.10 or later is
   required. Keep Float32 coordinates, symbol-keyed properties, CRS, `lazyfc`,
   existing constructors, and GeoInterface/Tables behavior by default.
-- Add schema-typed `read(source, FeatureCollection{D,T,G,P})`, `Feature{D,T,G,P}`,
+- Add schema-typed `read(source, FeatureCollection{D,T,P})`, `Feature{D,T,P}`,
   and concrete geometry reads for static compilation. Feature and collection
-  types gain geometry/property parameters; two-parameter constructors remain.
+  types gain a property parameter; two-parameter constructors remain.
+- Spike `Geometry{D,T}`, a union of the seven spec geometry kinds, in features
+  and geometry collections. Feature types no longer depend on geometry subsets;
+  migration-branch four-parameter schemas must drop `G` and use `geometrytype`
+  for geometry-subset validation. GeometryCollection iteration now
+  correctly visits its children, including nested collections.
+- Add `read(source; geometrytype=Polygon)` and the same keyword for schema reads.
+  Validate geometry kinds recursively without changing storage types; excluded
+  kinds raise `ArgumentError`, null remains allowed. Restrictions require eager
+  reads (`lazyfc=false`). Custom geometry subtypes still need external storage
+  or conversion to built-in kinds.
 - Use JSON.jl's direct parser and serializer; keep strict coordinate dimensions
   and Float32 rounding. Foreign members remain ignored.
 - Exclude internal collection `names`/`types` from JSON output. Retain the IO

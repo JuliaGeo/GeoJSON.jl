@@ -48,7 +48,21 @@ function StructUtils.applyeach(style::JSON.JSONStyle, f, x::GeometryCollection)
     @emit "type" "GeometryCollection"
     bb = bbox(x)
     bb === nothing || isempty(bb) || @emit "bbox" bb
-    @emit "geometries" geometry(x)
+    @emit "geometries" GeometryChildren(geometry(x))
+    nothing
+end
+
+struct GeometryChildren{D,T} <: AbstractVector{Geometry{D,T}}
+    geometries::Vector{Geometry{D,T}}
+end
+Base.size(x::GeometryChildren) = size(x.geometries)
+Base.getindex(x::GeometryChildren, i::Int) = x.geometries[i]
+
+function StructUtils.applyeach(style::JSON.JSONStyle, f, x::GeometryChildren)
+    for i in eachindex(x)
+        result = _emitgeometry(f, i, x[i])
+        result isa StructUtils.EarlyReturn && return result
+    end
     nothing
 end
 
@@ -96,7 +110,7 @@ struct SchemaStyle <: JSON.JSONStyle end
 JSON.applyany(::SchemaStyle, f, key, @nospecialize(value)) =
     throw(ArgumentError("unsupported value in schema-typed GeoJSON write"))
 _writestyle(x) = JSON.JSONWriteStyle()
-_writestyle(::Union{Feature{D,T,G,P},FeatureCollection{D,T,G,P}}) where {D,T,G,P} =
+_writestyle(::Union{Feature{D,T,P},FeatureCollection{D,T,P}}) where {D,T,P} =
     P === DefaultProperties ? JSON.JSONWriteStyle() : SchemaStyle()
 
 function _emitid(style, f, id)

@@ -127,22 +127,34 @@ function Base.iterate(g::AbstractGeometry, state=1)
 end
 
 """
-    GeometryCollection{D,T}(geometries::Vector{AbstractGeometry{D,T}})
+    GeometryCollection{D,T}(geometries::Vector{Geometry{D,T}})
 
 A GeometryCollection geometry with `D` dimensions.
 """
 struct GeometryCollection{D,T} <: AbstractGeometry{D,T}
     bbox::Union{Nothing,Vector{T}}
-    geometries::Vector{AbstractGeometry{D,T}}   # not that efficient
+    geometries::Vector{Union{Point{D,T},MultiPoint{D,T},LineString{D,T},
+                             MultiLineString{D,T},Polygon{D,T},MultiPolygon{D,T},
+                             GeometryCollection{D,T}}}
     GeometryCollection{D,T}(bbox, geometries) where {D,T} = new{D,T}(bbox, geometries)
-    GeometryCollection{D,T}(; bbox=nothing, geometries=AbstractGeometry{D,T}[]) where {D,T} = GeometryCollection{D,T}(bbox, geometries)
+    GeometryCollection{D,T}(; bbox=nothing, geometries=Geometry{D,T}[]) where {D,T} = GeometryCollection{D,T}(bbox, geometries)
 end
+"""
+    Geometry{D,T}
+
+The seven GeoJSON geometry kinds for dimension `D` and coordinate type `T`.
+"""
+const Geometry{D,T} = Union{Point{D,T},MultiPoint{D,T},LineString{D,T},
+                            MultiLineString{D,T},Polygon{D,T},MultiPolygon{D,T},
+                            GeometryCollection{D,T}}
+
 GeometryCollection(; bbox=nothing, geometries::Vector{<:AbstractGeometry{D,T}}) where {D,T} = GeometryCollection{D,T}(bbox, geometries)
 
 coordinates(g::GeometryCollection) = coordinates.(geometry(g))
 geometry(g::GeometryCollection) = getfield(g, :geometries)
 
 Base.show(io::IO, x::GeometryCollection{D,T}) where {D,T} = print(io, "GeometryCollection with $(length(x.geometries)) $(D)D geometries")
+Base.eltype(::Type{GeometryCollection{D,T}}) where {D,T} = Geometry{D,T}
 Base.length(g::GeometryCollection) = length(geometry(g))
 Base.lastindex(g::GeometryCollection) = length(geometry(g))
 Base.size(g::GeometryCollection) = size(geometry(g))
@@ -151,33 +163,37 @@ Base.getindex(g::GeometryCollection, i::Int) = getindex(geometry(g), i::Int)
 Base.IndexStyle(::Type{<:GeometryCollection}) = Base.IndexLinear()
 
 function Base.iterate(g::GeometryCollection, state=1)
-    x = iterate(geometries(g), state)
+    x = iterate(geometry(g), state)
     x === nothing && return nothing
     val, state = x
     return val, state
 end
 
 """
-    Feature{D,T}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{T}}, geometry::Union{Nothing,AbstractGeometry{D,T}}, properties::Union{Nothing,Dict{String,Any}})
+    Feature{D,T}(id::Union{String,Nothing}, bbox::Union{Nothing,Vector{T}}, geometry::Union{Nothing,Geometry{D,T}}, properties::Union{Nothing,Dict{Symbol,Any}})
 
 A Feature with `D` dimensional geometry.
 """
-struct Feature{D,T,G,P} <: GeoJSONT{D,T}
+struct Feature{D,T,P} <: GeoJSONT{D,T}
     id::Any
     bbox::Union{Nothing,Vector{T}}
-    geometry::Union{Nothing,G}
+    geometry::Union{Nothing,Geometry{D,T}}
     properties::P
+    Feature{D,T,P}(id, bbox, geometry, properties) where {D,T,P} =
+        new{D,T,P}(id, bbox, geometry, properties)
 end
+Feature(id, bbox, geometry::Geometry{D,T}, properties::P) where {D,T,P} =
+    Feature{D,T,P}(id, bbox, geometry, properties)
 const DefaultProperties = Union{Nothing,Dict{Symbol,Any}}
 Feature{D,T}(id, bbox, geometry, properties) where {D,T} =
-    Feature{D,T,AbstractGeometry{D,T},DefaultProperties}(id, bbox, geometry, properties)
+    Feature{D,T,DefaultProperties}(id, bbox, geometry, properties)
 Feature{D,T}(; id=nothing, bbox=nothing, geometry=nothing, properties=NamedTuple()) where {D,T} =
     Feature{D,T}(id, bbox, geometry, properties)
 Feature(; id=nothing, bbox=nothing, geometry::AbstractGeometry{D,T}, properties=NamedTuple()) where {D,T} = Feature{D,T}(id, bbox, geometry, properties)
 
 Base.convert(::Type{F}, f::F) where {F<:Feature} = f
-Base.convert(::Type{Feature{D,T,G,P}}, f::Feature{D,T}) where {D,T,G,P} =
-    Feature{D,T,G,P}(id(f), bbox(f), geometry(f), getfield(f, :properties))
+Base.convert(::Type{Feature{D,T,P}}, f::Feature{D,T}) where {D,T,P} =
+    Feature{D,T,P}(id(f), bbox(f), geometry(f), getfield(f, :properties))
 
 id(f::Feature) = getfield(f, :id)
 geometry(f::Feature) = getfield(f, :geometry)
@@ -228,25 +244,29 @@ end
 
 A FeatureCollection with `D` dimensional geometry in its features.
 """
-struct FeatureCollection{D,T,G,P} <: AbstractFeatureCollection{D,T}
+struct FeatureCollection{D,T,P} <: AbstractFeatureCollection{D,T}
     bbox::Union{Nothing,Vector{T}}
-    features::Vector{Feature{D,T,G,P}}
+    features::Vector{Feature{D,T,P}}
     crs::Union{Nothing,CRS}
     names::Vector{Symbol}
     types::Dict{Symbol,Type}
     schema_ready::Base.RefValue{Bool}
-    function FeatureCollection{D,T,G,P}(bbox, features, crs) where {D,T,G,P}
-        return new{D,T,G,P}(bbox, features, crs, Symbol[], Dict{Symbol,Type}(), Ref(false))
+    function FeatureCollection{D,T,P}(bbox, features, crs) where {D,T,P}
+        return new{D,T,P}(bbox, features, crs, Symbol[], Dict{Symbol,Type}(), Ref(false))
     end
 end
+FeatureCollection{D,T}(bbox, features::Vector{Feature{D,T,P}}, crs, n=nothing, t=nothing) where {D,T,P} =
+    FeatureCollection{D,T,P}(bbox, features, crs)
 FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T} =
-    FeatureCollection{D,T,AbstractGeometry{D,T},DefaultProperties}(bbox, features, crs)
+    FeatureCollection{D,T,DefaultProperties}(bbox, features, crs)
 FeatureCollection{D,T}(; bbox=nothing, features=Feature{D,T}[], crs=nothing) where {D,T} =
+    FeatureCollection{D,T}(bbox, features, crs)
+FeatureCollection(bbox, features::Vector{<:Feature{D,T}}, crs) where {D,T} =
     FeatureCollection{D,T}(bbox, features, crs)
 FeatureCollection(; bbox=nothing, features::Vector{<:Feature{D,T}}, crs=nothing) where {D,T} =
     FeatureCollection{D,T}(bbox, features, crs)
 
-Base.eltype(::Type{FeatureCollection{D,T,G,P}}) where {D,T,G,P} = Feature{D,T,G,P}
+Base.eltype(::Type{FeatureCollection{D,T,P}}) where {D,T,P} = Feature{D,T,P}
 
 
 features(fc::FeatureCollection) = getfield(fc, :features)
@@ -296,6 +316,7 @@ struct LazyFeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     crs::Union{Nothing,CRS}
 end
 features(fc::LazyFeatureCollection) = collect(fc.features)
+Base.eltype(::Type{LazyFeatureCollection{D,T}}) where {D,T} = Feature{D,T,DefaultProperties}
 Base.length(fc::LazyFeatureCollection) = length(getfield(fc, :features))
 Base.size(fc::LazyFeatureCollection) = size(getfield(fc, :features))
 

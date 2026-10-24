@@ -1,7 +1,37 @@
 # JSON's lazy parser passes an end position back from each materialization callback.
 # Keep span access and the strict coordinate adapter in this file.
 struct CoordinateStyle <: JSON.JSONStyle end
-struct GeometryReadStyle <: StructUtils.StructStyle end
+struct GeometryReadStyle <: StructUtils.StructStyle
+    geometrymask::UInt8
+end
+GeometryReadStyle() = GeometryReadStyle(0x7f)
+
+_geometrymask(::Nothing) = 0x7f
+function _geometrymask(geometrytype)
+    geometrytype isa Type || throw(ArgumentError(
+        "geometrytype must be nothing, AbstractGeometry (with optional parameters), or a built-in GeoJSON geometry kind or union of these types"))
+    _geometrymasktype(geometrytype)
+end
+
+Base.@assume_effects :foldable Base.@nospecializeinfer function _geometrymasktype(@nospecialize(selector))
+    arm = Base.unwrap_unionall(selector)
+    arm isa Union && return _geometrymasktype(arm.a) | _geometrymasktype(arm.b)
+    arm isa DataType && arm.name === Base.unwrap_unionall(AbstractGeometry).name && return 0x7f
+    kinds = (Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon, GeometryCollection)
+    for i in eachindex(kinds)
+        arm !== Union{} && arm <: kinds[i] && return UInt8(1 << (i - 1))
+    end
+    throw(ArgumentError("unsupported geometrytype selector: expected AbstractGeometry or built-in GeoJSON geometry kinds (with optional parameters)"))
+end
+
+_checkgeometry(style, index, kind) = nothing
+_checkgeometry(style::JSON.JSONReadStyle{O,N,GeometryReadStyle}, index, kind) where {O,N} =
+    _checkgeometry(StructUtils.parentstyle(style), index, kind)
+function _checkgeometry(style::GeometryReadStyle, index, kind)
+    style.geometrymask & UInt8(1 << (index - 1)) != 0 ||
+        throw(ArgumentError("GeoJSON geometry kind $kind is excluded by geometrytype"))
+    nothing
+end
 
 struct CoordinateDimensionError <: Exception
     expected::Int
@@ -258,7 +288,7 @@ function _readgeometry(style, ::Type{G}, source) where {D,T,G<:CoordinateGeometr
 end
 
 function _readgeometry(style, ::Type{GeometryCollection{D,T}}, source) where {D,T}
-    fields = NamedTuple{(:bbox, :geometries),Tuple{Union{Nothing,Vector{T}},Vector{AbstractGeometry{D,T}}}}
+    fields = NamedTuple{(:bbox, :geometries),Tuple{Union{Nothing,Vector{T}},Vector{Geometry{D,T}}}}
     values, pos = StructUtils.make(style, fields, source)
     GeometryCollection{D,T}(values.bbox, values.geometries), pos
 end
@@ -282,6 +312,7 @@ function StructUtils.make(style::StructUtils.StructStyle, ::Type{G}, source) whe
               Polygon{D,T}, MultiPolygon{D,T}, GeometryCollection{D,T})[i]
         if kind == typestring(GT)
             GT <: G || throw(ArgumentError("geometry type is not in the schema"))
+            _checkgeometry(style, i, typestring(GT))
             return _readgeometry(style, GT, source)
         end
     end
@@ -298,26 +329,28 @@ function StructUtils.make(style::StructUtils.StructStyle, ::Type{GeoJSONT{D,T}},
 end
 
 StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T}}, source) where {D,T} =
-    StructUtils.make(style, Feature{D,T,AbstractGeometry{D,T},DefaultProperties}, source)
+    StructUtils.make(style, Feature{D,T,DefaultProperties}, source)
 StructUtils.make(style::StructUtils.StructStyle, ::Type{FeatureCollection{D,T}}, source) where {D,T} =
-    StructUtils.make(style, FeatureCollection{D,T,AbstractGeometry{D,T},DefaultProperties}, source)
+    StructUtils.make(style, FeatureCollection{D,T,DefaultProperties}, source)
 
-mutable struct FeatureSink{D,T,G,P,S}
+mutable struct FeatureSink{D,T,P,S}
     style::S
     id::Any
     bbox::Union{Nothing,Vector{T}}
-    geometry::Union{Nothing,G}
+    geometry::Union{Nothing,Geometry{D,T}}
     properties::Union{Nothing,P}
     typed::Bool
+    FeatureSink{D,T,P,S}(style) where {D,T,P,S} =
+        new{D,T,P,S}(style, nothing, nothing, nothing, nothing, false)
 end
 
-function (f::FeatureSink{D,T,G,P})(key, value) where {D,T,G,P}
+function (f::FeatureSink{D,T,P})(key, value) where {D,T,P}
     if key == "geometry"
         if JSON.gettype(value) == JSON.JSONTypes.NULL
             f.geometry = nothing
             return nothing
         end
-        f.geometry, pos = StructUtils.make(f.style, G, value)
+        f.geometry, pos = StructUtils.make(f.style, Geometry{D,T}, value)
         return pos
     elseif key == "properties"
         if JSON.gettype(value) == JSON.JSONTypes.NULL
@@ -347,13 +380,13 @@ _emptyproperties(::Type{P}) where {P<:NamedTuple} =
     all(FT -> Missing <: FT, fieldtypes(P)) ? P(ntuple(_ -> missing, Val(fieldcount(P)))) :
     throw(ArgumentError("properties requires schema fields"))
 
-function StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T,G,P}}, source) where {D,T,G,P}
-    sink = FeatureSink{D,T,G,P,typeof(style)}(style, nothing, nothing, nothing, nothing, false)
+function StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T,P}}, source) where {D,T,P}
+    sink = FeatureSink{D,T,P,typeof(style)}(style)
     pos = JSON.applyobject(sink, source)
     sink.typed || throw(ArgumentError("expected a Feature"))
     props = sink.properties
     props === nothing && (props = _emptyproperties(P))
-    Feature{D,T,G,P}(sink.id, sink.bbox, sink.geometry, props), pos
+    Feature{D,T,P}(sink.id, sink.bbox, sink.geometry, props), pos
 end
 
 struct ArraySink{E,S}
@@ -371,17 +404,17 @@ function _readarray(style, ::Type{E}, source) where {E}
     values, pos::Int
 end
 
-mutable struct CollectionSink{D,T,G,P,S}
+mutable struct CollectionSink{D,T,P,S}
     style::S
     bbox::Union{Nothing,Vector{T}}
-    features::Vector{Feature{D,T,G,P}}
+    features::Vector{Feature{D,T,P}}
     crs::Union{Nothing,CRS}
     typed::Bool
 end
 
-function (f::CollectionSink{D,T,G,P})(key, value) where {D,T,G,P}
+function (f::CollectionSink{D,T,P})(key, value) where {D,T,P}
     if key == "features"
-        f.features, pos = _readarray(f.style, Feature{D,T,G,P}, value)
+        f.features, pos = _readarray(f.style, Feature{D,T,P}, value)
         return pos
     elseif key == "bbox"
         f.bbox, pos = StructUtils.make(f.style, Union{Nothing,Vector{T}}, value)
@@ -399,11 +432,11 @@ function (f::CollectionSink{D,T,G,P})(key, value) where {D,T,G,P}
     nothing
 end
 
-function StructUtils.make(style::StructUtils.StructStyle, ::Type{FeatureCollection{D,T,G,P}}, source) where {D,T,G,P}
-    sink = CollectionSink{D,T,G,P,typeof(style)}(style, nothing, Feature{D,T,G,P}[], nothing, false)
+function StructUtils.make(style::StructUtils.StructStyle, ::Type{FeatureCollection{D,T,P}}, source) where {D,T,P}
+    sink = CollectionSink{D,T,P,typeof(style)}(style, nothing, Feature{D,T,P}[], nothing, false)
     pos = JSON.applyobject(sink, source)
     sink.typed || throw(ArgumentError("expected a FeatureCollection"))
-    FeatureCollection{D,T,G,P}(sink.bbox, sink.features, sink.crs), pos
+    FeatureCollection{D,T,P}(sink.bbox, sink.features, sink.crs), pos
 end
 
 function StructUtils.make(
@@ -419,12 +452,12 @@ end
 _featurebytes(bytes::AbstractString, pos, len) = SubString(bytes, pos, pos + len - 1)
 _featurebytes(bytes::AbstractVector{UInt8}, pos, len) = view(bytes, pos:(pos+len-1))
 
-_parsedimensioned(input, type) =
-    JSON.parse(input, type; style=GeometryReadStyle())
+_parsedimensioned(input, type, style=GeometryReadStyle()) =
+    JSON.parse(input, type; style)
 
-function _parse(input, type)
+function _parse(input, type, style=GeometryReadStyle())
     try
-        _parsedimensioned(input, type)
+        _parsedimensioned(input, type, style)
     catch e
         e isa CoordinateDimensionError || rethrow()
         throw(ArgumentError(sprint(showerror, e)))

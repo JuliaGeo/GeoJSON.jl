@@ -18,25 +18,36 @@ Modules = [GeoJSON]
 
 The usual `GeoJSON.read(source)` keeps its `Float32` coordinates, two-dimensional
 read with a three-dimensional retry, and `Dict{Symbol,Any}` properties. For a
-statically known schema, specify the geometry and property types:
+statically known property schema, specify the property type:
 
 ```julia
-G = Union{GeoJSON.Polygon{2,Float64},GeoJSON.MultiPolygon{2,Float64}}
 P = NamedTuple{(:name, :population),Tuple{String,Union{Missing,Int}}}
-FC = GeoJSON.FeatureCollection{2,Float64,G,P}
+FC = GeoJSON.FeatureCollection{2,Float64,P}
 fc = GeoJSON.read(source, FC)
 text = GeoJSON.write(fc)
 ```
 
-The typed entry point rejects geometries outside `G` and does not retry coordinate
+The typed entry point accepts all seven geometry kinds and does not retry coordinate
 dimensions. Missing property fields can be represented by `Union{Missing,T}`.
 The schema form reads directly into the requested types; it does not first build
 an untyped JSON tree. `test/trim` compiles and runs a schema read/write round trip
 with `juliac --trim=safe`. Ordinary dictionary-based reads and arbitrary custom
 property values remain supported but are outside that static-compilation contract.
 
-`Feature` and `FeatureCollection` now have four type parameters (`D,T,G,P`).
-Existing partial type annotations and two-parameter constructors still work.
+`Feature` and `FeatureCollection` have three type parameters (`D,T,P`). Their
+geometry storage uses `Geometry{D,T}`, the union of the seven GeoJSON kinds;
+`GeometryCollection{D,T}` uses a vector with that element type, including nested
+collections. Existing two-parameter constructors and GeoInterface behavior remain.
+Positional `Feature(id, bbox, geometry, properties)` infers `D,T` from a non-null
+geometry and preserves the properties type. With null geometry, specify
+`Feature{D,T}(id, bbox, nothing, properties)` (or `Feature{D,T,P}` for a property
+schema); these constructors do not infer dimensions from a bounding box.
+Bounding boxes are converted to the geometry's numeric type. Collection
+constructors preserve `P` when given `Vector{Feature{D,T,P}}`, including
+two-parameter and inferred keyword/positional forms.
+The spike replaces the migration branch's four-parameter schemas: callers must
+drop `G` and use the `geometrytype` keyword to restrict geometry kinds. Geometry
+structs contain references, so this union does not provide isbits-union storage.
 Schema writes accept JSON string/numeric IDs and JSON-compatible CRS values;
 ordinary writes retain JSON.jl's custom-value serialization support.
 
@@ -53,3 +64,53 @@ across tasks; concurrent mutation of feature properties is not supported. Proper
 changes before discovery are reflected in the schema, while later changes do not
 invalidate the cached snapshot. `FeatureCollection` remains immutable and non-isbits;
 its internal layout gains a cache-state reference.
+
+## Restricting geometry kinds
+
+```julia
+polygons = Union{GeoJSON.Polygon,GeoJSON.MultiPolygon}
+fc = GeoJSON.read(source; geometrytype=polygons)
+fc = GeoJSON.read(source, FC; geometrytype=polygons)
+```
+
+`geometrytype` validates each geometry kind during parsing and throws an
+`ArgumentError` naming an excluded kind. Storage stays the same small union;
+this is an input restriction, not a type invariant on later construction or
+mutation. Null geometry remains allowed. A GeometryCollection and all its
+children must be allowed, so include `GeoJSON.GeometryCollection` along with
+its permitted child kinds. Type parameters on a supplied geometry type select
+only its kind; dimensions and numeric types come from `ndim`/`numbertype` or the
+schema. UnionAll selectors such as `GeoJSON.Geometry`, `GeoJSON.Geometry{2}`,
+and parameterized unions are accepted. Any parameterization of
+`GeoJSON.AbstractGeometry` selects all seven kinds, also within a union.
+The default `nothing` permits all seven kinds. Restricted reads require
+`lazyfc=false`; lazy reads defer materialization and cannot promise validation
+at read time.
+
+Obtained geometries work with GeoInterface and ordinary Julia functions. Narrow
+the kind when different operations need different return types:
+
+```julia
+import GeoInterface as GI
+function score(g)
+    if g isa GeoJSON.Point
+        return Float64(GI.x(g))
+    elseif g isa GeoJSON.LineString || g isa GeoJSON.Polygon
+        return Float64(GI.ngeom(g))
+    end
+    0.0
+end
+sum(f -> score(GI.geometry(f)), fc; init=0.0)
+```
+
+Use `GI.geometry(f)` or `GeoJSON.geometry(f)` to retrieve the geometry: a property
+named `geometry` can override `f.geometry`. A function barrier also lets Julia
+specialize on the concrete geometry passed to a user function. Inference and
+union splitting depend on the operation; the union does not guarantee either
+for every GeoInterface function.
+
+Custom `AbstractGeometry` subtypes cannot be stored in these closed fields. There
+is no second concrete-`G` feature family: use a separate vector of custom
+geometries, a GeoInterface-compatible feature/table wrapper, or convert custom
+objects to one of the seven built-in kinds. The generic GeoInterface writer
+accepts compatible wrappers.

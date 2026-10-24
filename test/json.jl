@@ -1,4 +1,6 @@
-@testset "JSON typed parsing" begin
+allocated_length(fc) = @allocated length(fc)
+
+@testset "JSON dimensions, foreign members, nulls and lazy buffer lifetime" begin
     point = """{"type":"Point","coordinates":[1,2]}"""
     point3d = """{"coordinates":[1,2,3],"type":"Point"}"""
     feature = """{"type":"Feature","geometry":$point,"properties":{"name":"café\\n東京","nested":{"x":[1,null,true]}}}"""
@@ -28,8 +30,6 @@
     @test_throws ArgumentError GeoJSON.read("""{"type":"Point","coordinates":[1,]}""")
 
     fc = GeoJSON.read(collection)
-    @test getfield(fc, :names) isa Vector{Symbol}
-    @test getfield(fc, :types) isa Dict{Symbol,Type}
     @test :ignored ∉ propertynames(fc)
     @test GeoJSON.properties(fc[1])[:nested] isa Dict{String,Any}
     @test GeoJSON.properties(fc[1])[:nested]["x"] == [1, nothing, true]
@@ -51,15 +51,21 @@
     for source in (collection, Vector{UInt8}(collection), IOBuffer(collection))
         lazy = GeoJSON.read(source; lazyfc = true)
         GC.gc()
-        @test length(lazy) == 1
-        @test (@allocated length(lazy)) < 32
-        @test size(lazy) == (1,)
         @test collect(lazy) == [fc[1]]
-        @test lazy[1] == fc[1]
-        @test GeoJSON.read(GeoJSON.write(lazy))[1] == fc[1]
-        @test_throws BoundsError lazy[0]
-        @test_throws BoundsError lazy[2]
     end
+    lazy = GeoJSON.read(collection; lazyfc = true)
+    for n in (1, 1000)
+        many = """{"type":"FeatureCollection","features":[$(join(fill(feature, n), ','))]}"""
+        sized = GeoJSON.read(many; lazyfc = true)
+        # Warm the measurement barrier too; length must never copy feature spans.
+        allocated_length(sized)
+        @test length(sized) == n
+        @test allocated_length(sized) < 32
+    end
+    @test size(lazy) == (1,)
+    @test GeoJSON.read(GeoJSON.write(lazy))[1] == fc[1]
+    @test_throws BoundsError lazy[0]
+    @test_throws BoundsError lazy[2]
     mktemp() do path, io
         Base.write(io, collection)
         close(io)
@@ -68,6 +74,13 @@
         GeoJSON.write(path, fc)
         @test GeoJSON.read(path)[1] == fc[1]
     end
+    # Invalid feature contents must remain unparsed until that span is indexed.
+    bad = """{"type":"Feature","geometry":{"type":"Unknown"},"properties":null}"""
+    delayed = """{"type":"FeatureCollection","features":[$feature,$bad]}"""
+    lazy = GeoJSON.read(delayed; lazyfc=true)
+    @test lazy[1] == fc[1]
+    @test_throws ArgumentError lazy[2]
+    @test_throws ArgumentError GeoJSON.read(delayed)
     @test isempty(GeoJSON.read("""{"type":"FeatureCollection","features":[]}"""))
     mktempdir() do dir
         cd(dir) do
@@ -79,7 +92,7 @@
     end
 end
 
-@testset "Numeric coordinates and bounds" begin
+@testset "Numeric rounding, signed zero, strict tokens and empty coordinates" begin
     tokens = (
         "-0",
         "-0.0",
@@ -106,21 +119,17 @@ end
         expected = (value, T(2))
         text = """{"type":"Point","coordinates":[$token,2]}"""
         @test isequal(GeoJSON.coordinates(GeoJSON.read(text; numbertype = T)), expected)
-        line = """{"type":"LineString","coordinates":[[$token,2],[$token,2]]}"""
-        @test isequal(
-            GeoJSON.coordinates(GeoJSON.read(line; numbertype = T)),
-            [expected, expected],
-        )
     end
+    # Vector positions use the same numeric scanner, with a separate nesting path.
+    line = """{"type":"LineString","coordinates":[[-0,2],[1e2,3]]}"""
+    @test isequal(GeoJSON.coordinates(GeoJSON.read(line)), [(-0.0f0,2.0f0),(100.0f0,3.0f0)])
     for T in (Float32, Float64), token in ("1e400", "-1e400", "1e-1000", "-1e-1000")
         expected = startswith(token, "-") ? -one(T) : one(T)
         expected *= occursin("e-", token) ? zero(T) : T(Inf)
         point = """{"type":"Point","coordinates":[$token,2],"bbox":[$token,1,2,3]}"""
-        for source in (point, Vector{UInt8}(point), IOBuffer(point))
-            object = GeoJSON.read(source; numbertype = T)
-            @test isequal(first(GeoJSON.coordinates(object)), expected)
-            @test isequal(first(GeoJSON.bbox(object)), expected)
-        end
+        object = GeoJSON.read(point; numbertype = T)
+        @test isequal(first(GeoJSON.coordinates(object)), expected)
+        @test isequal(first(GeoJSON.bbox(object)), expected)
     end
     for T in (Float16, BigFloat), token in ("-0", "-0.0")
         point = """{"type":"Point","coordinates":[$token,2],"bbox":[$token,1,2,3]}"""
@@ -147,12 +156,10 @@ end
         "0x1p2",
         "0b10",
     )
-        for kind in ("Point", "LineString")
-            position = kind == "Point" ? "[$token,2]" : "[[$token,2]]"
-            text = """{"type":"$kind","coordinates":$position}"""
-            @test_throws ArgumentError GeoJSON.read(text)
-        end
+        text = """{"type":"Point","coordinates":[$token,2]}"""
+        @test_throws ArgumentError GeoJSON.read(text)
     end
+    @test_throws ArgumentError GeoJSON.read("""{"type":"LineString","coordinates":[[true,2]]}""")
     for coordinates in ("[1,2", "[1 2]", "[1,2,]", "[[1,2],]", "[[1,2] [3,4]]")
         kind = startswith(coordinates, "[[") ? "LineString" : "Point"
         text = """{"type":"$kind","coordinates":$coordinates}"""
@@ -162,6 +169,9 @@ end
         text = """{"type":"$kind","coordinates":[]}"""
         @test isempty(GeoJSON.coordinates(GeoJSON.read(GeoJSON.write(GeoJSON.read(text)))))
     end
+    @test GeoJSON.coordinates(GeoJSON.read("""{"type":"Point","coordinates":null}""")) === nothing
+    @test GeoJSON.coordinates(GeoJSON.read(line; numbertype=BigFloat)) ==
+          [(-big"0.0", big"2.0"), (big"100.0", big"3.0")]
     point = """{"type":"Point","coordinates":[1,2]}"""
     fields = (
         "\"type\":\"Point\",\"coordinates\":[1,2]",

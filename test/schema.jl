@@ -1,22 +1,20 @@
-@testset "Schema reads preserve the default API" begin
+@testset "Schema reads preserve declared properties and geometry" begin
     P = NamedTuple{(:name, :count),Tuple{String,Union{Missing,Int}}}
-    G = Union{GeoJSON.Point{2,Float64},GeoJSON.LineString{2,Float64}}
-    F = GeoJSON.Feature{2,Float64,G,P}
-    FC = GeoJSON.FeatureCollection{2,Float64,G,P}
+    F = GeoJSON.Feature{2,Float64,P}
+    FC = GeoJSON.FeatureCollection{2,Float64,P}
     point = """{"type":"Point","coordinates":[1,2]}"""
     feature = """{"type":"Feature","id":"one","geometry":$point,"properties":{"name":"café"}}"""
     collection = """{"type":"FeatureCollection","features":[$feature]}"""
-    for input in (collection, Vector{UInt8}(collection), IOBuffer(collection))
-        fc = @inferred GeoJSON.read(input, FC)
-        @test eltype(fc) === F
-        @test GeoJSON.id(fc[1]) == "one"
-        @test isequal(GeoJSON.properties(fc[1]), (name="café", count=missing))
-        @test GeoJSON.geometry(fc[1]) isa GeoJSON.Point{2,Float64}
-        @test isequal(GeoJSON.properties(GeoJSON.read(GeoJSON.write(fc), FC)[1]), GeoJSON.properties(fc[1]))
-        @test Set(propertynames(fc)) == Set((:geometry, :name, :count))
-        @test fc.names === propertynames(fc)
-        @test Set(Tables.schema(fc).names) == Set((:geometry, :name, :count))
+    fc = @inferred GeoJSON.read(collection, FC)
+    for input in (Vector{UInt8}(collection), IOBuffer(collection))
+        @test isequal(GeoJSON.properties(GeoJSON.read(input, FC)[1]), GeoJSON.properties(fc[1]))
     end
+    @test eltype(fc) === F
+    @test GeoJSON.id(fc[1]) == "one"
+    @test isequal(GeoJSON.properties(fc[1]), (name="café", count=missing))
+    @test GeoJSON.geometry(fc[1]) isa GeoJSON.Point{2,Float64}
+    @test isequal(GeoJSON.properties(GeoJSON.read(GeoJSON.write(fc), FC)[1]), GeoJSON.properties(fc[1]))
+    @test Set(Tables.schema(fc).names) == Set((:geometry, :name, :count))
     f = @inferred GeoJSON.read(feature, F)
     @test GeoJSON.geometry(f) == GeoJSON.Point(coordinates=(1.0,2.0))
     @test GeoJSON.read(point, GeoJSON.Point{2,Float64}) == GeoJSON.geometry(f)
@@ -24,6 +22,15 @@
     @test_throws ArgumentError GeoJSON.read(feature, FC)
     @test_throws ArgumentError GeoJSON.read(point, GeoJSON.Polygon{2,Float64})
     @test_throws GeoJSON.CoordinateDimensionError GeoJSON.read(replace(point, "[1,2]"=>"[1,2,3]"), GeoJSON.Point{2,Float64})
+    crs = """{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}}"""
+    withcrs = replace(collection, "\"features\":" => "\"crs\":$crs,\"features\":")
+    for obj in (GeoJSON.read(withcrs), GeoJSON.read(withcrs, FC))
+        @test JSON.parse(GeoJSON.write(obj))["crs"]["properties"]["name"] == "urn:ogc:def:crs:OGC:1.3:CRS84"
+    end
+end
+
+@testset "Default constructors accept concrete and abstract feature vectors" begin
+    collection = """{"type":"FeatureCollection","features":[{"type":"Feature","id":"one","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"name":"café"}}]}"""
     old = GeoJSON.read(collection)
     @test GeoJSON.properties(old[1]) isa Dict{Symbol,Any}
     @test GeoJSON.geometry(old[1]) isa GeoJSON.Point{2,Float32}
@@ -33,15 +40,19 @@
     @test GeoJSON.FeatureCollection{2,Float32}().features == []
     fs = GeoJSON.Feature{2,Float32}[old[1]]
     @test GeoJSON.FeatureCollection{2,Float32}(features=fs)[1] == old[1]
-    @test collect(GeoJSON.read(collection; lazyfc=true)) == collect(old)
-    crs = """{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}}"""
-    withcrs = replace(collection, "\"features\":" => "\"crs\":$crs,\"features\":")
-    for obj in (GeoJSON.read(withcrs), GeoJSON.read(withcrs, FC))
-        @test JSON.parse(GeoJSON.write(obj))["crs"]["properties"]["name"] == "urn:ogc:def:crs:OGC:1.3:CRS84"
+end
+
+@testset "GeoFormatTypes wrappers forward schema reads and restrictions" begin
+    point = """{"type":"Point","coordinates":[1,2]}"""
+    for value in (point, JSON.parse(point))
+        source = GeoFormatTypes.GeoJSON(value)
+        @test GeoJSON.read(source, GeoJSON.Point{2,Float64}; geometrytype=GeoJSON.Point) ==
+            GeoJSON.Point(coordinates=(1.0,2.0))
+        @test_throws "Point is excluded" GeoJSON.read(source, GeoJSON.Point{2,Float64}; geometrytype=GeoJSON.Polygon)
     end
 end
 
-@testset "Writer compatibility" begin
+@testset "Writers preserve ID omission, property order and custom values" begin
     p = GeoJSON.Point(coordinates=(1.0,2.0))
     for value in (nothing, missing, "", Dict(), [])
         f = GeoJSON.Feature(geometry=p, id=value, properties=Dict{Symbol,Any}())
@@ -58,12 +69,16 @@ end
 
 @testset "Schema properties use JSON value types" begin
     P = NamedTuple{(:active, :count),Tuple{Bool,Int}}
-    F = GeoJSON.Feature{2,Float64,GeoJSON.Point{2,Float64},P}
+    F = GeoJSON.Feature{2,Float64,P}
     text = """{"type":"Feature","geometry":null,"properties":{"active":true,"count":2}}"""
     @test GeoJSON.properties(GeoJSON.read(text, F)) === (active=true, count=2)
     @test_throws ArgumentError GeoJSON.read(replace(text, "\"type\":\"Feature\""=>"\"type\":1"), F)
-    FC = GeoJSON.FeatureCollection{2,Float64,GeoJSON.Point{2,Float64},P}
+    FC = GeoJSON.FeatureCollection{2,Float64,P}
     @test_throws ArgumentError GeoJSON.read("""{"type":true,"features":[]}""", FC)
+    missingprops = """{"type":"Feature","geometry":null}"""
+    @test_throws "properties requires schema fields" GeoJSON.read(missingprops, F)
+    optional = GeoJSON.Feature{2,Float64,NamedTuple{(:count,),Tuple{Union{Missing,Int}}}}
+    @test isequal(GeoJSON.properties(GeoJSON.read(missingprops, optional)), (count=missing,))
 end
 
 @testset "Collection schema is discovered once on demand" begin
@@ -73,21 +88,21 @@ end
     ]}"""
     for access in (propertynames, Tables.schema, fc -> fc.names, fc -> fc.types)
         fc = GeoJSON.read(text)
-        # Reading, indexing, iterating and writing do not discover the schema.
-        @test length(collect(fc)) == 2
-        @test JSON.parse(GeoJSON.write(fc))["features"][1]["properties"]["value"] == 1
-        GeoJSON.properties(fc[1])[:before] = true
+        @test !getfield(fc, :schema_ready)[]
         access(fc)
-        @test :before in fc.names
-        @test fc.types[:before] === Union{Missing,Bool}
-        @test fc.types[:value] === Union{Missing,Int64}
-        @test fc.types[:extra] === Union{Missing,String}
-        # As before, an already discovered schema is a snapshot, not a live view.
-        GeoJSON.properties(fc[1])[:after] = 1
-        @test :after ∉ propertynames(fc)
-        @test fc.names === propertynames(fc)
-        @test fc.types === fc.types
+        @test getfield(fc, :schema_ready)[]
     end
+    fc = GeoJSON.read(text)
+    # Read, index, iterate and write must leave discovery deferred.
+    @test length(collect(fc)) == 2
+    @test JSON.parse(GeoJSON.write(fc))["features"][1]["properties"]["value"] == 1
+    @test !getfield(fc, :schema_ready)[]
+    GeoJSON.properties(fc[1])[:before] = true
+    @test fc.types == Dict(:geometry=>Missing, :value=>Union{Missing,Int64},
+                           :extra=>Union{Missing,String}, :before=>Union{Missing,Bool})
+    GeoJSON.properties(fc[1])[:after] = 1
+    @test :after ∉ propertynames(fc)
+    @test fc.names === propertynames(fc)
     fc = GeoJSON.read(text)
     fc = GeoJSON.FeatureCollection(features=repeat(GeoJSON.features(fc), 1000))
     schemas = fetch.([Threads.@spawn propertynames(fc) for _ in 1:16])
