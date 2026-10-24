@@ -64,7 +64,8 @@ specializations() # Warm instrumentation, without reading GeoJSON.
 Base.cumulative_compile_timing(true)
 function record(op, stage, f)
     before = specializations()
-    stats = @timed f()
+    # Keep inference from compiling the workload while compiling this wrapper.
+    stats = @timed Base.invokelatest(f)
     after = specializations()
     println(join((label,mode,stage,op,stats.time*1000,stats.compile_time*1000,
                   stats.recompile_time*1000,after-before,stats.bytes), ','))

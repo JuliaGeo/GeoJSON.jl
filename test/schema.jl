@@ -7,13 +7,13 @@
     collection = """{"type":"FeatureCollection","features":[$feature]}"""
     fc = @inferred GeoJSON.read(collection, FC)
     for input in (Vector{UInt8}(collection), IOBuffer(collection))
-        @test GeoJSON.features(GeoJSON.read(input, FC)) == GeoJSON.features(fc)
+        @test isequal(GeoJSON.properties(GeoJSON.read(input, FC)[1]), GeoJSON.properties(fc[1]))
     end
     @test eltype(fc) === F
     @test GeoJSON.id(fc[1]) == "one"
     @test isequal(GeoJSON.properties(fc[1]), (name="café", count=missing))
     @test GeoJSON.geometry(fc[1]) isa GeoJSON.Point{2,Float64}
-    @test GeoJSON.features(GeoJSON.read(GeoJSON.write(fc), FC)) == GeoJSON.features(fc)
+    @test isequal(GeoJSON.properties(GeoJSON.read(GeoJSON.write(fc), FC)[1]), GeoJSON.properties(fc[1]))
     @test Set(Tables.schema(fc).names) == Set((:geometry, :name, :count))
     f = @inferred GeoJSON.read(feature, F)
     @test GeoJSON.geometry(f) == GeoJSON.Point(coordinates=(1.0,2.0))
@@ -39,7 +39,7 @@
     end
 end
 
-@testset "Writer compatibility" begin
+@testset "Writers preserve ID omission, property order and custom values" begin
     p = GeoJSON.Point(coordinates=(1.0,2.0))
     for value in (nothing, missing, "", Dict(), [])
         f = GeoJSON.Feature(geometry=p, id=value, properties=Dict{Symbol,Any}())

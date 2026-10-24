@@ -14,6 +14,7 @@ include("geojson_samples.jl")
 include("json.jl")
 include("schema.jl")
 include("small_union.jl")
+include("collection_iteration.jl")
 
 @testset "GeoJSON" begin
     @testset "Aqua.jl" begin
@@ -71,7 +72,6 @@ include("small_union.jl")
         @test propertynames(fc) == Tables.columnnames(fc) == [:a, :b, :geometry]
         @test GeoJSON.geometry.(fc) == [p]
         @test collect(p) == [1.1f0, 2.2f0]
-
     end
 
     @testset "Extent fallback respects explicit bounds" begin
@@ -83,7 +83,7 @@ include("small_union.jl")
     end
 
     @testset "Spec samples roundtrip geometry, properties and extents" begin
-        # Round trip read/write and compare prettified output to prettified original
+        # Spec examples retain values and extents through a round trip.
         foreach(Samples.features) do json
             f = GeoJSON.read(json)
             f1 = GeoJSON.read(GeoJSON.write(f))
@@ -213,7 +213,7 @@ include("small_union.jl")
         @test GeoJSON.LineString(coordinates=[(1, 2)]) != GeoJSON.MultiPoint(coordinates=[(1, 2)])
     end
 
-    @testset "NamedTuple point order doesn't matter as long as it's known" begin
+    @testset "Point writes order XYZ and ignore M" begin
         @test GeoJSON.write((X=1.0, Y=2.0)) ==
               GeoJSON.write((Y=2.0, X=1.0)) ==
               "{\"type\":\"Point\",\"coordinates\":[1.0,2.0]}"
