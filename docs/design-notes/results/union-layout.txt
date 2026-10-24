@@ -1,6 +1,0 @@
-isbitsunion: false
-allocatedinline: false
-isbits members: Bool[0, 0, 0, 0, 0, 0, 0]
-feature bytes: 32
-geometry return types: Any[Union{Nothing, GeoJSON.GeometryCollection{2, Float64}, GeoJSON.LineString{2, Float64}, GeoJSON.MultiLineString{2, Float64}, GeoJSON.MultiPoint{2, Float64}, GeoJSON.MultiPolygon{2, Float64}, GeoJSON.Point{2, Float64}, GeoJSON.Polygon{2, Float64}}]
-coordinates return types: Any[Union{Nothing, Tuple{Float64, Float64}, BitArray, Array}]
