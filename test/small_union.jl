@@ -66,6 +66,12 @@ end
     nestedtypes = Union{GeoJSON.GeometryCollection,GeoJSON.Polygon}
     @test_throws "Point is excluded by geometrytype" GeoJSON.read(nested; geometrytype=nestedtypes)
     @test GeoJSON.read(replace(nested, point=>polygon); geometrytype=nestedtypes) isa GeoJSON.GeometryCollection
+    emptygc = """{"type":"GeometryCollection","geometries":[]}"""
+    for selector in (GeoJSON.GeometryCollection, GeoJSON.GeometryCollection{2,Float32})
+        @test GeoJSON.read(emptygc; geometrytype=selector) isa GeoJSON.GeometryCollection{2,Float32}
+        @test_throws "Point is excluded" GeoJSON.read(
+            """{"type":"GeometryCollection","geometries":[$point]}"""; geometrytype=selector)
+    end
     @test_logs (:warn, r"trying 3D") GeoJSON.read(replace(point, "[1,2]"=>"[1,2,3]"); geometrytype=GeoJSON.Point)
     @test_logs (:warn, r"trying 3D") @test_throws "LineString is excluded" GeoJSON.read(
         collection([replace(point, "[1,2]"=>"[1,2,3]"), """{"type":"LineString","coordinates":[]}"""]);
@@ -78,6 +84,39 @@ end
     @test_throws "requires lazyfc=false" GeoJSON.read(collection([polygon]); lazyfc=true, geometrytype=allowed)
     fc = @inferred GeoJSON.read(collection([polygon]), FC; geometrytype=allowed)
     @test GeoJSON.geometry(fc[1]) isa GeoJSON.Polygon{2,Float64}
+end
+
+@testset "Geometry selectors ignore parameters and unwrap unions" begin
+    point = """{"type":"Point","coordinates":[1,2]}"""
+    for selector in (GeoJSON.Geometry, GeoJSON.Geometry{2}, GeoJSON.CoordinateGeometry,
+                     Union{GeoJSON.Point{D,Float64},GeoJSON.LineString{D,Float64}} where D,
+                     GeoJSON.AbstractGeometry, GeoJSON.AbstractGeometry{2}, GeoJSON.AbstractGeometry{2,Float64},
+                     Union{GeoJSON.Point{3,Float64},GeoJSON.AbstractGeometry{2,Float32}})
+        @test GeoJSON.read(point; geometrytype=selector) isa GeoJSON.Point{2,Float32}
+        @test (@inferred GeoJSON._geometrymask(selector)) isa UInt8
+    end
+    selector = Union{GeoJSON.Point{D,Float64},GeoJSON.LineString{D,Float64}} where D
+    @test_throws "Polygon is excluded" GeoJSON.read(
+        """{"type":"Polygon","coordinates":[]}"""; geometrytype=selector)
+    @test_throws "unsupported geometrytype selector" GeoJSON.read(point; geometrytype=Int)
+    maskallocations(::Type{G}) where {G} = @allocated GeoJSON._geometrymask(G)
+    maskallocations(selector)
+    @test maskallocations(selector) == 0
+end
+
+@testset "GeometryCollection writing emits every child kind with schema properties" begin
+    kinds = (GeoJSON.Point, GeoJSON.MultiPoint, GeoJSON.LineString, GeoJSON.MultiLineString,
+             GeoJSON.Polygon, GeoJSON.MultiPolygon, GeoJSON.GeometryCollection)
+    gs = GeoJSON.Geometry{2,Float64}[G{2,Float64}() for G in kinds]
+    gc = GeoJSON.GeometryCollection(geometries=gs)
+    f = GeoJSON.Feature(nothing, nothing, gc, (name="one",))
+    @test GeoJSON.geometry(GeoJSON.read(GeoJSON.write(f), typeof(f))) == gc
+    seen = Int[]
+    result = GeoJSON.StructUtils.applyeach(GeoJSON.SchemaStyle(),
+        (i, g) -> (push!(seen, i); GeoJSON.StructUtils.EarlyReturn(nothing)),
+        GeoJSON.GeometryChildren(gs))
+    @test result isa GeoJSON.StructUtils.EarlyReturn
+    @test seen == [1]
 end
 
 include("../benchmark/geometry_workload.jl")

@@ -6,19 +6,28 @@ struct GeometryReadStyle <: StructUtils.StructStyle
 end
 GeometryReadStyle() = GeometryReadStyle(0x7f)
 
-function _geometrymask(geometrytype)
-    geometrytype === nothing && return 0x7f
-    geometrytype === AbstractGeometry && return 0x7f
+_geometrymask(::Nothing) = 0x7f
+_geometrymask(geometrytype) = throw(ArgumentError(
+    "geometrytype must be nothing, AbstractGeometry (with optional parameters), or a built-in GeoJSON geometry kind or union of these types"))
+
+function _geometrymasktype(selector)
+    arm = Base.unwrap_unionall(selector)
+    arm isa Union && return _geometrymasktype(arm.a) | _geometrymasktype(arm.b)
+    arm isa DataType && arm.name === Base.unwrap_unionall(AbstractGeometry).name && return 0x7f
     kinds = (Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon, GeometryCollection)
-    geometrytype isa Type && geometrytype !== Union{} ||
-        throw(ArgumentError("geometrytype must be a GeoJSON geometry type or union of geometry types"))
-    mask = 0x00
-    for arm in Base.uniontypes(geometrytype)
-        index = findfirst(kind -> arm <: kind, kinds)
-        index === nothing && throw(ArgumentError("geometrytype must contain only built-in GeoJSON geometry kinds"))
-        mask |= UInt8(1 << (index - 1))
+    for i in eachindex(kinds)
+        arm !== Union{} && arm <: kinds[i] && return UInt8(1 << (i - 1))
     end
-    mask
+    throw(ArgumentError("unsupported geometrytype selector: expected AbstractGeometry or built-in GeoJSON geometry kinds (with optional parameters)"))
+end
+
+@generated function _geometrymask(::Type{G}) where {G}
+    try
+        _geometrymasktype(G)
+    catch e
+        e isa ArgumentError || rethrow()
+        :(throw(ArgumentError($(e.msg))))
+    end
 end
 
 _checkgeometry(style, index, kind) = nothing

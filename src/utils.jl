@@ -48,7 +48,21 @@ function StructUtils.applyeach(style::JSON.JSONStyle, f, x::GeometryCollection)
     @emit "type" "GeometryCollection"
     bb = bbox(x)
     bb === nothing || isempty(bb) || @emit "bbox" bb
-    @emit "geometries" geometry(x)
+    @emit "geometries" GeometryChildren(geometry(x))
+    nothing
+end
+
+struct GeometryChildren{D,T} <: AbstractVector{Geometry{D,T}}
+    geometries::Vector{Geometry{D,T}}
+end
+Base.size(x::GeometryChildren) = size(x.geometries)
+Base.getindex(x::GeometryChildren, i::Int) = x.geometries[i]
+
+function StructUtils.applyeach(style::JSON.JSONStyle, f, x::GeometryChildren)
+    for i in eachindex(x)
+        result = _emitgeometry(f, i, x[i])
+        result isa StructUtils.EarlyReturn && return result
+    end
     nothing
 end
 

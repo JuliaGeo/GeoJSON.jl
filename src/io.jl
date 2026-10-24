@@ -67,6 +67,12 @@ function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict}; kw...)
     return read(str; kw...)
 end
 
+read(source::GeoFormatTypes.GeoJSON, ::Type{X}; kw...) where {X<:GeoJSONT} =
+    read(GeoFormatTypes.val(source), X; kw...)
+
+function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict}, ::Type{X}; kw...) where {X<:GeoJSONT}
+    read(JSON.json(GeoFormatTypes.val(source)), X; kw...)
+end
 
 """
     write([io], geometry; geometrycolumn)

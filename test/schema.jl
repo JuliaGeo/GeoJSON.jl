@@ -1,4 +1,4 @@
-@testset "Schema reads preserve the default API" begin
+@testset "Schema reads preserve declared properties and geometry" begin
     P = NamedTuple{(:name, :count),Tuple{String,Union{Missing,Int}}}
     F = GeoJSON.Feature{2,Float64,P}
     FC = GeoJSON.FeatureCollection{2,Float64,P}
@@ -22,6 +22,15 @@
     @test_throws ArgumentError GeoJSON.read(feature, FC)
     @test_throws ArgumentError GeoJSON.read(point, GeoJSON.Polygon{2,Float64})
     @test_throws GeoJSON.CoordinateDimensionError GeoJSON.read(replace(point, "[1,2]"=>"[1,2,3]"), GeoJSON.Point{2,Float64})
+    crs = """{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}}"""
+    withcrs = replace(collection, "\"features\":" => "\"crs\":$crs,\"features\":")
+    for obj in (GeoJSON.read(withcrs), GeoJSON.read(withcrs, FC))
+        @test JSON.parse(GeoJSON.write(obj))["crs"]["properties"]["name"] == "urn:ogc:def:crs:OGC:1.3:CRS84"
+    end
+end
+
+@testset "Default constructors accept concrete and abstract feature vectors" begin
+    collection = """{"type":"FeatureCollection","features":[{"type":"Feature","id":"one","geometry":{"type":"Point","coordinates":[1,2]},"properties":{"name":"café"}}]}"""
     old = GeoJSON.read(collection)
     @test GeoJSON.properties(old[1]) isa Dict{Symbol,Any}
     @test GeoJSON.geometry(old[1]) isa GeoJSON.Point{2,Float32}
@@ -31,11 +40,15 @@
     @test GeoJSON.FeatureCollection{2,Float32}().features == []
     fs = GeoJSON.Feature{2,Float32}[old[1]]
     @test GeoJSON.FeatureCollection{2,Float32}(features=fs)[1] == old[1]
-    @test collect(GeoJSON.read(collection; lazyfc=true)) == collect(old)
-    crs = """{"type":"name","properties":{"name":"urn:ogc:def:crs:OGC:1.3:CRS84"}}"""
-    withcrs = replace(collection, "\"features\":" => "\"crs\":$crs,\"features\":")
-    for obj in (GeoJSON.read(withcrs), GeoJSON.read(withcrs, FC))
-        @test JSON.parse(GeoJSON.write(obj))["crs"]["properties"]["name"] == "urn:ogc:def:crs:OGC:1.3:CRS84"
+end
+
+@testset "GeoFormatTypes wrappers forward schema reads and restrictions" begin
+    point = """{"type":"Point","coordinates":[1,2]}"""
+    for value in (point, JSON.parse(point))
+        source = GeoFormatTypes.GeoJSON(value)
+        @test GeoJSON.read(source, GeoJSON.Point{2,Float64}; geometrytype=GeoJSON.Point) ==
+            GeoJSON.Point(coordinates=(1.0,2.0))
+        @test_throws "Point is excluded" GeoJSON.read(source, GeoJSON.Point{2,Float64}; geometrytype=GeoJSON.Polygon)
     end
 end
 

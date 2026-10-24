@@ -154,6 +154,7 @@ coordinates(g::GeometryCollection) = coordinates.(geometry(g))
 geometry(g::GeometryCollection) = getfield(g, :geometries)
 
 Base.show(io::IO, x::GeometryCollection{D,T}) where {D,T} = print(io, "GeometryCollection with $(length(x.geometries)) $(D)D geometries")
+Base.eltype(::Type{GeometryCollection{D,T}}) where {D,T} = Geometry{D,T}
 Base.length(g::GeometryCollection) = length(geometry(g))
 Base.lastindex(g::GeometryCollection) = length(geometry(g))
 Base.size(g::GeometryCollection) = size(geometry(g))
@@ -181,7 +182,7 @@ struct Feature{D,T,P} <: GeoJSONT{D,T}
     Feature{D,T,P}(id, bbox, geometry, properties) where {D,T,P} =
         new{D,T,P}(id, bbox, geometry, properties)
 end
-Feature(id, bbox::Union{Nothing,Vector{T}}, geometry::Geometry{D,T}, properties::P) where {D,T,P} =
+Feature(id, bbox, geometry::Geometry{D,T}, properties::P) where {D,T,P} =
     Feature{D,T,P}(id, bbox, geometry, properties)
 const DefaultProperties = Union{Nothing,Dict{Symbol,Any}}
 Feature{D,T}(id, bbox, geometry, properties) where {D,T} =
@@ -254,9 +255,13 @@ struct FeatureCollection{D,T,P} <: AbstractFeatureCollection{D,T}
         return new{D,T,P}(bbox, features, crs, Symbol[], Dict{Symbol,Type}(), Ref(false))
     end
 end
+FeatureCollection{D,T}(bbox, features::Vector{Feature{D,T,P}}, crs, n=nothing, t=nothing) where {D,T,P} =
+    FeatureCollection{D,T,P}(bbox, features, crs)
 FeatureCollection{D,T}(bbox, features, crs, n=nothing, t=nothing) where {D,T} =
     FeatureCollection{D,T,DefaultProperties}(bbox, features, crs)
 FeatureCollection{D,T}(; bbox=nothing, features=Feature{D,T}[], crs=nothing) where {D,T} =
+    FeatureCollection{D,T}(bbox, features, crs)
+FeatureCollection(bbox, features::Vector{<:Feature{D,T}}, crs) where {D,T} =
     FeatureCollection{D,T}(bbox, features, crs)
 FeatureCollection(; bbox=nothing, features::Vector{<:Feature{D,T}}, crs=nothing) where {D,T} =
     FeatureCollection{D,T}(bbox, features, crs)
@@ -311,6 +316,7 @@ struct LazyFeatureCollection{D,T} <: AbstractFeatureCollection{D,T}
     crs::Union{Nothing,CRS}
 end
 features(fc::LazyFeatureCollection) = collect(fc.features)
+Base.eltype(::Type{LazyFeatureCollection{D,T}}) where {D,T} = Feature{D,T,DefaultProperties}
 Base.length(fc::LazyFeatureCollection) = length(getfield(fc, :features))
 Base.size(fc::LazyFeatureCollection) = size(getfield(fc, :features))
 
