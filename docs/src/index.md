@@ -38,6 +38,10 @@ property values remain supported but are outside that static-compilation contrac
 geometry storage uses `Geometry{D,T}`, the union of the seven GeoJSON kinds;
 `GeometryCollection{D,T}` uses a vector with that element type, including nested
 collections. Existing two-parameter constructors and GeoInterface behavior remain.
+Positional `Feature(id, bbox, geometry, properties)` infers `D,T` from a non-null
+geometry and preserves the properties type. With null geometry, specify
+`Feature{D,T}(id, bbox, nothing, properties)` (or `Feature{D,T,P}` for a property
+schema); these constructors do not infer dimensions from a bounding box.
 The spike replaces the migration branch's four-parameter schemas: callers must
 drop `G` and use the `geometrytype` keyword to restrict geometry kinds. Geometry
 structs contain references, so this union does not provide isbits-union storage.

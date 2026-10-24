@@ -62,6 +62,10 @@ end
     @test_throws ArgumentError GeoJSON.read(replace(text, "\"type\":\"Feature\""=>"\"type\":1"), F)
     FC = GeoJSON.FeatureCollection{2,Float64,P}
     @test_throws ArgumentError GeoJSON.read("""{"type":true,"features":[]}""", FC)
+    missingprops = """{"type":"Feature","geometry":null}"""
+    @test_throws "properties requires schema fields" GeoJSON.read(missingprops, F)
+    optional = GeoJSON.Feature{2,Float64,NamedTuple{(:count,),Tuple{Union{Missing,Int}}}}
+    @test isequal(GeoJSON.properties(GeoJSON.read(missingprops, optional)), (count=missing,))
 end
 
 @testset "Collection schema is discovered once on demand" begin

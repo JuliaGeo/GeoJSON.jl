@@ -1,0 +1,35 @@
+CI regression checks after 921af05 (Linux x86_64)
+
+julia-1.10 --project -e 'using Pkg; Pkg.test()'
+Julia 1.10.12: 478 checks passed, including Aqua.
+
+julia --project -e 'using Pkg; Pkg.test(coverage=true)'
+Julia 1.13.2: 478 checks passed, including Aqua.
+
+julia-nightly --project -e 'using Pkg; Pkg.test()'
+Julia 1.15.0-DEV: 478 checks passed, including Aqua. All Julia runs were sequential.
+
+julia --project=test/trim -e 'using Pkg; Pkg.instantiate(); include("test/trim/runtests.jl")'
+Julia 1.13.2 / JuliaC 0.3: --trim=safe build and all 7 checks passed.
+Both fixtures roundtripped (2 and 8 features); polygon restrictions accepted the
+narrow fixture and rejected the fixture containing excluded geometry kinds.
+
+Allocation probe on Julia 1.10.12:
+  allocated_length(fc) = @allocated length(fc)
+  Warm allocated_length once before measuring it again.
+  1 feature: 0 bytes; 1,000 features: 0 bytes.
+  Deliberately replacing length with length(features(fc)), which copies the
+  span vector, allocates 24,048 bytes for 1,000 features. The <32 byte limit
+  detects that regression without a Julia version gate.
+
+Local src/*.cov line coverage, summed over non-"-" counters:
+  921af05: 567/585 (96.92%); fixed suite: 579/588 (98.47%).
+  This is local source coverage, not a reproduction of Codecov's project metric.
+
+Replayed the pre-slimming tests from 2ae28cc against the fixed source:
+  596 checks passed. The archived small-union fixture needed explicit
+  properties=nothing, as in the later fixture correction already on this branch.
+  Comparing matching source lines with the 921af05 coverage found no covered
+  lines lost through slimming. The final suite adds focused checks for null
+  coordinates, BigFloat line coordinates, required/optional absent schema
+  properties and 3D table bounds, while retaining fewer checks than that suite.

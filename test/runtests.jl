@@ -15,6 +15,7 @@ include("json.jl")
 include("schema.jl")
 include("small_union.jl")
 include("collection_iteration.jl")
+include("feature_constructors.jl")
 
 @testset "GeoJSON" begin
     @testset "Aqua.jl" begin
@@ -44,6 +45,9 @@ include("collection_iteration.jl")
         @test GeoJSON.coordinates(geom) == [(-35.1f0, -6.6f0, 5.5f0), (8.1f0, 3.8f0, 6.5f0)]
         @test GeoJSON.bbox(geom) == [-35.1f0, -6.6f0, 5.5f0, 8.1f0, 3.8f0, 6.5f0]
         @test GI.extent(geom) == Extent(X=(-35.1f0, 8.1f0), Y=(-6.6f0, 3.8f0), Z=(5.5f0, 6.5f0))
+        generic = GI.convert(GI, geom)
+        table = [(geometry=generic, name="line")]
+        @test GeoJSON.bbox(GeoJSON.read(GeoJSON.write(table); ndim=3)) == GeoJSON.bbox(geom)
     end
 
     @testset "Constructors preserve properties and geometry name collisions" begin

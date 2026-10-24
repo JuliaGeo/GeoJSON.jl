@@ -178,7 +178,11 @@ struct Feature{D,T,P} <: GeoJSONT{D,T}
     bbox::Union{Nothing,Vector{T}}
     geometry::Union{Nothing,Geometry{D,T}}
     properties::P
+    Feature{D,T,P}(id, bbox, geometry, properties) where {D,T,P} =
+        new{D,T,P}(id, bbox, geometry, properties)
 end
+Feature(id, bbox::Union{Nothing,Vector{T}}, geometry::Geometry{D,T}, properties::P) where {D,T,P} =
+    Feature{D,T,P}(id, bbox, geometry, properties)
 const DefaultProperties = Union{Nothing,Dict{Symbol,Any}}
 Feature{D,T}(id, bbox, geometry, properties) where {D,T} =
     Feature{D,T,DefaultProperties}(id, bbox, geometry, properties)

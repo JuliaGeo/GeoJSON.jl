@@ -337,6 +337,8 @@ mutable struct FeatureSink{D,T,P,S}
     geometry::Union{Nothing,Geometry{D,T}}
     properties::Union{Nothing,P}
     typed::Bool
+    FeatureSink{D,T,P,S}(style) where {D,T,P,S} =
+        new{D,T,P,S}(style, nothing, nothing, nothing, nothing, false)
 end
 
 function (f::FeatureSink{D,T,P})(key, value) where {D,T,P}
@@ -376,7 +378,7 @@ _emptyproperties(::Type{P}) where {P<:NamedTuple} =
     throw(ArgumentError("properties requires schema fields"))
 
 function StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T,P}}, source) where {D,T,P}
-    sink = FeatureSink{D,T,P,typeof(style)}(style, nothing, nothing, nothing, nothing, false)
+    sink = FeatureSink{D,T,P,typeof(style)}(style)
     pos = JSON.applyobject(sink, source)
     sink.typed || throw(ArgumentError("expected a Feature"))
     props = sink.properties

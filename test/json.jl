@@ -1,3 +1,5 @@
+allocated_length(fc) = @allocated length(fc)
+
 @testset "JSON dimensions, foreign members, nulls and lazy buffer lifetime" begin
     point = """{"type":"Point","coordinates":[1,2]}"""
     point3d = """{"coordinates":[1,2,3],"type":"Point"}"""
@@ -52,7 +54,14 @@
         @test collect(lazy) == [fc[1]]
     end
     lazy = GeoJSON.read(collection; lazyfc = true)
-    @test (@allocated length(lazy)) < 32
+    for n in (1, 1000)
+        many = """{"type":"FeatureCollection","features":[$(join(fill(feature, n), ','))]}"""
+        sized = GeoJSON.read(many; lazyfc = true)
+        # Warm the measurement barrier too; length must never copy feature spans.
+        allocated_length(sized)
+        @test length(sized) == n
+        @test allocated_length(sized) < 32
+    end
     @test size(lazy) == (1,)
     @test GeoJSON.read(GeoJSON.write(lazy))[1] == fc[1]
     @test_throws BoundsError lazy[0]
@@ -160,6 +169,9 @@ end
         text = """{"type":"$kind","coordinates":[]}"""
         @test isempty(GeoJSON.coordinates(GeoJSON.read(GeoJSON.write(GeoJSON.read(text)))))
     end
+    @test GeoJSON.coordinates(GeoJSON.read("""{"type":"Point","coordinates":null}""")) === nothing
+    @test GeoJSON.coordinates(GeoJSON.read(line; numbertype=BigFloat)) ==
+          [(-big"0.0", big"2.0"), (big"100.0", big"3.0")]
     point = """{"type":"Point","coordinates":[1,2]}"""
     fields = (
         "\"type\":\"Point\",\"coordinates\":[1,2]",

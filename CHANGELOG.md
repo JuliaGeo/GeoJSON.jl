@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bind inferred positional `Feature` constructors to a non-null geometry; null
+  geometry requires explicit `Feature{D,T}` or `Feature{D,T,P}` parameters.
 - Replace JSON3/StructTypes with JSON.jl 1.x/StructUtils. Julia 1.10 or later is
   required. Keep Float32 coordinates, symbol-keyed properties, CRS, `lazyfc`,
   existing constructors, and GeoInterface/Tables behavior by default.
