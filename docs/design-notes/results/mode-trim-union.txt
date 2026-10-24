@@ -1,0 +1,46 @@
+Julia 1.13.2; JuliaC 0.3.12; PackageCompiler 2.4.5; gcc 15.2.0
+Command wall time including setup: 61.466 s
+
+Compiling...
+✓ Compiling...
+- PackageCompiler: bundling libraries
+PackageCompiler: bundled libraries:
+  ├── Base:
+  │    ├── libatomic.so.1.2.0 - 165.594 KiB
+  │    ├── libdSFMT.so - 21.602 KiB
+  │    ├── libgcc_s.so.1 - 883.555 KiB
+  │    ├── libgfortran.so.5.0.0 - 10.817 MiB
+  │    ├── libgmp.so.10.5.0 - 707.688 KiB
+  │    ├── libgmpxx.so.4.7.0 - 36.445 KiB
+  │    ├── libgomp.so.1.0.0 - 1.515 MiB
+  │    ├── libjulia-internal.so.1.13.2 - 14.788 MiB
+  │    ├── libmpfr.so.6.2.2 - 2.406 MiB
+  │    ├── libopenlibm.so.4.0 - 248.109 KiB
+  │    ├── libpcre2-8.so.0.14.0 - 716.820 KiB
+  │    ├── libquadmath.so.0.0.0 - 965.102 KiB
+  │    ├── libssp.so.0.0.0 - 35.922 KiB
+  │    ├── libstdc++.so.6.0.35 - 2.609 MiB
+  │    ├── libunwind.so.8.2.0 - 526.594 KiB
+  │    ├── libuv.so.2.0.0 - 657.344 KiB
+  │    ├── libz.so.1.3.2 - 120.498 KiB
+  │    ├── libzstd.so.1.5.7 - 991.673 KiB
+  │    ├── libjulia.so.1.13.2 - 267.141 KiB
+  ├── Stdlibs:
+  │   ├── OpenBLAS_jll
+  │   │   ├── libopenblas64_.0.3.30.so - 34.206 MiB
+  │   ├── libblastrampoline_jll
+  │   │   ├── libblastrampoline.so.5 - 3.418 MiB
+  Total library file size: 75.954 MiB
+executable bytes 21099144
+features 2
+name Alpha
+roundtrip 2
+written 454
+
+features 8
+name Alpha
+roundtrip 8
+written 1235
+
+Test Summary:                           | Pass  Total   Time
+Schema read and write under --trim=safe |    7      7  45.2s

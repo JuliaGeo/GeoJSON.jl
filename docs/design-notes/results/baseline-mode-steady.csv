@@ -1,0 +1,13 @@
+label,input,operation,ms,bytes,allocations,input_bytes
+baseline-mode,large_fc,read,8.157490999999998,8486624,120022,1180041
+baseline-mode,large_fc,iterate,0.01038,0,0,1180041
+baseline-mode,large_fc,geometry_score,0.031560000000000005,0,0,1180041
+baseline-mode,large_fc,write,6.777547,6420400,50006,1180041
+baseline-mode,mixed,read,8.202977,9446496,133353,1260022
+baseline-mode,mixed,iterate,0.010159,0,0,1260022
+baseline-mode,mixed,geometry_score,0.032662,0,0,1260022
+baseline-mode,mixed,write,10.252875,6533696,40007,1260022
+baseline-mode,properties,read,19.603665,21126512,360015,1940041
+baseline-mode,properties,iterate,0.018244999999999997,0,0,1940041
+baseline-mode,properties,geometry_score,0.058511,0,0,1940041
+baseline-mode,properties,write,12.065601000000001,7540576,70008,1940041

@@ -1,5 +1,9 @@
 # Small-union geometry spike
 
+The geometry-restriction follow-up below supersedes the original validation-loss
+assessment. Earlier tables retain their original revisions and measurements.
+
+
 ## Scope and measurement
 
 Baseline **B** is PR #128 at `d52e7b1`; union **U** is `f1241f9` (production
@@ -11,7 +15,7 @@ JSON 1.12.2, StructUtils 2.11.1, GeoInterface 1.6.2 and Tables 1.14.0.
 `GeometryCollection{D,T}`. Collections store a vector of that union; feature and
 feature-collection types become `{D,T,P}`. Two-parameter constructors, nulls,
 GeoInterface and Tables behavior remain covered. Four-parameter migration-branch
-schemas must drop `G`; restricted geometry validation is lost. Custom subtypes of
+schemas must drop `G`; the follow-up restores read-time restrictions with a keyword. Custom subtypes of
 `AbstractGeometry` can no longer be stored in these closed fields.
 
 Each variant/mode runs in a fresh process with precompiled package caches.
@@ -156,9 +160,9 @@ julia --project=test/trim -e 'using Pkg; Pkg.instantiate(); include("test/trim/r
 
 Raw CSV files and test summaries are in `results/`.
 
-## Verification and provisional recommendation
+## Original verification and provisional recommendation (before restriction mode)
 
-**Do not adopt the full replacement for #128 yet.** Ordinary-read compilation
+**Original recommendation: do not adopt the full replacement for #128 yet.** Ordinary-read compilation
 is unchanged; the measured explicit-schema savings trade away geometry-subset
 validation and increase the first typed-read cost. There is no inline-union
 storage benefit. Both trim fixtures now build and run successfully, removing the
@@ -237,3 +241,156 @@ No independent findings or second measurement were produced, so there are no
 review disagreements to reconcile yet. Gemini review and independent testing
 remain owed after the agy lights-off fix. Local fresh-session repeats are
 reported above; they do not replace that independent second opinion.
+
+## Geometry restriction mode (2026-10-23)
+
+Use `read(source; geometrytype=Polygon)` or
+`read(source, FeatureCollection{D,T,P}; geometrytype=Union{Polygon,MultiPolygon})`.
+The keyword matches `numbertype` and `ndim`: it configures reading, while the
+existing schema argument continues to describe storage. A separate `mode` enum
+would still need another argument for the allowed kinds. `nothing` remains the
+default and permits all seven kinds. Concrete parameterized geometry types are
+accepted as kind selectors, not coordinate-type constraints; the schema or
+`ndim`/`numbertype` controls those.
+
+A single `UInt8` mask in `GeometryReadStyle` validates kinds before coordinates
+are materialized. JSON's style wrapper forwards the same mask through features,
+collections and nested GeometryCollections. Neither the mask value nor the
+allowed type becomes a feature/collection parameter or a parser-style parameter.
+The public keyword wrapper may specialize on its type argument; the parsing
+callbacks and storage share the same types across restrictions. Errors name the
+excluded kind. Null geometry is permitted. For recursive collections, both the
+collection kind and its child kinds must be allowed. This is stricter than #128's
+`G`, which restricts the feature geometry but does not constrain collection
+children. Mutation/construction after reading is not constrained by the option.
+
+Restricted `lazyfc=true` reads raise `ArgumentError`: deferred materialization
+cannot promise validation while reading, and retaining a restriction in lazy
+objects would expand this patch's storage/API scope. Existing unrestricted lazy
+reads are unchanged. The 3D retry retains the mask. The keyword also forwards
+through GeoFormatTypes string/dictionary wrappers.
+
+There is no optional concrete-`G` feature family. A closed field cannot hold
+custom subtypes; making it optional would require a parallel feature/collection
+family and duplicate constructors, table and GI behavior, or reintroduce a fourth
+parameter. That cost is disproportionate to this spike. Read an individual
+built-in geometry with its existing concrete schema, collect restricted built-in
+geometries into a concrete vector, or use a separate custom geometry vector and a
+GeoInterface-compatible feature/table wrapper. Compatible wrappers can use the
+generic writer. This restriction mode restores input validation, not custom
+subtype storage or the old concrete field type.
+
+`benchmark/geometry_workload.jl` supplies a small user calculation: branch on
+Point, LineString and Polygon, call `GI.x` or `GI.ngeom`, and return `Float64`.
+Five `@inferred` checks exercise the nullable small-union field and collection
+iteration, with expected numeric results. Use `GI.geometry(f)` rather than
+`f.geometry` where a property named `geometry` could shadow the field. Narrowed
+branches allow inferred GI calls for this calculation; a broad coordinates walk
+still has the limitations discussed above. The same calculation is measured
+against #128, which can also narrow its abstract geometry field at runtime.
+
+### Fresh measurements with the mode
+
+Same Julia/dependency versions, machine and sequential workload policy as above.
+B is `d52e7b1`; U is API/test commit `60139e3` on `071d6bf`. Each compile row runs in a
+fresh process. Package load is excluded. One run per mode; these are local
+measurements, not an independent review or a universal performance guarantee.
+
+| Mode | First read ms | Total compile ms | New package specializations |
+|---|---:|---:|---:|
+| B ordinary | 4408.90 | 4678.93 | 77 |
+| U ordinary | 4620.77 | 4990.20 | 87 |
+| U restricted | 4522.63 | 4894.79 | 68 |
+| B varying schemas | 5709.28 | 8872.65 | 153 |
+| U schema | 6677.49 | 7054.19 | 86 |
+| U restricted schema | 6841.60 | 7231.40 | 86 |
+
+The explicit-schema compile saving survives restored validation: 7.231 versus
+8.873 seconds (18.5%). The first restricted typed read still costs more
+(6.842 versus 5.709 seconds). Ordinary reads show no compile improvement in this
+run. Runtime masks keep the parser style and stored feature types fixed across
+allowed subsets; they do not eliminate keyword-wrapper specialization. The
+restricted collection workload permits its Point/LineString/Polygon descendants
+as well as GeometryCollection. The baseline schemas retain their older,
+nonrecursive restriction semantics.
+
+| 10,000 features | Read ms B / U / restricted U | Iterate µs B / U | User geometry calculation µs B / U | Write ms B / U |
+|---|---:|---:|---:|---:|
+| large_fc | 8.157 / 8.374 / 7.834 | 10.38 / 9.96 | 31.56 / 30.27 | 6.778 / 6.023 |
+| mixed | 8.203 / 7.959 / 7.924 | 10.16 / 9.67 | 32.66 / 34.05 | 10.253 / 8.619 |
+| properties | 19.604 / 18.095 / 18.110 | 18.24 / 17.39 | 58.51 / 58.74 | 12.066 / 10.303 |
+
+Iteration and the user calculation allocate zero bytes on both versions.
+User-calculation time changes by about −4% to +4%; there is no consistent
+steady-state gain or regression. Restricted reads add 3–5 allocations and
+96–128 bytes per file over unrestricted U (mask construction), with no added
+per-feature allocations. Unrestricted U adds one 16-byte allocation per read
+relative to B in this run. Write savings remain about 20,000 allocations and
+1.76 MB per file. Small timing differences, including a restricted read faster
+than unrestricted, should be treated as noise. See `results/*mode*.csv` and
+`results/mode-*.csv` for all per-input compile, bytes and allocation measurements.
+
+Reproduce the new modes and calculation with:
+
+```sh
+julia --startup-file=no --project=. benchmark/compile_latency.jl mode restriction
+julia --startup-file=no --project=. benchmark/compile_latency.jl mode restriction_schema
+julia --startup-file=no --project=. benchmark/bench.jl mode restriction
+```
+
+### Trim verification with restrictions
+
+Both variants again pass `--trim=safe` compilation, C linking, bundling and
+executable checks, using JuliaC 0.3.12, PackageCompiler 2.4.5 and gcc 15.2.0
+(clang 21.1.8 is also available). The baseline's production files are unchanged;
+its task-local harness only adds executable-size reporting.
+
+| Variant | Executable bytes | Command wall time | Reported testset time | Passed checks |
+|---|---:|---:|---:|---:|
+| PR #128 baseline | 19,272,496 | 197.729 s | 181.3 s | 5/5 |
+| Small union with restrictions | 21,099,144 | 61.466 s | 45.2 s | 7/7 |
+
+These command times include environment setup. Baseline ran first and populated
+fresh native/generic dependency caches, so **the times are not a build-speed
+comparison**. Sizes are unstripped `bin/trimgeojson` only, excluding 75.954 MiB
+of bundled runtime libraries. U is about 9.5% larger, but covers all seven kinds,
+nested collections, nulls, unrestricted/restricted reads and a broader schema;
+the baseline fixture covers Polygon/MultiPolygon. This does not isolate union
+representation overhead. No safe-trim warnings or unresolved-call diagnostics
+were reported.
+
+The union harness checks the original two-feature and all-eight-feature round
+trips, a restricted Polygon/MultiPolygon round trip, and nonzero exit for the
+all-kinds fixture under that restriction. The restriction's descendants are
+reachable in the compiled parser as well. Reproduce with the trim commands
+above; logs are `results/mode-trim-baseline.txt` and
+`results/mode-trim-union.txt`.
+
+The mode addresses the original geometry-validation loss while preserving the
+small-union storage experiment. Keep this as a draft stacked on #128 for review:
+the first typed-read cost, custom-subtype storage break and lack of an ordinary
+compile-time benefit remain material trade-offs. The measurements support a
+benefit for varying explicit schemas, not a general replacement recommendation.
+
+
+### Final package verification and test slimming
+
+`Pkg.test()` passes **441/441** checks, including Aqua, both plotting extensions,
+and the new restricted-read/inferred-calculation tests. There are no skipped or
+unrun requested checks. This follow-up adds 32 checks: three aggregate concrete
+kind-selector checks across dimension/number-type combinations, 24 restriction
+checks and five inferred calculation checks. The isolated focused suite passes
+50 checks; both trim variants pass separately as recorded above.
+
+| Suite | Passed checks | Sum of reported testset times |
+|---|---:|---:|
+| PR #128 (original measurement) | 569 | 88.6 s |
+| Starting small-union spike (original measurement) | 409 | 90.2 s |
+| Small union with restriction mode | **441** | **89.5 s** |
+
+The final count is 22.5% below the baseline, with the removals and retained
+contracts described in the original test-slimming section. These are separate
+cold-suite runs, not evidence of a runtime improvement. The final command wall
+time is 672.470 seconds, including 326 dependency precompiles in 554 seconds;
+setup cannot be attributed to the mode. The test summary is saved in
+`results/mode-package-tests.txt`. All commands ran serially; nothing was pushed.

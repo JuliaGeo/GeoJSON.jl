@@ -1,6 +1,8 @@
 # Run in each checkout: julia --project=CHECKOUT benchmark/bench.jl LABEL
 using GeoJSON
 using Statistics
+import GeoInterface as GI
+include("geometry_workload.jl")
 
 function inputs(n=10_000)
     point = "{\"type\":\"Point\",\"coordinates\":[12.25,-34.125]}"
@@ -35,9 +37,15 @@ for (name, text) in inputs()
     object = GeoJSON.read(text; ndim=2, numbertype=Float64)
     for (op,f) in (("read", () -> GeoJSON.read(text; ndim=2, numbertype=Float64)),
                    ("iterate", () -> count(f -> GeoJSON.geometry(f) !== nothing, object)),
+                   ("geometry_score", () -> collection_score(object)),
                    ("write", () -> GeoJSON.write(object)))
         result = measure(f)
         println(join((get(ARGS,1,"current"),name,op,result.ms,result.bytes,result.allocations,sizeof(text)), ','))
+    end
+    if get(ARGS, 2, "") == "restriction"
+        G = name == "mixed" ? Union{GeoJSON.Point,GeoJSON.LineString,GeoJSON.Polygon} : GeoJSON.Point
+        result = measure(() -> GeoJSON.read(text; ndim=2, numbertype=Float64, geometrytype=G))
+        println(join((ARGS[1],name,"restricted_read",result.ms,result.bytes,result.allocations,sizeof(text)), ','))
     end
     # Optional on the migration branches: measure typed reads and the deferred scan.
     if get(ARGS, 2, "") == "schema"

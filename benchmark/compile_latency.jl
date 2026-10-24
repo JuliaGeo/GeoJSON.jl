@@ -1,5 +1,5 @@
 # Fresh process per checkout and mode:
-# julia --startup-file=no --project=CHECKOUT benchmark/compile_latency.jl LABEL [default|schema]
+# julia --startup-file=no --project=CHECKOUT benchmark/compile_latency.jl LABEL [default|schema|restriction|restriction_schema]
 Base.cumulative_compile_timing(true)
 const load_stats = @timed @eval using GeoJSON, GeoInterface, StructUtils, JSON, Tables
 
@@ -28,6 +28,11 @@ function schema(G)
 end
 readdefault(text, _) = GeoJSON.read(text; ndim=2, numbertype=Float64)
 readschema(text, X) = GeoJSON.read(text, X)
+const restrictions = [Union{GeoJSON.GeometryCollection,GeoJSON.Point,GeoJSON.LineString,GeoJSON.Polygon},
+                      Union{GeoJSON.Polygon,GeoJSON.MultiPolygon}, GeoJSON.Polygon,
+                      Union{GeoJSON.Point,GeoJSON.LineString}, GeoJSON.AbstractGeometry]
+readrestricted(text, G) = GeoJSON.read(text; ndim=2, numbertype=Float64, geometrytype=G)
+readrestrictedschema(text, G) = GeoJSON.read(text, schema(G); geometrytype=G)
 function iteratefeatures(fc)
     n = 0
     for f in fc
@@ -77,8 +82,9 @@ println(join((label,mode,"package_load","load",load_stats.time*1000,load_stats.c
               load_stats.recompile_time*1000,0,load_stats.bytes), ','))
 for (i,(name, gs)) in enumerate(mixes)
     text = collection(repeat(gs, 100))
-    X = mode == "schema" ? schema(gtypes[i]) : nothing
-    reader = mode == "schema" ? readschema : readdefault
+    X = startswith(mode, "restriction") ? restrictions[i] : mode == "schema" ? schema(gtypes[i]) : nothing
+    reader = mode == "restriction_schema" ? readrestrictedschema :
+             mode == "restriction" ? readrestricted : mode == "schema" ? readschema : readdefault
     fc = record("read", name, () -> reader(text, X))
     record("iterate", name, () -> iteratefeatures(fc))
     record("coordinates", name, () -> coordinates(fc))
