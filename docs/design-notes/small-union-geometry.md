@@ -163,15 +163,27 @@ is unchanged; the measured explicit-schema savings trade away geometry-subset
 validation and increase the first typed-read cost. There is no inline-union
 storage benefit. Reassess after trim verification and independent review.
 
+**Trim status: blocked: no host C compiler.** Compiler access was denied for
+now by the coordinator; no retry or installation workaround was attempted. A
+follow-up task will verify both executables once a host compiler exists.
+
 The baseline `juliac --trim=safe` build reached C linking, then failed with
 `could not find a compiler, looked for gcc and clang`. Neither compiler is on
 PATH. The union build reached the same missing-compiler error. Both executable
-checks remain blocked until a host compiler is available (JuliaC 0.3.12). The union trim fixture now covers
+checks remain unverified (JuliaC 0.3.12). The union trim fixture now covers
 all seven kinds, nested collections and null geometry/properties, as well as
 the original Polygon/MultiPolygon fixture. No trim success is claimed.
+
+After extracting the baseline as above, rerun both `juliac --trim=safe` builds
+in separate Julia processes with this single command:
+
+```sh
+for checkout in dev/baseline .; do julia --project="$checkout/test/trim" -e 'using Pkg; Pkg.instantiate(); include(joinpath(ARGS[1], "test/trim/runtests.jl"))' "$checkout" || exit $?; done
+```
 
 Both requested agy/Gemini workers were launched, then cancelled by coordinator
 instruction because their harness stopped on permission_denied while using tools.
 No independent findings or second measurement were produced, so there are no
-review disagreements to reconcile yet. The coordinator plans to restart them
-after the agy lights-off fix. Local fresh-session repeats are reported above. Independent review remains owed.
+review disagreements to reconcile yet. Gemini review and independent testing
+remain owed after the agy lights-off fix. Local fresh-session repeats are
+reported above; they do not replace that independent second opinion.

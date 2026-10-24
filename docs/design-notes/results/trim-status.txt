@@ -5,4 +5,6 @@ Both: could not find a compiler, looked for gcc and clang
 No gcc, clang or cc found on PATH. No executable roundtrip verified.
 Standalone testset duration before failure: baseline 180.7 s, union 40.7 s.
 These are not comparable trim performance measurements (JuliaC dependencies warmed).
-Host compiler requested through the coordinator; rerun both standalone tests after installation.
+blocked: no host C compiler
+Compiler access denied for now by coordinator; no retry or workaround attempted.
+Follow-up task will rerun both builds with the one-line command in the design note.
