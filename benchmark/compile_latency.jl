@@ -36,11 +36,12 @@ function iteratefeatures(fc)
     n
 end
 function coordinates(fc)
+    n = 0
     for f in fc
         g = GI.geometry(f)
-        g === nothing || GI.coordinates(g)
+        g === nothing || (n += length(GI.coordinates(g)))
     end
-    nothing
+    n
 end
 
 # Count cached MethodInstances of methods defined by GeoJSON, including extensions
