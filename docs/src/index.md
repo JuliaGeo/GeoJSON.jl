@@ -42,6 +42,9 @@ Positional `Feature(id, bbox, geometry, properties)` infers `D,T` from a non-nul
 geometry and preserves the properties type. With null geometry, specify
 `Feature{D,T}(id, bbox, nothing, properties)` (or `Feature{D,T,P}` for a property
 schema); these constructors do not infer dimensions from a bounding box.
+Bounding boxes are converted to the geometry's numeric type. Collection
+constructors preserve `P` when given `Vector{Feature{D,T,P}}`, including
+two-parameter and inferred keyword/positional forms.
 The spike replaces the migration branch's four-parameter schemas: callers must
 drop `G` and use the `geometrytype` keyword to restrict geometry kinds. Geometry
 structs contain references, so this union does not provide isbits-union storage.
@@ -77,7 +80,10 @@ mutation. Null geometry remains allowed. A GeometryCollection and all its
 children must be allowed, so include `GeoJSON.GeometryCollection` along with
 its permitted child kinds. Type parameters on a supplied geometry type select
 only its kind; dimensions and numeric types come from `ndim`/`numbertype` or the
-schema. The default `nothing` permits all seven kinds. Restricted reads require
+schema. UnionAll selectors such as `GeoJSON.Geometry`, `GeoJSON.Geometry{2}`,
+and parameterized unions are accepted. Any parameterization of
+`GeoJSON.AbstractGeometry` selects all seven kinds, also within a union.
+The default `nothing` permits all seven kinds. Restricted reads require
 `lazyfc=false`; lazy reads defer materialization and cannot promise validation
 at read time.
 

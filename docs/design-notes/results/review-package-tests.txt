@@ -1,0 +1,140 @@
+julia-1.10 --startup-file=no --project -e 'using Pkg; Pkg.test()'
+Julia 1.10.12: 534/534 checks passed
+
+Test Summary:                                                    | Pass  Total   Time
+JSON dimensions, foreign members, nulls and lazy buffer lifetime |   44     44  54.1s
+Test Summary:                                                      | Pass  Total  Time
+Numeric rounding, signed zero, strict tokens and empty coordinates |  107    107  4.8s
+Test Summary:   | Pass  Total  Time
+Long file paths |    2      2  0.0s
+Test Summary:                                          | Pass  Total  Time
+Schema reads preserve declared properties and geometry |   16     16  1.1s
+Test Summary:                                                     | Pass  Total  Time
+Default constructors accept concrete and abstract feature vectors |    7      7  0.2s
+Test Summary:                                                 | Pass  Total  Time
+GeoFormatTypes wrappers forward schema reads and restrictions |    4      4  0.1s
+Test Summary:                                                  | Pass  Total  Time
+Writers preserve ID omission, property order and custom values |    7      7  1.0s
+Test Summary:                          | Pass  Total  Time
+Schema properties use JSON value types |    5      5  2.3s
+Test Summary:                                  | Pass  Total  Time
+Collection schema is discovered once on demand |   21     21  0.5s
+Test Summary:                                                      | Pass  Total  Time
+Geometry kinds share feature types and preserve nested collections |   18     18  7.0s
+Test Summary:                               | Pass  Total  Time
+Property schemas accept every geometry kind |    3      3  1.3s
+Test Summary:                                                | Pass  Total  Time
+Read-time geometry restrictions preserve small-union storage |   28     28  0.4s
+Test Summary:                                          | Pass  Total  Time
+Geometry selectors ignore parameters and unwrap unions |   20     20  0.0s
+Test Summary:                                                            | Pass  Total  Time
+GeometryCollection writing emits every child kind with schema properties |    3      3  0.7s
+Test Summary:                                                 | Pass  Total  Time
+Obtained geometries feed inferred user and GeoInterface calls |    5      5  0.3s
+Test Summary:                                                        | Pass  Total  Time
+GeometryCollection iteration preserves child values and element type |    2      2  0.1s
+Test Summary:                                                 | Pass  Total  Time
+LazyFeatureCollection iteration has concrete feature elements |    1      1  0.0s
+Test Summary:                                                             | Pass  Total  Time
+Feature constructors bind dimensions from geometry or explicit parameters |   33     33  0.3s
+Test Summary:                                          | Pass  Total  Time
+FeatureCollection constructors preserve property types |   20     20  0.0s
+Test Summary: | Pass  Total   Time
+GeoJSON       |  186    186  18.0s
+Test Summary:                             | Pass  Total  Time
+Plot extensions accept a polygon geometry |    2      2  1.9s
+     Testing GeoJSON tests passed
+
+julia --startup-file=no --project -e 'using Pkg; Pkg.test()'
+Julia 1.13.2: 534/534 checks passed
+
+Test Summary:                                                    | Pass  Total   Time
+JSON dimensions, foreign members, nulls and lazy buffer lifetime |   44     44  44.4s
+Test Summary:                                                      | Pass  Total  Time
+Numeric rounding, signed zero, strict tokens and empty coordinates |  107    107  3.8s
+Test Summary:   | Pass  Total  Time
+Long file paths |    2      2  0.1s
+Test Summary:                                          | Pass  Total  Time
+Schema reads preserve declared properties and geometry |   16     16  6.1s
+Test Summary:                                                     | Pass  Total  Time
+Default constructors accept concrete and abstract feature vectors |    7      7  0.2s
+Test Summary:                                                 | Pass  Total  Time
+GeoFormatTypes wrappers forward schema reads and restrictions |    4      4  0.1s
+Test Summary:                                                  | Pass  Total  Time
+Writers preserve ID omission, property order and custom values |    7      7  1.0s
+Test Summary:                          | Pass  Total  Time
+Schema properties use JSON value types |    5      5  2.0s
+Test Summary:                                  | Pass  Total  Time
+Collection schema is discovered once on demand |   21     21  0.5s
+Test Summary:                                                      | Pass  Total  Time
+Geometry kinds share feature types and preserve nested collections |   18     18  5.3s
+Test Summary:                               | Pass  Total  Time
+Property schemas accept every geometry kind |    3      3  1.1s
+Test Summary:                                                | Pass  Total  Time
+Read-time geometry restrictions preserve small-union storage |   28     28  0.4s
+Test Summary:                                          | Pass  Total  Time
+Geometry selectors ignore parameters and unwrap unions |   20     20  0.0s
+Test Summary:                                                            | Pass  Total  Time
+GeometryCollection writing emits every child kind with schema properties |    3      3  0.4s
+Test Summary:                                                 | Pass  Total  Time
+Obtained geometries feed inferred user and GeoInterface calls |    5      5  0.1s
+Test Summary:                                                        | Pass  Total  Time
+GeometryCollection iteration preserves child values and element type |    2      2  0.1s
+Test Summary:                                                 | Pass  Total  Time
+LazyFeatureCollection iteration has concrete feature elements |    1      1  0.0s
+Test Summary:                                                             | Pass  Total  Time
+Feature constructors bind dimensions from geometry or explicit parameters |   33     33  0.3s
+Test Summary:                                          | Pass  Total  Time
+FeatureCollection constructors preserve property types |   20     20  0.1s
+Test Summary: | Pass  Total   Time
+GeoJSON       |  186    186  16.7s
+Test Summary:                             | Pass  Total  Time
+Plot extensions accept a polygon geometry |    2      2  9.2s
+     Testing GeoJSON tests passed
+
+julia-nightly --startup-file=no --project -e 'using Pkg; Pkg.test()'
+Julia 1.15.0-DEV: 534/534 checks passed
+
+Test Summary:                                                    | Pass  Total   Time
+JSON dimensions, foreign members, nulls and lazy buffer lifetime |   44     44  47.4s
+Test Summary:                                                      | Pass  Total  Time
+Numeric rounding, signed zero, strict tokens and empty coordinates |  107    107  3.6s
+Test Summary:   | Pass  Total  Time
+Long file paths |    2      2  0.1s
+Test Summary:                                          | Pass  Total  Time
+Schema reads preserve declared properties and geometry |   16     16  4.5s
+Test Summary:                                                     | Pass  Total  Time
+Default constructors accept concrete and abstract feature vectors |    7      7  0.1s
+Test Summary:                                                 | Pass  Total  Time
+GeoFormatTypes wrappers forward schema reads and restrictions |    4      4  0.1s
+Test Summary:                                                  | Pass  Total  Time
+Writers preserve ID omission, property order and custom values |    7      7  0.3s
+Test Summary:                          | Pass  Total  Time
+Schema properties use JSON value types |    5      5  1.8s
+Test Summary:                                  | Pass  Total  Time
+Collection schema is discovered once on demand |   21     21  0.2s
+Test Summary:                                                      | Pass  Total  Time
+Geometry kinds share feature types and preserve nested collections |   18     18  4.5s
+Test Summary:                               | Pass  Total  Time
+Property schemas accept every geometry kind |    3      3  0.8s
+Test Summary:                                                | Pass  Total  Time
+Read-time geometry restrictions preserve small-union storage |   28     28  0.3s
+Test Summary:                                          | Pass  Total  Time
+Geometry selectors ignore parameters and unwrap unions |   20     20  0.0s
+Test Summary:                                                            | Pass  Total  Time
+GeometryCollection writing emits every child kind with schema properties |    3      3  0.2s
+Test Summary:                                                 | Pass  Total  Time
+Obtained geometries feed inferred user and GeoInterface calls |    5      5  0.1s
+Test Summary:                                                        | Pass  Total  Time
+GeometryCollection iteration preserves child values and element type |    2      2  0.1s
+Test Summary:                                                 | Pass  Total  Time
+LazyFeatureCollection iteration has concrete feature elements |    1      1  0.0s
+Test Summary:                                                             | Pass  Total  Time
+Feature constructors bind dimensions from geometry or explicit parameters |   33     33  0.1s
+Test Summary:                                          | Pass  Total  Time
+FeatureCollection constructors preserve property types |   20     20  0.0s
+Test Summary: | Pass  Total  Time
+GeoJSON       |  186    186  8.6s
+Test Summary:                             | Pass  Total  Time
+Plot extensions accept a polygon geometry |    2      2  5.6s
+     Testing GeoJSON tests passed

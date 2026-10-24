@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Preserve property type `P` in inferred and two-parameter FeatureCollection
+  constructors given `Vector{Feature{D,T,P}}`. Positional Feature construction
+  preserves properties and converts bounding boxes to the geometry's number type.
+- Accept UnionAll geometry selectors and parameterized AbstractGeometry selectors;
+  parameters select kinds only. Schema reads also forward through GeoFormatTypes
+  string and dictionary wrappers.
+- Give GeometryCollection and LazyFeatureCollection iteration their declared
+  element types; explicitly dispatch collection children when writing.
+
 - Bind inferred positional `Feature` constructors to a non-null geometry; null
   geometry requires explicit `Feature{D,T}` or `Feature{D,T,P}` parameters.
 - Replace JSON3/StructTypes with JSON.jl 1.x/StructUtils. Julia 1.10 or later is

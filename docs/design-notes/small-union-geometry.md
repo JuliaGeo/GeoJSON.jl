@@ -18,6 +18,32 @@ GeoInterface and Tables behavior remain covered. Four-parameter migration-branch
 schemas must drop `G`; the follow-up restores read-time restrictions with a keyword. Custom subtypes of
 `AbstractGeometry` can no longer be stored in these closed fields.
 
+### Migration from #128
+
+- Replace `Feature{D,T,G,P}` and `FeatureCollection{D,T,G,P}` with
+  `Feature{D,T,P}` and `FeatureCollection{D,T,P}`. Use `geometrytype` for
+  read-time subset validation; closed geometry fields accept built-in kinds only.
+- `Feature(id, bbox, geometry, properties)` infers dimensions and number type
+  from a non-null built-in geometry and preserves `typeof(properties)`.
+  For null geometry, supply `Feature{D,T}` (default dictionary properties) or
+  `Feature{D,T,P}` explicitly. Bounding boxes are converted to `Vector{T}`,
+  including when their input element type differs.
+- Given `Vector{Feature{D,T,P}}`, inferred and two-parameter
+  `FeatureCollection` constructors preserve `P`, for keyword and positional
+  forms. Abstractly typed feature vectors retain the default-properties fallback.
+- `collect(gc)` returns `Vector{Geometry{D,T}}`;
+  `collect(lazy_fc)` returns `Vector{Feature{D,T,DefaultProperties}}`.
+- `geometrytype` accepts built-in kinds and unions, including UnionAll forms
+  such as `Geometry`, `Geometry{2}` and
+  `Union{Point{D,Float64},LineString{D,Float64}} where D`.
+  Any parameterization of `AbstractGeometry` selects every kind, including
+  inside a union. Parameters are ignored; the read schema or `ndim` and
+  `numbertype` determine storage. Collection children are validated recursively.
+- GeoFormatTypes string/dictionary wrappers forward schema reads and restrictions.
+- Internal `FeatureSink` no longer has a default field-wise outer constructor;
+  parsing initializes it via `FeatureSink{D,T,P,S}(style)`. Downstream code
+  should use `read` rather than constructing this parser state.
+
 Each variant/mode runs in a fresh process with precompiled package caches.
 `benchmark/compile_latency.jl` reads synthetic file contents: 100 features with
 nested mixed GeometryCollections, 200 Polygon/MultiPolygon features, 100 Polygons,
@@ -394,3 +420,54 @@ cold-suite runs, not evidence of a runtime improvement. The final command wall
 time is 672.470 seconds, including 326 dependency precompiles in 554 seconds;
 setup cannot be attributed to the mode. The test summary is saved in
 `results/mode-package-tests.txt`. All commands ran serially; nothing was pushed.
+
+### Review follow-up allocation check
+
+The foldable selector mask unwraps UnionAll selectors and recursively combines
+union arms using a bit loop over the seven kinds. Constant selectors fold to a
+UInt8; runtime Type arguments also remain inferred and safe to trim. There is no
+`Vector{Any}` or captured closure. On Julia 1.13.2, rerunning
+`julia --startup-file=no --project benchmark/bench.jl review restriction`
+gives identical ordinary/restricted read allocations:
+
+| 10,000-feature input | Ordinary allocations / bytes | Restricted allocations / bytes |
+|---|---:|---:|
+| large_fc | 120,023 / 8,486,640 | 120,023 / 8,486,640 |
+| mixed | 133,354 / 9,446,512 | 133,354 / 9,446,512 |
+| properties | 360,016 / 21,126,528 | 360,016 / 21,126,528 |
+
+This removes all 3–5 extra allocations (96–128 bytes) previously measured for
+restrictions. The earlier measurements remain as historical results; their
+compilation and representation conclusions stand. Full new steady-state results
+are in `results/review-allocations.csv`.
+
+### Review follow-up verification
+
+All requested package suites ran sequentially, with fresh per-version manifest
+resolution and `JULIA_NUM_PRECOMPILE_TASKS=4 GKSwstype=100`:
+
+| Command | Runtime | Result |
+|---|---|---:|
+| `julia-1.10 --startup-file=no --project -e 'using Pkg; Pkg.test()'` | 1.10.12 | 534/534 passed |
+| `julia --startup-file=no --project -e 'using Pkg; Pkg.test()'` | 1.13.2 | 534/534 passed |
+| `julia-nightly --startup-file=no --project -e 'using Pkg; Pkg.test()'` | 1.15.0-DEV | 534/534 passed |
+
+These include Aqua, both plotting extensions, concrete collection iteration,
+typed-property constructor preservation, bbox conversion, UnionAll/abstract
+selectors, zero-allocation masks, wrapper schema reads and collection writing.
+Package test summaries are in `results/review-package-tests.txt`.
+An isolated copy of the original `e7c42ff` source fails all nine targeted
+regression assertions (three failures and six errors); the fixed package passes
+the corresponding tests. The earlier suite counts above are historical.
+
+The Julia 1.13.2 trim harness also passes **7/7** checks:
+`julia --startup-file=no --project=test/trim -e 'using Pkg; Pkg.instantiate(); include("test/trim/runtests.jl")'`.
+It compiles with `--trim=safe`, links and bundles the executable, round-trips both
+fixtures, accepts the polygon-only fixture under a restriction and rejects the
+all-kinds fixture under that restriction. The expanded GeometryCollection fixture
+contains all seven child kinds. No trim warnings or unresolved calls remain;
+the executable is 21,078,120 bytes. See `results/review-trim.txt`.
+
+The selector helper is foldable and explicitly avoids argument specialization,
+so recursive union arms and runtime Type keyword arguments retain a statically
+resolved call target as well as an inferred UInt8 result.
