@@ -1,10 +1,35 @@
-Julia 1.13.2; JuliaC 0.3.12; --trim=safe, --experimental
-Baseline d52e7b1: compilation reported complete; C link blocked.
-Union f1241f9 production layout: compilation reported complete; C link blocked.
-Both: could not find a compiler, looked for gcc and clang
-No gcc, clang or cc found on PATH. No executable roundtrip verified.
-Standalone testset duration before failure: baseline 180.7 s, union 40.7 s.
-These are not comparable trim performance measurements (JuliaC dependencies warmed).
-blocked: no host C compiler
-Compiler access denied for now by coordinator; no retry or workaround attempted.
-Follow-up task will rerun both builds with the one-line command in the design note.
+Follow-up 2026-10-23 (local serial runs, one Julia workload/thread at a time)
+Julia 1.13.2; JuliaC 0.3.12; PackageCompiler 2.4.5; --trim=safe, --experimental
+Linux x86_64, Ryzen 5 3600; gcc 15.2.0 (/usr/bin/gcc); clang 21.1.8 also available.
+Baseline d52e7b1 in a detached temporary worktree of a task-local shared clone.
+Union d0a93e1 (starting HEAD), same small-union production layout as earlier spike.
+Both variants: C linking succeeds; no trim warnings, unresolved calls or errors.
+
+Variant   First wall s  Warm wall s  Warm testset s  Warm executable bytes
+Baseline      305.581       35.354            33.9               19267040
+Union          61.528       38.081            36.6               21051080
+Wall: entire recorded Julia command, including instantiate, fixture setup, build,
+bundle, executable checks and cleanup; NOT isolated compiler time.
+Testset: fixture setup/build/bundle/checks, excluding outer environment setup.
+First baseline run installs dependencies and warms native/generic caches.
+Do not compare first-run wall times as compiler performance.
+Sizes: stat bytes of bin/trimgeojson, unstripped; bundled runtime excluded.
+JuliaC reports 75.954 MiB of library files for each variant.
+First executable bytes: baseline 19272440, union 21051248 (not byte reproducible).
+Warm size difference: +1784040 bytes / +9.26%; schemas have different breadth.
+
+Existing trim suites: baseline 5/5, union 5/5, both first and warm runs.
+Baseline data.geojson: features 2; name Alpha; roundtrip 2; written 454; exit 0.
+Union data.geojson: features 2; name Alpha; roundtrip 2; written 454; exit 0.
+Union all-geometries.geojson: features 8; name Alpha; roundtrip 8; written 1235; exit 0.
+Preserved warm executables rerun directly on those inputs: all exit 0.
+The executable reads/writes/rereads and checks the first Polygon coordinate,
+name and id; the harness checks counts and positive written size. It does not
+compare every field. Baseline schema accepts only Polygon/MultiPolygon; union
+fixture exercises all seven kinds, nested collections and nulls.
+No union-only trim failure; no dynamic-dispatch diagnostic for this workload.
+No package behavior changes or new tests. See trim-baseline.txt and trim-union.txt
+for normalized warm logs, and small-union-geometry.md for the exact commands.
+
+Final package validation: julia --project=. -e 'using Pkg; Pkg.test()' exits 0,
+409 checks pass. See trim-package-tests.txt for the test summaries.

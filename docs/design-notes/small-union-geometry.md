@@ -161,25 +161,75 @@ Raw CSV files and test summaries are in `results/`.
 **Do not adopt the full replacement for #128 yet.** Ordinary-read compilation
 is unchanged; the measured explicit-schema savings trade away geometry-subset
 validation and increase the first typed-read cost. There is no inline-union
-storage benefit. Reassess after trim verification and independent review.
+storage benefit. Both trim fixtures now build and run successfully, removing the
+compiler blocker, but this establishes trim viability rather than a reason to
+replace #128. Reassess after independent review; the API/validation tradeoffs and
+ordinary-read compilation findings above still apply.
 
-**Trim status: blocked: no host C compiler.** Compiler access was denied for
-now by the coordinator; no retry or installation workaround was attempted. A
-follow-up task will verify both executables once a host compiler exists.
+## Trim verification (2026-10-23)
 
-The baseline `juliac --trim=safe` build reached C linking, then failed with
-`could not find a compiler, looked for gcc and clang`. Neither compiler is on
-PATH. The union build reached the same missing-compiler error. Both executable
-checks remain unverified (JuliaC 0.3.12). The union trim fixture now covers
-all seven kinds, nested collections and null geometry/properties, as well as
-the original Polygon/MultiPolygon fixture. No trim success is claimed.
+**Both variants pass `--trim=safe` compilation, C linking and executable checks.**
+The former missing-compiler blocker is resolved. This follow-up uses Julia 1.13.2,
+JuliaC 0.3.12, PackageCompiler 2.4.5 and gcc 15.2.0 from `/usr/bin/gcc`;
+clang 21.1.8 is also installed. The host and package dependency versions match
+those recorded above. Baseline is the unmodified `d52e7b1`; union is the task's
+starting HEAD `d0a93e1` (the same production layout as the earlier measurements).
 
-After extracting the baseline as above, rerun both `juliac --trim=safe` builds
-in separate Julia processes with this single command:
+| Variant | Executable bytes, warm build | Warm command wall time | Warm testset time | First command wall time |
+|---|---:|---:|---:|---:|
+| PR #128 baseline | 19,267,040 | 35.354 s | 33.9 s | 305.581 s |
+| Small union | 21,051,080 | 38.081 s | 36.6 s | 61.528 s |
+
+Each command runs serially in a fresh Julia process with one Julia thread.
+Wall time includes `Pkg.instantiate()`, temporary fixture setup, the JuliaC build,
+bundling and executable checks; testset time excludes outer environment setup.
+These are build-and-test measurements, not isolated compiler timings. The first
+baseline run installed dependencies and populated native/generic precompile
+caches, so its wall time is not comparable with the first union run. The table's
+warm repeat follows both first runs. Sizes use `stat` on `bin/trimgeojson`, without
+stripping; they exclude runtime libraries (JuliaC reports 75.954 MiB of libraries
+for each bundle). First-run executable sizes were 19,272,440 / 21,051,248 bytes;
+byte-identical builds are not assumed.
+
+Both warm suites pass **5/5** assertions. Baseline runs its original two-feature
+Polygon/MultiPolygon input; union runs that input and `all-geometries.geojson`
+(all seven geometry kinds, nested collections and null geometry/properties).
+Both report `features 2`, `name Alpha`, `roundtrip 2`, `written 454`. Union also
+reports `features 8`, `name Alpha`, `roundtrip 8`, `written 1235`. Each executable
+reads, writes and rereads its input; its return code checks the first Polygon's
+coordinate, property name and id. The harness checks feature counts and positive
+serialized size. This does not assert equality of every feature field. The saved
+warm executables were also rerun directly on these inputs with exit code 0.
+
+**No trim warnings, unresolved-call diagnostics, or build/runtime errors were
+reported in either run.** There is no union-only trim failure or remaining dynamic
+dispatch reported by the safe-trim checker for this fixture. This is limited to
+the fixture's reachable read/write paths, not a claim that every package API trims.
+The union executable is about 9.3% larger in the warm run, but its schema and
+fixture cover more geometry kinds than the baseline's restricted two-kind schema;
+these sizes do not isolate the cost of the representation change.
+
+The exact recorded Julia invocations were run baseline first, then union, with
+external wall-clock timing and a file watcher to preserve the temporary binaries.
+The same commands were repeated after caches warmed. Reproduce with:
 
 ```sh
+# A detached temporary worktree; this does not change the spike branch's history.
+mkdir -p dev
+git worktree add --detach dev/baseline d52e7b1
 for checkout in dev/baseline .; do julia --project="$checkout/test/trim" -e 'using Pkg; Pkg.instantiate(); include(joinpath(ARGS[1], "test/trim/runtests.jl"))' "$checkout" || exit $?; done
 ```
+
+Here the shared Git metadata was read-only, so `dev/baseline` was instead made as
+a detached worktree of a task-local shared clone of this repository. Its tracked
+files remain unchanged. Raw warm logs, with temporary paths normalized, are in
+`results/trim-baseline.txt` and `results/trim-union.txt`; timings and size definitions
+are also summarized in `results/trim-status.txt`. No package behavior changed and
+no regression test was added; this follow-up executes the existing trim tests.
+The final `julia --project=. -e 'using Pkg; Pkg.test()'` also passes all
+409 checks, including both plotting extensions; see `results/trim-package-tests.txt`.
+Its fresh test environment precompiled 326 dependencies in 554 seconds, excluded
+from the trim timings above.
 
 Both requested agy/Gemini workers were launched, then cancelled by coordinator
 instruction because their harness stopped on permission_denied while using tools.

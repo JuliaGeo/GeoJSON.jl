@@ -1,0 +1,83 @@
+union: warm repeat; process wall seconds=38.081; exit=0
+Executable size (stat, bytes): 21051080
+Command: julia --project=CHECKOUT/test/trim -e 'using Pkg; Pkg.instantiate(); include(joinpath(ARGS[1], "test/trim/runtests.jl"))' CHECKOUT
+CHECKOUT: . (d0a93e1)
+Paths normalized; no trim warnings or errors.
+
+Precompiling packages...
+   0.5 s  ✓ TrimGeoJSON
+  1 dependency successfully precompiled in 1 seconds. 22 already precompiled.
+  Activating project at `<tmp>/jl_TEMP/TrimGeoJSON`
+   Resolving package versions...
+    Updating `<tmp>/jl_TEMP/TrimGeoJSON/Project.toml`
+  [61d90e0f] + GeoJSON v0.9.0 `<worktree>`
+    Updating `<tmp>/jl_TEMP/TrimGeoJSON/Manifest.toml`
+  [9a962f9c] + DataAPI v1.16.0
+  [e2d170a0] + DataValueInterfaces v1.0.0
+  [411431e0] + Extents v0.1.6
+  [68eda718] + GeoFormatTypes v0.4.5
+  [cf35fbd7] + GeoInterface v1.6.2
+  [61d90e0f] + GeoJSON v0.9.0 `<worktree>`
+  [82899510] + IteratorInterfaceExtensions v1.0.0
+  [682c06a0] + JSON v1.12.2
+  [bac558e1] + OrderedCollections v2.0.3
+  [69de0a69] + Parsers v3.0.0
+  [aea7be01] + PrecompileTools v1.3.4
+  [21216c6a] + Preferences v1.6.1
+  [ec057cc2] + StructUtils v2.11.1
+  [3783bdb8] + TableTraits v1.0.1
+  [bd369af6] + Tables v1.14.0
+  [ade2ca70] + Dates v1.11.0
+  [56ddb016] + Logging v1.11.0
+  [de0858da] + Printf v1.11.0
+  [9a3f8284] + Random v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [fa267f1f] + TOML v1.0.3
+  [cf7118a7] + UUIDs v1.11.0
+  [4ec0a83e] + Unicode v1.11.0
+Precompiling packages...
+   0.5 s  ✓ TrimGeoJSON
+  1 dependency successfully precompiled in 1 seconds. 22 already precompiled.
+  Activating project at `<worktree>/test/trim`
+Compiling...
+✓ Compiling...
+- PackageCompiler: bundling libraries
+PackageCompiler: bundled libraries:
+  ├── Base:
+  │    ├── libatomic.so.1.2.0 - 165.594 KiB
+  │    ├── libdSFMT.so - 21.602 KiB
+  │    ├── libgcc_s.so.1 - 883.555 KiB
+  │    ├── libgfortran.so.5.0.0 - 10.817 MiB
+  │    ├── libgmp.so.10.5.0 - 707.688 KiB
+  │    ├── libgmpxx.so.4.7.0 - 36.445 KiB
+  │    ├── libgomp.so.1.0.0 - 1.515 MiB
+  │    ├── libjulia-internal.so.1.13.2 - 14.788 MiB
+  │    ├── libmpfr.so.6.2.2 - 2.406 MiB
+  │    ├── libopenlibm.so.4.0 - 248.109 KiB
+  │    ├── libpcre2-8.so.0.14.0 - 716.820 KiB
+  │    ├── libquadmath.so.0.0.0 - 965.102 KiB
+  │    ├── libssp.so.0.0.0 - 35.922 KiB
+  │    ├── libstdc++.so.6.0.35 - 2.609 MiB
+  │    ├── libunwind.so.8.2.0 - 526.594 KiB
+  │    ├── libuv.so.2.0.0 - 657.344 KiB
+  │    ├── libz.so.1.3.2 - 120.498 KiB
+  │    ├── libzstd.so.1.5.7 - 991.673 KiB
+  │    ├── libjulia.so.1.13.2 - 267.141 KiB
+  ├── Stdlibs:
+  │   ├── OpenBLAS_jll
+  │   │   ├── libopenblas64_.0.3.30.so - 34.206 MiB
+  │   ├── libblastrampoline_jll
+  │   │   ├── libblastrampoline.so.5 - 3.418 MiB
+  Total library file size: 75.954 MiB
+features 2
+name Alpha
+roundtrip 2
+written 454
+
+features 8
+name Alpha
+roundtrip 8
+written 1235
+
+Test Summary:                           | Pass  Total   Time
+Schema read and write under --trim=safe |    5      5  36.6s
