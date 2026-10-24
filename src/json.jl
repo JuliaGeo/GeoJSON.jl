@@ -258,7 +258,7 @@ function _readgeometry(style, ::Type{G}, source) where {D,T,G<:CoordinateGeometr
 end
 
 function _readgeometry(style, ::Type{GeometryCollection{D,T}}, source) where {D,T}
-    fields = NamedTuple{(:bbox, :geometries),Tuple{Union{Nothing,Vector{T}},Vector{AbstractGeometry{D,T}}}}
+    fields = NamedTuple{(:bbox, :geometries),Tuple{Union{Nothing,Vector{T}},Vector{Geometry{D,T}}}}
     values, pos = StructUtils.make(style, fields, source)
     GeometryCollection{D,T}(values.bbox, values.geometries), pos
 end
@@ -298,26 +298,26 @@ function StructUtils.make(style::StructUtils.StructStyle, ::Type{GeoJSONT{D,T}},
 end
 
 StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T}}, source) where {D,T} =
-    StructUtils.make(style, Feature{D,T,AbstractGeometry{D,T},DefaultProperties}, source)
+    StructUtils.make(style, Feature{D,T,DefaultProperties}, source)
 StructUtils.make(style::StructUtils.StructStyle, ::Type{FeatureCollection{D,T}}, source) where {D,T} =
-    StructUtils.make(style, FeatureCollection{D,T,AbstractGeometry{D,T},DefaultProperties}, source)
+    StructUtils.make(style, FeatureCollection{D,T,DefaultProperties}, source)
 
-mutable struct FeatureSink{D,T,G,P,S}
+mutable struct FeatureSink{D,T,P,S}
     style::S
     id::Any
     bbox::Union{Nothing,Vector{T}}
-    geometry::Union{Nothing,G}
+    geometry::Union{Nothing,Geometry{D,T}}
     properties::Union{Nothing,P}
     typed::Bool
 end
 
-function (f::FeatureSink{D,T,G,P})(key, value) where {D,T,G,P}
+function (f::FeatureSink{D,T,P})(key, value) where {D,T,P}
     if key == "geometry"
         if JSON.gettype(value) == JSON.JSONTypes.NULL
             f.geometry = nothing
             return nothing
         end
-        f.geometry, pos = StructUtils.make(f.style, G, value)
+        f.geometry, pos = StructUtils.make(f.style, Geometry{D,T}, value)
         return pos
     elseif key == "properties"
         if JSON.gettype(value) == JSON.JSONTypes.NULL
@@ -347,13 +347,13 @@ _emptyproperties(::Type{P}) where {P<:NamedTuple} =
     all(FT -> Missing <: FT, fieldtypes(P)) ? P(ntuple(_ -> missing, Val(fieldcount(P)))) :
     throw(ArgumentError("properties requires schema fields"))
 
-function StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T,G,P}}, source) where {D,T,G,P}
-    sink = FeatureSink{D,T,G,P,typeof(style)}(style, nothing, nothing, nothing, nothing, false)
+function StructUtils.make(style::StructUtils.StructStyle, ::Type{Feature{D,T,P}}, source) where {D,T,P}
+    sink = FeatureSink{D,T,P,typeof(style)}(style, nothing, nothing, nothing, nothing, false)
     pos = JSON.applyobject(sink, source)
     sink.typed || throw(ArgumentError("expected a Feature"))
     props = sink.properties
     props === nothing && (props = _emptyproperties(P))
-    Feature{D,T,G,P}(sink.id, sink.bbox, sink.geometry, props), pos
+    Feature{D,T,P}(sink.id, sink.bbox, sink.geometry, props), pos
 end
 
 struct ArraySink{E,S}
@@ -371,17 +371,17 @@ function _readarray(style, ::Type{E}, source) where {E}
     values, pos::Int
 end
 
-mutable struct CollectionSink{D,T,G,P,S}
+mutable struct CollectionSink{D,T,P,S}
     style::S
     bbox::Union{Nothing,Vector{T}}
-    features::Vector{Feature{D,T,G,P}}
+    features::Vector{Feature{D,T,P}}
     crs::Union{Nothing,CRS}
     typed::Bool
 end
 
-function (f::CollectionSink{D,T,G,P})(key, value) where {D,T,G,P}
+function (f::CollectionSink{D,T,P})(key, value) where {D,T,P}
     if key == "features"
-        f.features, pos = _readarray(f.style, Feature{D,T,G,P}, value)
+        f.features, pos = _readarray(f.style, Feature{D,T,P}, value)
         return pos
     elseif key == "bbox"
         f.bbox, pos = StructUtils.make(f.style, Union{Nothing,Vector{T}}, value)
@@ -399,11 +399,11 @@ function (f::CollectionSink{D,T,G,P})(key, value) where {D,T,G,P}
     nothing
 end
 
-function StructUtils.make(style::StructUtils.StructStyle, ::Type{FeatureCollection{D,T,G,P}}, source) where {D,T,G,P}
-    sink = CollectionSink{D,T,G,P,typeof(style)}(style, nothing, Feature{D,T,G,P}[], nothing, false)
+function StructUtils.make(style::StructUtils.StructStyle, ::Type{FeatureCollection{D,T,P}}, source) where {D,T,P}
+    sink = CollectionSink{D,T,P,typeof(style)}(style, nothing, Feature{D,T,P}[], nothing, false)
     pos = JSON.applyobject(sink, source)
     sink.typed || throw(ArgumentError("expected a FeatureCollection"))
-    FeatureCollection{D,T,G,P}(sink.bbox, sink.features, sink.crs), pos
+    FeatureCollection{D,T,P}(sink.bbox, sink.features, sink.crs), pos
 end
 
 function StructUtils.make(

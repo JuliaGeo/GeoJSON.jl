@@ -1,8 +1,7 @@
 module TrimGeoJSON
 using GeoJSON
-const Geom = Union{GeoJSON.Polygon{2,Float64},GeoJSON.MultiPolygon{2,Float64}}
 const Props = NamedTuple{(:NAME, :POP_EST),Tuple{Union{Missing,String},Union{Missing,Float64}}}
-const Typed = GeoJSON.FeatureCollection{2,Float64,Geom,Props}
+const Typed = GeoJSON.FeatureCollection{2,Float64,Props}
 
 function @main(args)
     length(args) == 1 || return 1

@@ -13,6 +13,7 @@ using DataFrames
 include("geojson_samples.jl")
 include("json.jl")
 include("schema.jl")
+include("small_union.jl")
 
 @testset "GeoJSON" begin
     @testset "Aqua.jl" begin

@@ -31,8 +31,8 @@ end
 """
     read(source, ::Type{X})
 
-Parse a concrete geometry or `Feature[Collection]{D,T,G,P}` schema. `G` is the
-geometry type (or union) and `P` is a concrete properties type, such as a NamedTuple.
+Parse a concrete geometry or `Feature[Collection]{D,T,P}` schema. Geometries use `Geometry{D,T}` and
+`P` is a concrete properties type, such as a NamedTuple.
 This entry point does not retry dimensions and is suitable for `juliac --trim=safe`.
 """
 read(source, ::Type{X}) where {X<:GeoJSONT} = _parsedimensioned(_input(source), X)

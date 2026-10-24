@@ -96,7 +96,7 @@ struct SchemaStyle <: JSON.JSONStyle end
 JSON.applyany(::SchemaStyle, f, key, @nospecialize(value)) =
     throw(ArgumentError("unsupported value in schema-typed GeoJSON write"))
 _writestyle(x) = JSON.JSONWriteStyle()
-_writestyle(::Union{Feature{D,T,G,P},FeatureCollection{D,T,G,P}}) where {D,T,G,P} =
+_writestyle(::Union{Feature{D,T,P},FeatureCollection{D,T,P}}) where {D,T,P} =
     P === DefaultProperties ? JSON.JSONWriteStyle() : SchemaStyle()
 
 function _emitid(style, f, id)

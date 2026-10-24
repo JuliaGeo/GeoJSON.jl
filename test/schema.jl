@@ -1,8 +1,7 @@
 @testset "Schema reads preserve the default API" begin
     P = NamedTuple{(:name, :count),Tuple{String,Union{Missing,Int}}}
-    G = Union{GeoJSON.Point{2,Float64},GeoJSON.LineString{2,Float64}}
-    F = GeoJSON.Feature{2,Float64,G,P}
-    FC = GeoJSON.FeatureCollection{2,Float64,G,P}
+    F = GeoJSON.Feature{2,Float64,P}
+    FC = GeoJSON.FeatureCollection{2,Float64,P}
     point = """{"type":"Point","coordinates":[1,2]}"""
     feature = """{"type":"Feature","id":"one","geometry":$point,"properties":{"name":"café"}}"""
     collection = """{"type":"FeatureCollection","features":[$feature]}"""
@@ -58,11 +57,11 @@ end
 
 @testset "Schema properties use JSON value types" begin
     P = NamedTuple{(:active, :count),Tuple{Bool,Int}}
-    F = GeoJSON.Feature{2,Float64,GeoJSON.Point{2,Float64},P}
+    F = GeoJSON.Feature{2,Float64,P}
     text = """{"type":"Feature","geometry":null,"properties":{"active":true,"count":2}}"""
     @test GeoJSON.properties(GeoJSON.read(text, F)) === (active=true, count=2)
     @test_throws ArgumentError GeoJSON.read(replace(text, "\"type\":\"Feature\""=>"\"type\":1"), F)
-    FC = GeoJSON.FeatureCollection{2,Float64,GeoJSON.Point{2,Float64},P}
+    FC = GeoJSON.FeatureCollection{2,Float64,P}
     @test_throws ArgumentError GeoJSON.read("""{"type":true,"features":[]}""", FC)
 end
 
