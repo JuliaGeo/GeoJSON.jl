@@ -22,6 +22,9 @@ using PrecompileTools: @setup_workload, @compile_workload
         read(Vector{UInt8}(fc))
         read(SubString(fc, firstindex(fc)))
         read(IOBuffer(fc))
+        read(codeunits(fc))
+        bytes = Vector{UInt8}(fc)
+        read(view(bytes, eachindex(bytes)))
         for T in (Float32, Float64)
             x = read(fc; numbertype=T); write(x); Tables.schema(x)
             for g in geometries; write(read(g; numbertype=T)); end
