@@ -417,6 +417,6 @@ include("geojson_samples.jl")
             @test m[GI.GEOINTERFACE_GEOMETRYCOLUMNS_KEY] == (:geometry,)
         end
     end
-    include("compat.jl")
+    include("reading_writing.jl")
     include("performance.jl")
 end  # testset "GeoJSON"
