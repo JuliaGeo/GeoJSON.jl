@@ -30,7 +30,7 @@ end
     end
     nonfinitestyle(st) ? readscalar(st, T, v) : StructUtils.make(st, T, v)
 end
-function readcoordinates(st, ::Type{C}, src) where {C<:Tuple}
+@noinline function readcoordinates_public(st, ::Type{C}, src) where {C<:Tuple}
     StructUtils.arraylike(st, src) || throw(ArgumentError("a position must be an array"))
     s = PositionSink(ntuple(_ -> zero(eltype(C)), Val(fieldcount(C))), 0, st)
     pos = StructUtils.applyeach(st, s, src)
@@ -39,7 +39,7 @@ function readcoordinates(st, ::Type{C}, src) where {C<:Tuple}
     s.values, pos
 end
 
-readcoordinates(st, ::Type{T}, src) where {T<:Number} = coordinatecomponent(st, T, src)
+readcoordinates_public(st, ::Type{T}, src) where {T<:Number} = coordinatecomponent(st, T, src)
 readbbox(st, ::Type{T}, src) where {T} = StructUtils.nulllike(st, src) ?
     StructUtils.make(st, Nothing, src) : readcoordinates(st, Vector{T}, src)
 
@@ -52,7 +52,7 @@ end
     push!(s.values, x)
     pos
 end
-function readcoordinates(st, ::Type{Vector{C}}, src) where {C}
+@noinline function readcoordinates_public(st, ::Type{Vector{C}}, src) where {C}
     StructUtils.arraylike(st, src) || throw(ArgumentError("coordinates must be arrays"))
     values = C[]
     pos = StructUtils.applyeach(st, CoordinateSink(values, st), src)
@@ -296,8 +296,6 @@ function _parse(input, ::Type{T}) where {T}
         JSON.parse(input, T; dicttype=Dict{String,Any})
     catch e
         e isa ArgumentError && hasnonfinite(input) || rethrow()
-        # Share one cold specialization across strings and byte buffers. Copy
-        # byte inputs here so String construction cannot consume caller storage.
         text = input isa AbstractString ? String(input) : String(copy(input))
         Base.invokelatest(parsenonfinite, text, T)::T
     end
@@ -312,7 +310,7 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, g::G) where {G<:Coordinate
     @emit "type" typestring(G)
     b = getfield(g, :bbox); b === nothing || @emit "bbox" b
     c = getfield(g, :coordinates)
-    if c === nothing; @emit "coordinates" nothing; else; @emit "coordinates" c; end
+    if c === nothing; @emit "coordinates" nothing; else; @emit "coordinates" coordinateoutput(st, c); end
     nothing
 end
 @inline emitgeometry(f, key, ::Nothing) = f(key, nothing)

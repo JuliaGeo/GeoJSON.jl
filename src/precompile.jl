@@ -17,11 +17,13 @@ using PrecompileTools: @setup_workload, @compile_workload
         # Keep NaN/Inf inputs out: their invokelatest retry compiles on demand.
         write(read(fc))
         write(read(fc; numbertype=Float64))
-        # Paths, IO and AbstractStrings normalize to String; byte buffers retain
-        # their caller-owned storage and need their own default specialization.
+        # Compile the wrapper entrypoints; all share JSON's String parser.
         read(Vector{UInt8}(fc))
         read(SubString(fc, firstindex(fc)))
         read(IOBuffer(fc))
+        read(codeunits(fc))
+        bytes = Vector{UInt8}(fc)
+        read(view(bytes, 1:length(bytes)))
         for T in (Float32, Float64)
             x = read(fc; numbertype=T); write(x); Tables.schema(x)
             for g in geometries; write(read(g; numbertype=T)); end

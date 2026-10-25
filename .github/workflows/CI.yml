@@ -49,27 +49,43 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   downgrade:
-    name: Julia 1.10 - minimum dependencies
+    name: Julia 1.10 - minimum dependencies - Parsers ${{ matrix.parsers }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        parsers: ['2.8.8', '3.0.0']
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.10'
-      - name: Save dependency declarations
-        run: cp Project.toml Project.floor.toml
+      # Select the Parsers compatibility range before resolving all floors.
+      # Otherwise downgrading fixes compat to 2.8.8 and a later 3.x add fails.
+      - name: Select the exact Parsers floor
+        run: |
+          julia --project -e '
+            using TOML
+            project = TOML.parsefile("Project.toml")
+            project["compat"]["Parsers"] = "=${{ matrix.parsers }}"
+            open(io -> TOML.print(io, project), "Project.toml", "w")
+            cp("Project.toml", "Project.floor.toml"; force=true)
+          '
       - uses: julia-actions/julia-downgrade-compat@v2
         with:
           mode: deps
-      - name: Keep the JSON migration floors fixed during test resolution
+      - name: Keep dependency floors fixed during test resolution
         run: |
           julia --project -e '
             using Pkg
-            # The downgrade action promotes test extras to deps; restore the
-            # package declarations so Aqua checks the actual runtime deps.
+            # Keep resolved floors from the action, but restore declarations: it
+            # may promote test extras to runtime deps, confusing Aqua checks.
             cp("Project.floor.toml", "Project.toml"; force=true)
             Pkg.instantiate()
-            Pkg.pin(["JSON", "StructUtils"])
+            versions = Dict(info.name => info.version for info in values(Pkg.dependencies()))
+            @assert versions["JSON"] == v"1.12.0"
+            @assert versions["StructUtils"] == v"2.10.0"
+            @assert versions["Parsers"] == v"${{ matrix.parsers }}"
+            Pkg.pin(["JSON", "StructUtils", "Parsers"])
           '
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
