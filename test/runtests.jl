@@ -3,7 +3,7 @@ import GeoInterface as GI
 import GeoFormatTypes
 import Aqua
 using Extents
-using JSON3
+using JSON
 using Tables
 using Test
 using Plots
@@ -13,6 +13,10 @@ using DataFrames
 include("geojson_samples.jl")
 
 @testset "GeoJSON" begin
+    if get(ENV, "GEOJSON_TEST_FLOORS", "false") == "true"
+        @test pkgversion(JSON) == v"1.12.0"
+        @test pkgversion(GeoJSON.StructUtils) == v"2.10.0"
+    end
     @testset "Aqua.jl" begin
         Aqua.test_all(GeoJSON)
     end
@@ -413,4 +417,5 @@ include("geojson_samples.jl")
             @test m[GI.GEOINTERFACE_GEOMETRYCOLUMNS_KEY] == (:geometry,)
         end
     end
+    include("compat.jl")
 end  # testset "GeoJSON"
