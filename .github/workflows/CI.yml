@@ -56,6 +56,8 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.10'
+      - name: Save dependency declarations
+        run: cp Project.toml Project.floor.toml
       - uses: julia-actions/julia-downgrade-compat@v2
         with:
           mode: deps
@@ -63,6 +65,9 @@ jobs:
         run: |
           julia --project -e '
             using Pkg
+            # The downgrade action promotes test extras to deps; restore the
+            # package declarations so Aqua checks the actual runtime deps.
+            cp("Project.floor.toml", "Project.toml"; force=true)
             Pkg.instantiate()
             Pkg.pin(["JSON", "StructUtils"])
           '
