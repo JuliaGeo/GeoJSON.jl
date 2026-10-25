@@ -25,15 +25,20 @@ jobs:
         with:
           version: ${{ matrix.julia }}
       - uses: julia-actions/cache@v2
+      - name: Get Julia cache version
+        id: julia-version
+        run: julia -e 'println("version=", VERSION)' >> "$GITHUB_OUTPUT"
       - name: Cache JuliaC app environment
+        id: juliac-cache
         uses: actions/cache@v5
         with:
           path: |
             ~/.julia/environments/apps
             ~/.julia/bin
-          key: ${{ runner.os }}-juliac-${{ matrix.julia }}-0.3.12-${{ hashFiles('.github/workflows/Trim.yml') }}
+          key: ${{ runner.os }}-juliac-${{ steps.julia-version.outputs.version }}-0.3.12-${{ hashFiles('.github/workflows/Trim.yml') }}
       # Trimming is experimental. Pin JuliaC so compiler changes are reviewed.
       - name: Install pinned JuliaC
+        if: steps.juliac-cache.outputs.cache-hit != 'true'
         run: julia -e 'using Pkg; Pkg.Apps.add(PackageSpec(name="JuliaC", version="0.3.12"))'
       - name: Build safely trimmed app and compare with JIT
         run: |

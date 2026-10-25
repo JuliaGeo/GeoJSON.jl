@@ -41,6 +41,7 @@ when a feature is accessed. The untyped reader also supports nonstandard NaN/Inf
 """
 function read(source, ::Type{T}) where {T<:GeoJSONT}
     isconcretetype(T) || throw(ArgumentError("GeoJSON.read requires a concrete target type; got $T"))
+    T <: LazyFeature && throw(ArgumentError("GeoJSON.read does not support the private target type $T; use Feature or LazyFeatureCollection"))
     try
         parsegeojson(_input(source), T)::T
     catch e

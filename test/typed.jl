@@ -3,6 +3,14 @@ struct CustomTrimProperty
 end
 JSON.lower(x::CustomTrimProperty) = (custom=x.value,)
 
+# Force the public writer through the always-defined adapter fallback, even
+# when this JSON version provides the optional closure/options layout.
+struct StrictCollectionFallback{G}
+    geometry::G
+end
+GeoJSON.StructUtils.applyeach(st::GeoJSON.StrictStyle, f, x::StrictCollectionFallback) =
+    GeoJSON.applystrictcollection(st, f, x.geometry, Val(false))
+
 @testset "Typed reads and closed writes" begin
     style = GeoJSON.StrictStyle()
     for text in vcat(Samples.featurecollections, Samples.features, Samples.geometries)
@@ -28,6 +36,7 @@ JSON.lower(x::CustomTrimProperty) = (custom=x.value,)
     end
     @test (@inferred GeoJSON.read("""{"type":"Point","coordinates":[1,2,3]}""", GeoJSON.Point{3,Float64})).coordinates === (1.0,2.0,3.0)
     @test_throws ArgumentError GeoJSON.read(text * " trailing", T)
+    @test_throws ArgumentError GeoJSON.read(Samples.features[1], GeoJSON.LazyFeature{2,Float64})
     # The existing default stays open for values callers put into Any containers.
     for value in (:symbol, (a=1,), [1,2], JSON.Dates.Date(2020,1,2), CustomTrimProperty(7))
         f = GeoJSON.Feature{2,Float64}(properties=Dict{Symbol,Any}(:custom => value))
@@ -69,7 +78,7 @@ end
     p = GeoJSON.Point(coordinates=(NaN, 0.0))
     gc = GeoJSON.GeometryCollection(geometries=[p])
     nested = GeoJSON.GeometryCollection(geometries=[gc])
-    for g in (gc, nested)
+    for g in (GeoJSON.STRICT_OPTIONS_CHECK_AVAILABLE ? (gc, nested) : ())
         @test_throws ArgumentError("GeoJSON.StrictStyle GeometryCollections require default JSON writer options; pretty, allownan and other format options are unsupported") JSON.json(g; style, allownan=true)
         @test_throws ArgumentError("GeoJSON.StrictStyle GeometryCollections require default JSON writer options; pretty, allownan and other format options are unsupported") JSON.json(g; style, pretty=true)
         @test_throws ArgumentError JSON.json(g; style, float_style=:fixed)
@@ -77,6 +86,21 @@ end
     p = GeoJSON.Point(coordinates=(1.0, 2.0))
     gc = GeoJSON.GeometryCollection(geometries=[p])
     @test GeoJSON.write(gc; style) == GeoJSON.write(gc)
+end
+
+@testset "Strict collection option-check fallback" begin
+    style = GeoJSON.StrictStyle()
+    p = GeoJSON.Point(coordinates=(1.0, 2.0))
+    gc = GeoJSON.GeometryCollection(geometries=[p])
+    for g in (gc, GeoJSON.GeometryCollection(geometries=[gc]))
+        fallback = StrictCollectionFallback(g)
+        expected = GeoJSON.write(g; style)
+        @test JSON.json(fallback; style, sort_keys=false) == expected
+        # The fallback intentionally skips validation of caller options while
+        # retaining the fixed-format child serialization.
+        pretty = JSON.json(fallback; style, pretty=true, sort_keys=false)
+        @test JSON.parse(pretty) == JSON.parse(expected)
+    end
 end
 
 @testset "Lazy exceptional values retain parsed types" begin

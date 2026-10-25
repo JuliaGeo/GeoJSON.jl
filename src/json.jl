@@ -406,19 +406,32 @@ stricttext(st::StrictStyle, g) = JSON.JSONText(JSON.json(g; sort_keys=false, sty
 end
 # StrictStyle deliberately has a fixed format. Reject options that would be
 # lost when splicing children, rather than silently changing their meaning.
-function checkstrictoptions(f::JSON.WriteClosure)
-    opts = f.opts
-    (opts.pretty == 0 && !opts.allownan && !opts.jsonlines &&
-        opts.omit_null === nothing && opts.omit_empty === nothing &&
-        opts.inline_limit == 0 && opts.float_style === :shortest &&
-        opts.float_precision == 1 && opts.ninf == "-Infinity" &&
-        opts.inf == "Infinity" && opts.nan == "NaN") ||
-        throw(ArgumentError("GeoJSON.StrictStyle GeometryCollections require default JSON writer options; pretty, allownan and other format options are unsupported"))
-    nothing
+# These writer internals are optional: if JSON changes their layout, retain
+# strict collection writes and skip the option check instead of failing to load.
+const STRICT_OPTIONS_CHECK_AVAILABLE = isdefined(JSON, :WriteClosure) &&
+    isdefined(JSON, :WriteOptions) && hasfield(JSON.WriteClosure, :opts) &&
+    all(n -> hasfield(JSON.WriteOptions, n),
+        (:pretty, :allownan, :jsonlines, :omit_null, :omit_empty, :inline_limit,
+         :float_style, :float_precision, :ninf, :inf, :nan))
+checkstrictoptions(f, ::Val{false}) = nothing
+checkstrictoptions(f, ::Val{true}) = nothing # non-writer StructUtils visitors
+@static if STRICT_OPTIONS_CHECK_AVAILABLE
+    function checkstrictoptions(f::JSON.WriteClosure, ::Val{true})
+        opts = f.opts
+        opts isa JSON.WriteOptions || return nothing
+        (opts.pretty == 0 && !opts.allownan && !opts.jsonlines &&
+            opts.omit_null === nothing && opts.omit_empty === nothing &&
+            opts.inline_limit == 0 && opts.float_style === :shortest &&
+            opts.float_precision == 1 && opts.ninf == "-Infinity" &&
+            opts.inf == "Infinity" && opts.nan == "NaN") ||
+            throw(ArgumentError("GeoJSON.StrictStyle GeometryCollections require default JSON writer options; pretty, allownan and other format options are unsupported"))
+        nothing
+    end
 end
-checkstrictoptions(f) = nothing # non-writer StructUtils visitors
-function StructUtils.applyeach(st::StrictStyle, f, g::GeometryCollection)
-    checkstrictoptions(f)
+StructUtils.applyeach(st::StrictStyle, f, g::GeometryCollection) =
+    applystrictcollection(st, f, g, Val(STRICT_OPTIONS_CHECK_AVAILABLE))
+function applystrictcollection(st::StrictStyle, f, g::GeometryCollection, mode::Val)
+    checkstrictoptions(f, mode)
     @emit "type" "GeometryCollection"
     b = getfield(g, :bbox); b === nothing || @emit "bbox" b
     children = JSON.JSONText[]

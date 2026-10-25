@@ -30,8 +30,9 @@ This opts into a closed writer for the value types produced by JSON parsing.
 The default writer continues to accept custom property values and lowering.
 The strict style uses the same compact coordinate format and preserves member
 order, including for nested GeometryCollections. Strict GeometryCollection writes
-reject nondefault JSON format options, including `pretty` and `allownan`, rather
-than silently dropping them for children.
+reject nondefault JSON format options, including `pretty` and `allownan`, when
+JSON's writer options layout is available. If that internal layout changes,
+the check is skipped and child writes retain their fixed compact format.
 
 `test/trim` contains a standalone read/sum/write app and compares its safely
 trimmed executable and JIT output with a committed mixed-fixture golden, and

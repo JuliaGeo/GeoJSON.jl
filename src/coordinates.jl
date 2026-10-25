@@ -56,8 +56,9 @@ Opt-in closed write style for `GeoJSON.write(x; style=GeoJSON.StrictStyle())`
 and trimmed applications. Values in `Any` containers must have JSON's parsed
 value types (including nested arrays/dictionaries and big numbers), or `missing`.
 Other values throw `ArgumentError`; ordinary `write` retains custom lowering.
-This style uses a fixed compact format. Nondefault JSON writer options (such as
-`pretty=true` or `allownan=true`) are rejected for GeometryCollection children.
+This style uses a fixed compact format. When JSON's writer options layout is
+available, nondefault options (such as `pretty=true` or `allownan=true`) are
+rejected for GeometryCollection children. Otherwise, that check is skipped.
 """
 struct StrictStyle <: JSON.JSONStyle end
 JSON.applyany(::StrictStyle, f, k, @nospecialize(v)) =
