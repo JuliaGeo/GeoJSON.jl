@@ -105,6 +105,7 @@ the geometry must be written to the `:geometry` column of the GeoJSON according 
 write(io::IO, obj::GeoJSONT; style=CoordinateWriteStyle()) = Base.write(io, write(obj; style))
 write(path::AbstractString, obj::GeoJSONT; style=CoordinateWriteStyle()) = (open(io -> write(io, obj; style), path, "w"); path)
 write(obj::GeoJSONT; style=CoordinateWriteStyle()) = writejson(obj, style, Val(WRITE_HINT_AVAILABLE))
+writejson(obj::GeoJSONT, mode::Val) = writejson(obj, CoordinateWriteStyle(), mode)
 writejson(obj::GeoJSONT, style, ::Val{false}) = JSON.json(obj; sort_keys=false, style)
 @static if WRITE_HINT_AVAILABLE
     function writejson(obj::GeoJSONT, style, ::Val{true})
