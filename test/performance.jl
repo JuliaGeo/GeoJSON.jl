@@ -261,3 +261,42 @@ end
     @test GeoJSON.inputtext(UInt8[]) == ""
     @test GeoJSON.inputtext(view(UInt8[], 1:0)) == ""
 end
+
+@testset "General coordinate arities and writer values" begin
+    # Arity 2/3 has generated code; other arities use the general scanner.
+    # Compare both implementations through the typed JSON API, including its
+    # exact dimension errors, rather than testing scanner internals alone.
+    for T in (Float32, Float64), D in (1, 4)
+        G = GeoJSON.Point{D,T}
+        values = collect(1:D)
+        text = JSON.json((type="Point", coordinates=values))
+        fast = JSON.parse(text, G)
+        @test fast.coordinates === Tuple(T.(values))
+        @test fast.coordinates === publicread(text, G).coordinates
+        @test JSON.parse(GeoJSON.write(fast), G).coordinates === fast.coordinates
+        for coordinates in (Int[], values[1:end-1])
+            short = JSON.json((type="Point", coordinates))
+            @test_throws ArgumentError JSON.parse(short, G)
+            @test_throws ArgumentError publicread(short, G)
+        end
+        long = JSON.json((type="Point", coordinates=[values; D+1]))
+        @test_throws GeoJSON.DimensionError JSON.parse(long, G)
+        @test_throws GeoJSON.DimensionError publicread(long, G)
+        for bad in ("[1 2]", "[1,]", "[1,2", "[true,2,3,4]")
+            @test_throws ArgumentError JSON.parse("""{"type":"Point","coordinates":$bad}""", G)
+        end
+    end
+    p = GeoJSON.Point(coordinates=(1.0, 2.0))
+    for id in (1.25, big(typemax(Int64)) + 1, "float-id")
+        feature = GeoJSON.Feature(; id, geometry=p, properties=Dict{Symbol,Any}())
+        @test JSON.parse(GeoJSON.write(feature))["id"] == id
+    end
+    # The exceptional nonfinite reader also carries optional collection CRS.
+    for crs in (nothing, Dict("type" => "name", "properties" => Dict("name" => "EPSG:4326")))
+        text = JSON.json((type="FeatureCollection", crs, features=[
+            (type="Feature", geometry=(type="Point", coordinates=[NaN, 2.0]), properties=nothing)]); allownan=true)
+        fc = GeoJSON.read(text)
+        @test isnan(first(fc).geometry.coordinates[1])
+        @test (getfield(fc, :crs) === nothing) == (crs === nothing)
+    end
+end
