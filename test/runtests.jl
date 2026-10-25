@@ -418,5 +418,6 @@ include("geojson_samples.jl")
         end
     end
     include("reading_writing.jl")
+    include("typed.jl")
     include("performance.jl")
 end  # testset "GeoJSON"

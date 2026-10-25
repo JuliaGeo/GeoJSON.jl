@@ -1,0 +1,13 @@
+name = "GeoJSONTrimApp"
+uuid = "53d467ca-b7e7-42cb-93ca-601021fa9cd1"
+version = "0.1.0"
+
+[deps]
+GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
+
+[sources]
+GeoJSON = {path = "../.."}
+
+[compat]
+GeoJSON = "0.8.6"
+julia = "1.12"
