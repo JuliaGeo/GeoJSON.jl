@@ -49,8 +49,11 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   downgrade:
-    name: Julia 1.10 - minimum dependencies
+    name: Julia 1.10 - minimum dependencies - Parsers ${{ matrix.parsers }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        parsers: ['2.8.8', '3']
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
@@ -70,6 +73,8 @@ jobs:
             cp("Project.floor.toml", "Project.toml"; force=true)
             Pkg.instantiate()
             Pkg.pin(["JSON", "StructUtils"])
+            Pkg.add(PackageSpec(name="Parsers", version="${{ matrix.parsers }}"))
+            Pkg.pin(["Parsers"])
           '
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1

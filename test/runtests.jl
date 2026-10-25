@@ -419,3 +419,5 @@ include("geojson_samples.jl")
     end
     include("compat.jl")
 end  # testset "GeoJSON"
+
+include("performance.jl")

@@ -69,7 +69,7 @@ the geometry must be written to the `:geometry` column of the GeoJSON according 
 """
 write(io::IO, obj::GeoJSONT) = Base.write(io, write(obj))
 write(path::AbstractString, obj::GeoJSONT) = (open(io -> write(io, obj), path, "w"); path)
-write(obj::GeoJSONT) = JSON.json(obj; sort_keys=false)
+write(obj::GeoJSONT) = JSON.json(obj; sort_keys=false, style=CoordinateWriteStyle())
 
 # GeoInterface supported objects
 write(io::IO, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = Base.write(io, write(obj; geometrycolumn))
