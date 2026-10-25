@@ -9,5 +9,5 @@ GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
 GeoJSON = {path = "../.."}
 
 [compat]
-GeoJSON = "0.8.6"
+GeoJSON = "0.8.7"
 julia = "1.12"

@@ -6,9 +6,15 @@ on:
     branches: [main]
     paths: ['src/**', 'test/trim/**', 'Project.toml', '.github/workflows/Trim.yml']
   workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   trim:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -19,6 +25,13 @@ jobs:
         with:
           version: ${{ matrix.julia }}
       - uses: julia-actions/cache@v2
+      - name: Cache JuliaC app environment
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.julia/environments/apps
+            ~/.julia/bin
+          key: ${{ runner.os }}-juliac-${{ matrix.julia }}-0.3.12-${{ hashFiles('.github/workflows/Trim.yml') }}
       # Trimming is experimental. Pin JuliaC so compiler changes are reviewed.
       - name: Install pinned JuliaC
         run: julia -e 'using Pkg; Pkg.Apps.add(PackageSpec(name="JuliaC", version="0.3.12"))'

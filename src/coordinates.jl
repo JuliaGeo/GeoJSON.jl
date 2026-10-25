@@ -29,8 +29,8 @@ geometryhint(::Nothing) = 4
     g isa GeometryCollection{D,T} && return collectionhint(g)
     512
 end
-# Keep recursion on a concrete collection signature. Recursive calls to the
-# abstract-argument ladder itself remain dynamic even when marked @inline.
+# Keep collection recursion in a separate method. The trim verifier can resolve
+# this single-method call; JET may still report the recursive dispatch.
 function collectionhint(g::GeometryCollection)
     size = 96
     for child in getfield(g, :geometries); size += geometryhint(child); end
@@ -56,10 +56,12 @@ Opt-in closed write style for `GeoJSON.write(x; style=GeoJSON.StrictStyle())`
 and trimmed applications. Values in `Any` containers must have JSON's parsed
 value types (including nested arrays/dictionaries and big numbers), or `missing`.
 Other values throw `ArgumentError`; ordinary `write` retains custom lowering.
+This style uses a fixed compact format. Nondefault JSON writer options (such as
+`pretty=true` or `allownan=true`) are rejected for GeometryCollection children.
 """
 struct StrictStyle <: JSON.JSONStyle end
 JSON.applyany(::StrictStyle, f, k, @nospecialize(v)) =
-    throw(ArgumentError("unsupported value in GeoJSON.StrictStyle"))
+    throw(ArgumentError("unsupported value for key $(repr(k)) of type $(typeof(v)) in GeoJSON.StrictStyle"))
 coordinateoutput(st, c) = c
 # A Point already fits JSON's small tuple writer; a raw-text buffer costs more
 # than it saves. Coordinate arrays amortize that allocation over many positions.

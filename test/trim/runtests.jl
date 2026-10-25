@@ -11,15 +11,17 @@ mktempdir() do dir
     fixture = joinpath(@__DIR__, "fixture.geojson")
     large = joinpath(dir, "features-2000.geojson")
     # Repeat the whole mixed fixture so large-file scanning and nested collection
-    # writing are both exercised. No network, randomness, or committed golden.
+    # writing are both exercised, with no network or randomness.
     json = GeoJSON.JSON.parsefile(fixture)
     features = json["features"]
     json["features"] = [features[mod1(i, length(features))] for i in 1:2000]
     Base.write(large, GeoJSON.JSON.json(json))
-    args = [fixture, large]
-    golden = joinpath(dir, "golden.txt")
-    jit = `$(Base.julia_cmd()) --startup-file=no --project=$(@__DIR__) -e 'using GeoJSONTrimApp; GeoJSONTrimApp.main(ARGS)' $args`
-    open(io -> run(pipeline(jit; stdout=io)), golden, "w")
+    golden = Base.read(joinpath(@__DIR__, "fixture.golden.txt"), String)
+    jit = `$(Base.julia_cmd()) --startup-file=no --project=$(@__DIR__) -e 'using GeoJSONTrimApp; GeoJSONTrimApp.main(ARGS)'`
+    # The small fixture has an independent, committed expectation. The large
+    # case additionally compares JIT and native behavior at realistic scale.
+    @test read(`$jit $fixture`, String) == golden
+    large_jit = read(`$jit $large`, String)
     bundle = joinpath(dir, "build")
     # JULIAC permits a task-local compiler env, avoiding a global app install.
     compiler = get(ENV, "JULIAC", "juliac")
@@ -35,7 +37,7 @@ mktempdir() do dir
     @test !occursin(r"Trim verify finished with (?!0 errors, 0 warnings)", buildlog)
     success(result) || error("trim build failed")
     executable = joinpath(bundle, "bin", "geojson-trim")
-    actual = read(`$executable $args`, String)
-    @test actual == Base.read(golden, String)
+    @test read(`$executable $fixture`, String) == golden
+    @test read(`$executable $large`, String) == large_jit
     println("Trim executable bytes: ", filesize(executable))
 end

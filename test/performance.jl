@@ -262,6 +262,21 @@ end
     @test GeoJSON.inputtext(view(UInt8[], 1:0)) == ""
 end
 
+@testset "Concrete parser and always-defined public fallback" begin
+    for text in vcat(Samples.featurecollections, Samples.features, Samples.geometries)
+        T = typeof(GeoJSON.read(text))
+        public = GeoJSON.parsegeojson(text, T, Val(false))
+        @test GeoJSON.write(public) == GeoJSON.write(GeoJSON.read(text, T))
+        if GeoJSON.CONCRETE_READ_AVAILABLE
+            @test GeoJSON.write(GeoJSON.parsegeojson(text, T, Val(true))) == GeoJSON.write(public)
+        end
+    end
+    for text in ("{", "{\"type\":\"Point\",\"coordinates\":[1,2]} trailing")
+        @test_throws ArgumentError GeoJSON.parsegeojson(text, GeoJSON.Point{2,Float64}, Val(false))
+        @test_throws ArgumentError GeoJSON.parsegeojson(text, GeoJSON.Point{2,Float64})
+    end
+end
+
 @testset "General coordinate arities and writer values" begin
     # Arity 2/3 has generated code; other arities use the general scanner.
     # Compare both implementations through the typed JSON API, including its

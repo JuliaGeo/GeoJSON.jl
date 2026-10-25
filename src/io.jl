@@ -34,10 +34,13 @@ end
 
 Read standard JSON into a statically selected GeoJSON type, for example
 `FeatureCollection{2,Float64}`. This inferable entry point is suitable for trimmed
-applications. Dimensions are fixed: a mismatch throws `ArgumentError` without
-warning or retry. The untyped reader also supports nonstandard NaN/Inf literals.
+applications. `T` must be concrete (fully specify its dimension and number type),
+otherwise `ArgumentError` is thrown. Dimensions are fixed: a mismatch throws
+`ArgumentError` without warning or retry. Lazy collections check dimensions
+when a feature is accessed. The untyped reader also supports nonstandard NaN/Inf literals.
 """
 function read(source, ::Type{T}) where {T<:GeoJSONT}
+    isconcretetype(T) || throw(ArgumentError("GeoJSON.read requires a concrete target type; got $T"))
     try
         parsegeojson(_input(source), T)::T
     catch e

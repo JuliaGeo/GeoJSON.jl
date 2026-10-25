@@ -30,6 +30,13 @@ function @main(args::Vector{String})
         end
         println(Core.stdout, length(fc), ":", total)
         println(Core.stdout, GeoJSON.write(fc; style=GeoJSON.StrictStyle()))
+        lazy = GeoJSON.read(path, GeoJSON.LazyFeatureCollection{2,Float64})
+        lazytotal = 0.0
+        for feature in lazy
+            lazytotal += geometrysum(getfield(feature, :geometry))
+        end
+        println(Core.stdout, length(lazy), ":", lazytotal)
+        println(Core.stdout, GeoJSON.write(lazy; style=GeoJSON.StrictStyle()))
     end
     return 0
 end

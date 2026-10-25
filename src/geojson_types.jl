@@ -210,11 +210,14 @@ end
 # This is a non-public type used to lazily construct a Feature from retained JSON text
 # It can be written again as String, which can also be used to parse to a Feature
 struct LazyFeature{D,T} <: GeoJSONT{D,T}
-    bytes::Any
+    bytes::Base.CodeUnits{UInt8,String}
     pos::Int
     len::Int
 end
-@inline Base.codeunits(x::LazyFeature) = unsafe_string(pointer(x.bytes, x.pos), x.len)
+@inline function Base.codeunits(x::LazyFeature)
+    bytes = x.bytes
+    GC.@preserve bytes unsafe_string(pointer(bytes, x.pos), x.len)
+end
 
 
 """
@@ -286,7 +289,7 @@ features(fc::LazyFeatureCollection) = collect(fc.features)
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
 function Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T}
     try
-        _parse(inputtext(codeunits(x.features[i])), Feature{D,T})::Feature{D,T}
+        parselazyfeature(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
     catch e
         e isa DimensionError && throw(dimensionerror(e.n, e.ndim))
         rethrow()
