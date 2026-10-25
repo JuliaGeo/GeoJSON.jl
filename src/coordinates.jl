@@ -26,12 +26,15 @@ geometryhint(::Nothing) = 4
     g isa MultiPoint{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
     g isa MultiLineString{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
     g isa MultiPolygon{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
-    if g isa GeometryCollection{D,T}
-        size = 96
-        for child in getfield(g, :geometries); size += geometryhint(child); end
-        return size
-    end
+    g isa GeometryCollection{D,T} && return collectionhint(g)
     512
+end
+# Keep recursion on a concrete collection signature. Recursive calls to the
+# abstract-argument ladder itself remain dynamic even when marked @inline.
+function collectionhint(g::GeometryCollection)
+    size = 96
+    for child in getfield(g, :geometries); size += geometryhint(child); end
+    size
 end
 function writehint(fc::FeatureCollection)
     size = 64
@@ -46,11 +49,22 @@ end
 # Direct JSON.json calls keep JSON's option-aware coordinate writer (pretty,
 # float_style, float_precision, custom styles and allownan).
 struct CoordinateWriteStyle <: JSON.JSONStyle end
+"""
+    GeoJSON.StrictStyle()
+
+Opt-in closed write style for `GeoJSON.write(x; style=GeoJSON.StrictStyle())`
+and trimmed applications. Values in `Any` containers must have JSON's parsed
+value types (including nested arrays/dictionaries and big numbers), or `missing`.
+Other values throw `ArgumentError`; ordinary `write` retains custom lowering.
+"""
+struct StrictStyle <: JSON.JSONStyle end
+JSON.applyany(::StrictStyle, f, k, @nospecialize(v)) =
+    throw(ArgumentError("unsupported value in GeoJSON.StrictStyle"))
 coordinateoutput(st, c) = c
 # A Point already fits JSON's small tuple writer; a raw-text buffer costs more
 # than it saves. Coordinate arrays amortize that allocation over many positions.
-coordinateoutput(::CoordinateWriteStyle, c::Tuple) = c
-coordinateoutput(::CoordinateWriteStyle, c::Vector{C}) where {C} = coordinateoutput(C, c)
+coordinateoutput(::Union{CoordinateWriteStyle,StrictStyle}, c::Tuple) = c
+coordinateoutput(::Union{CoordinateWriteStyle,StrictStyle}, c::Vector{C}) where {C} = coordinateoutput(C, c)
 coordinateoutput(::Type, c) = c
 coordinateoutput(::Type{C}, c) where {C<:Tuple} =
     eltype(C) <: Union{Float32,Float64} ? JSON.JSONText(coordtext(c)) : c

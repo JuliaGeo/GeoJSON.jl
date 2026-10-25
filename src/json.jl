@@ -293,12 +293,29 @@ end
 end
 function _parse(input, ::Type{T}) where {T}
     try
-        JSON.parse(input, T; dicttype=Dict{String,Any})
+        parsegeojson(input, T)
     catch e
         e isa ArgumentError && hasnonfinite(input) || rethrow()
         text = input isa AbstractString ? String(input) : String(copy(input))
         Base.invokelatest(parsenonfinite, text, T)::T
     end
+end
+
+# JSON's public parse keyword wrapper does not always propagate dicttype into
+# trimmed callers. Keep the concrete style visible, and isolate this optional
+# internal adapter so an incompatible JSON release retains the public parser.
+const CONCRETE_READ_AVAILABLE = all(n -> isdefined(JSON, n),
+    (:JSONReadStyle, :checkendpos))
+@static if CONCRETE_READ_AVAILABLE
+    function parsegeojson(input, ::Type{T}) where {T}
+        src = JSON.lazy(input)
+        style = JSON.JSONReadStyle{Dict{String,Any}}(nothing, StructUtils.DefaultStyle(), true)
+        value, pos = StructUtils.make(style, T, src)
+        JSON.checkendpos(src, T, pos)
+        value
+    end
+else
+    parsegeojson(input, ::Type{T}) where {T} = JSON.parse(input, T; dicttype=Dict{String,Any})
 end
 
 # Emit only spec members, in the same order as 0.8.4. Dict ordering is selected
@@ -329,6 +346,32 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, g::GeometryCollection)
     b = getfield(g, :bbox); b === nothing || @emit "bbox" b
     # Let JSON carry all writer options (including pretty printing) to children.
     @emit "geometries" getfield(g, :geometries)
+    nothing
+end
+# Start each child at the same JSON.json signature. Passing the parent's
+# WriteClosure recursively through abstract geometry vectors makes inference
+# widen the nested closure types, which the safe-trim verifier cannot resolve.
+# The fixed-format StrictStyle can splice compact child text; ordinary JSON
+# styles retain their option-aware traversal (pretty printing, float options).
+stricttext(st::StrictStyle, g) = JSON.JSONText(JSON.json(g; sort_keys=false, style=st))
+@inline function strictchild(st::StrictStyle, g::AbstractGeometry{D,T}) where {D,T}
+    g isa Point{D,T} && return stricttext(st, g)
+    g isa LineString{D,T} && return stricttext(st, g)
+    g isa Polygon{D,T} && return stricttext(st, g)
+    g isa MultiPoint{D,T} && return stricttext(st, g)
+    g isa MultiLineString{D,T} && return stricttext(st, g)
+    g isa MultiPolygon{D,T} && return stricttext(st, g)
+    g isa GeometryCollection{D,T} && return stricttext(st, g)
+    throw(ArgumentError("unsupported geometry type"))
+end
+function StructUtils.applyeach(st::StrictStyle, f, g::GeometryCollection)
+    @emit "type" "GeometryCollection"
+    b = getfield(g, :bbox); b === nothing || @emit "bbox" b
+    children = JSON.JSONText[]
+    for child in getfield(g, :geometries)
+        push!(children, strictchild(st, child))
+    end
+    @emit "geometries" children
     nothing
 end
 function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Feature)
