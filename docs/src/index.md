@@ -40,4 +40,14 @@ compares both modes on a 2,000-feature input. Both eager and lazy typed reads
 are covered.
 Trimming is experimental; the CI job pins JuliaC 0.3.12 and tests Julia 1.12 and
 the latest release. Run it with `julia --project=test/trim test/trim/runtests.jl`
-after installing that JuliaC app.
+after installing that JuliaC app from its upstream release (it is not in General).
+The trim test selects Parsers 2.8.8 on Julia 1.12 to avoid a runtime `Base.MPFR`
+lookup failure in trimmed Parsers 3 BigFloat code; the current Julia job tests
+Parsers 3. This restriction applies only to the experimental trim test.
+
+Install the compiler with:
+
+```julia
+using Pkg
+Pkg.Apps.add(PackageSpec(url="https://github.com/JuliaLang/JuliaC.jl", rev="v0.3.12"))
+```

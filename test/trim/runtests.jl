@@ -1,9 +1,14 @@
 # Run with Julia >= 1.12: julia --project=test/trim test/trim/runtests.jl
-# Install the experimental compiler separately: Pkg.Apps.add("JuliaC"; version="0.3.12").
+# Install the experimental compiler separately: Pkg.Apps.add(PackageSpec(url="https://github.com/JuliaLang/JuliaC.jl", rev="v0.3.12")).
 using Pkg, Test
 cd(@__DIR__) do
     Pkg.develop(path="../..")
 end
+# Parsers 3's BigFloat ccall library expressions fail at runtime in Julia
+# 1.12 trimmed binaries (Base.MPFR lookup). Keep that experimental toolchain
+# on the supported 2.x parser; the current Julia job exercises Parsers 3.
+parsers_version = VERSION < v"1.13" ? "2.8.8" : "3.0.0"
+Pkg.add(PackageSpec(name="Parsers", version=parsers_version))
 Pkg.instantiate()
 using GeoJSON
 

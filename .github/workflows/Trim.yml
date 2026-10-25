@@ -36,10 +36,11 @@ jobs:
             ~/.julia/environments/apps
             ~/.julia/bin
           key: ${{ runner.os }}-juliac-${{ steps.julia-version.outputs.version }}-0.3.12-${{ hashFiles('.github/workflows/Trim.yml') }}
-      # Trimming is experimental. Pin JuliaC so compiler changes are reviewed.
+      # JuliaC is not registered in General. Install its pinned release from
+      # the upstream repository, including on Julia 1.12.
       - name: Install pinned JuliaC
         if: steps.juliac-cache.outputs.cache-hit != 'true'
-        run: julia -e 'using Pkg; Pkg.Apps.add(PackageSpec(name="JuliaC", version="0.3.12"))'
+        run: julia -e 'using Pkg; Pkg.Apps.add(PackageSpec(url="https://github.com/JuliaLang/JuliaC.jl", rev="v0.3.12"))'
       - name: Build safely trimmed app and compare with JIT
         run: |
           export PATH="$HOME/.julia/bin:$PATH"

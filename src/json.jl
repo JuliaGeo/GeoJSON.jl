@@ -188,7 +188,11 @@ mutable struct FeatureSink{D,T,S}
 end
 function (s::FeatureSink{D,T})(k, v) where {D,T}
     if k == "geometry"
-        s.geometry, pos = StructUtils.make(s.style, Union{Nothing,AbstractGeometry{D,T}}, v)
+        # Julia 1.12 loses the recursive geometry union at this call. Assert
+        # the reader contract before assignment to avoid dynamic conversion
+        # in safely trimmed lazy-feature reads.
+        value, pos = StructUtils.make(s.style, Union{Nothing,AbstractGeometry{D,T}}, v)
+        s.geometry = value::Union{Nothing,AbstractGeometry{D,T}}
     elseif k == "properties"
         (StructUtils.structlike(s.style, v) || StructUtils.nulllike(s.style, v)) ||
             throw(ArgumentError("Feature properties must be an object or null"))
