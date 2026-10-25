@@ -1,6 +1,6 @@
 using Random
 Random.seed!(1)
-dir = joinpath(ENV["TMPDIR"], "benchdata"); mkpath(dir)
+dir = get(ENV, "GEOJSON_BENCH_DATA", joinpath(tempdir(), "geojson-benchdata")); mkpath(dir)
 r() = round(rand()*360-180, digits=6)
 function points(n)
     io = IOBuffer(); print(io, """{"type":"FeatureCollection","features":[""")

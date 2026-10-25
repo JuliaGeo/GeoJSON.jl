@@ -286,7 +286,7 @@ features(fc::LazyFeatureCollection) = collect(fc.features)
 Base.show(io::IO, x::LazyFeatureCollection) = print(io, "LazyFeatureCollection with $(length(x.features)) features")
 function Base.getindex(x::LazyFeatureCollection{D,T}, i::Int) where {D,T}
     try
-        _parse(codeunits(x.features[i]), Feature{D,T})::Feature{D,T}
+        _parse(inputtext(codeunits(x.features[i])), Feature{D,T})::Feature{D,T}
     catch e
         e isa DimensionError && throw(dimensionerror(e.n, e.ndim))
         rethrow()

@@ -1,47 +1,117 @@
+# JSON does not expose a public String-buffer size hint. This owned adapter
+# delegates all member emission and touches the optional internal hint only
+# behind a feature guard. The unwrapped public writer is always callable.
+struct SizedGeoJSON{G<:GeoJSONT}
+    object::G
+    capacity::Int
+end
+StructUtils.applyeach(st::JSON.JSONStyle, f, x::SizedGeoJSON) =
+    StructUtils.applyeach(st, f, getfield(x, :object))
+const WRITE_HINT_AVAILABLE = isdefined(JSON, :sizeguess)
+@static if WRITE_HINT_AVAILABLE
+    JSON.sizeguess(x::SizedGeoJSON) = getfield(x, :capacity)
+end
+
+# Hints need only be approximate: JSON still grows its buffer as necessary.
+# Count positions without scanning numbers or invoking custom property lowering.
+coordinatehint(::Nothing) = 4
+coordinatehint(c::Tuple) = 3 + 10 * length(c)
+coordinatehint(c::Vector{C}) where {C<:Tuple} = 2 + length(c) * (3 + 10 * fieldcount(C))
+coordinatehint(c::Vector) = 2 + sum(x -> coordinatehint(x) + 1, c; init=0)
+geometryhint(::Nothing) = 4
+@inline function geometryhint(g::AbstractGeometry{D,T}) where {D,T}
+    g isa Point{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
+    g isa LineString{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
+    g isa Polygon{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
+    g isa MultiPoint{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
+    g isa MultiLineString{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
+    g isa MultiPolygon{D,T} && return 96 + coordinatehint(getfield(g, :coordinates))
+    if g isa GeometryCollection{D,T}
+        size = 96
+        for child in getfield(g, :geometries); size += geometryhint(child); end
+        return size
+    end
+    512
+end
+function writehint(fc::FeatureCollection)
+    size = 64
+    for feature in getfield(fc, :features)
+        props = getfield(feature, :properties)
+        size += 64 + (props === nothing ? 4 : 32 * length(props)) + geometryhint(getfield(feature, :geometry))
+    end
+    min(size, 4 * 1024^2)
+end
+
 # CoordinateWriteStyle is used only by GeoJSON.write, whose format is fixed.
 # Direct JSON.json calls keep JSON's option-aware coordinate writer (pretty,
 # float_style, float_precision, custom styles and allownan).
 struct CoordinateWriteStyle <: JSON.JSONStyle end
 coordinateoutput(st, c) = c
-coordinateoutput(::CoordinateWriteStyle, c::C) where {C<:Tuple} = coordinateoutput(C, c)
+# A Point already fits JSON's small tuple writer; a raw-text buffer costs more
+# than it saves. Coordinate arrays amortize that allocation over many positions.
+coordinateoutput(::CoordinateWriteStyle, c::Tuple) = c
 coordinateoutput(::CoordinateWriteStyle, c::Vector{C}) where {C} = coordinateoutput(C, c)
 coordinateoutput(::Type, c) = c
 coordinateoutput(::Type{C}, c) where {C<:Tuple} =
     eltype(C) <: Union{Float32,Float64} ? JSON.JSONText(coordtext(c)) : c
 coordinateoutput(::Type{Vector{C}}, c) where {C} = coordinateoutput(C, c)
 
-# Upper bounds include brackets, separators and Ryu's maximum number length.
-coordcapacity(::Type{C}) where {C<:Tuple} = 2 + fieldcount(C) * (Base.Ryu.neededdigits(eltype(C)) + 1)
+# Ten bytes per number is a useful initial estimate for geographic positions.
+# High precision/extreme values grow the same owned buffer before printing; do
+# not pay a worst-case float bound for every ordinary coordinate.
+coordcapacity(::Type{C}) where {C<:Tuple} = 2 + fieldcount(C) * 11
 coordcapacity(c::Tuple) = coordcapacity(typeof(c))
 coordcapacity(c::Vector{C}) where {C<:Tuple} = 2 + length(c) * (coordcapacity(C) + 1)
 coordcapacity(c::Vector) = 2 + sum(x -> coordcapacity(x) + 1, c; init=0)
-function coordtext(c)
-    buf = Vector{UInt8}(undef, coordcapacity(c))
+@inline function coordinatecapacity!(buf, pos, needed)
+    if pos + needed - 1 > length(buf)
+        resize!(buf, max(2 * length(buf), pos + needed))
+    end
+    nothing
+end
+
+# String-backed byte vectors let String take ownership after shrinking, avoiding
+# a second coordinate-text allocation. This Base helper is internal; absence
+# keeps the ordinary Vector path, which is also exercised explicitly in tests.
+const STRING_VECTOR_AVAILABLE = isdefined(Base, :StringVector)
+coordinatebuffer(n, ::Val{false}) = Vector{UInt8}(undef, n)
+@static if STRING_VECTOR_AVAILABLE
+    coordinatebuffer(n, ::Val{true}) = Base.StringVector(n)
+end
+coordtext(c) = coordtext(c, Val(STRING_VECTOR_AVAILABLE))
+@noinline function coordtext(c, mode::Val)
+    buf = coordinatebuffer(coordcapacity(c), mode)
     pos = writecoordinates!(buf, 1, c)
     resize!(buf, pos - 1)
     String(buf)
 end
 function writecoordinates!(buf, pos, c::Union{Tuple,Vector})
+    coordinatecapacity!(buf, pos, 1)
     @inbounds buf[pos] = UInt8('[')
     pos += 1
     for (i, x) in enumerate(c)
         if i > 1
+            coordinatecapacity!(buf, pos, 1)
             @inbounds buf[pos] = UInt8(',')
             pos += 1
         end
         pos = writecoordinates!(buf, pos, x)
     end
+    coordinatecapacity!(buf, pos, 1)
     @inbounds buf[pos] = UInt8(']')
     pos + 1
 end
 @inline function writecoordinates!(buf, pos, x::Union{Float32,Float64})
-    isfinite(x) || throw(ArgumentError("NaN and Inf are not allowed in JSON coordinates"))
+    isfinite(x) || throw(ArgumentError("$(Float64(x)) not allowed to be written in JSON spec; pass `allownan=true` to allow anyway"))
+    # 32 covers shortest Float32/Float64 output and Ryu's scratch space.
+    coordinatecapacity!(buf, pos, 32)
     Base.Ryu.writeshortest(buf, pos, x)
 end
 
 # Testable public-API fallback, also used for non-native coordinate types and
 # A's exceptional NaN/Inf retry. No mutable global switch in the read hot path.
 struct PublicCoordinateStyle <: StructUtils.StructStyle end
+struct CoordinateFallback <: Exception end
 readcoordinates(st, ::Type{C}, src) where {C} = readcoordinates_public(st, C, src)
 coordinatetype(::Type{T}) where {T<:Number} = T
 coordinatetype(::Type{C}) where {C<:Tuple} = eltype(C)
@@ -54,13 +124,19 @@ const COORDINATE_SCANNER_AVAILABLE = all(n -> isdefined(JSON, n),
     (:LazyValue, :getbuf, :getpos, :getdepth, :getopts, :LazyOptions)) &&
     hasfield(JSON.LazyOptions, :maxdepth)
 @static if COORDINATE_SCANNER_AVAILABLE
-    function readcoordinates(st, ::Type{C}, src::JSON.LazyValue) where {C}
+    @noinline function readcoordinates(st, ::Type{C}, src::JSON.LazyValue) where {C}
         if coordinatetype(C) <: Union{Float32,Float64} &&
                 !(StructUtils.parentstyle(st) isa PublicCoordinateStyle) && !nonfinitestyle(st)
             buf = JSON.getbuf(src)
             bytes = buf isa AbstractString ? codeunits(buf) : buf
-            return scancoordinates(C, bytes, JSON.getpos(src), length(bytes),
-                Int(JSON.getdepth(src)), Int(JSON.getopts(src).maxdepth))
+            try
+                return scancoordinates(C, bytes, JSON.getpos(src), length(bytes),
+                    Int(JSON.getdepth(src)), Int(JSON.getopts(src).maxdepth))
+            catch e
+                # Let A report malformed input, including counting/skipping
+                # extra non-numeric components before its dimension retry.
+                e isa Union{ArgumentError,CoordinateFallback} || rethrow()
+            end
         end
         readcoordinates_public(st, C, src)
     end
@@ -94,7 +170,7 @@ function scancoordinates(::Type{Vector{C}}, bytes, pos, len, depth, maxdepth) wh
         pos = coordinatews(bytes, pos + 1, len)
     end
 end
-function scancoordinates(::Type{C}, bytes, pos, len, depth, maxdepth) where {C<:Tuple}
+function scanposition(::Type{C}, bytes, pos, len, depth, maxdepth) where {C<:Tuple}
     pos = arraystart(bytes, pos, len, depth, maxdepth)
     D = fieldcount(C)
     values = ntuple(_ -> zero(eltype(C)), Val(fieldcount(C)))
@@ -114,6 +190,33 @@ function scancoordinates(::Type{C}, bytes, pos, len, depth, maxdepth) where {C<:
     n > D && throw(DimensionError(n, D))
     n == D || throw(dimensionerror(n, D))
     values, pos + 1
+end
+
+# Emit common arities directly into tuple slots, avoiding runtime tuple
+# updates/counts. Other arities retain the general scanner; excess components
+# use A's exact counting/retry.
+@generated function scancoordinates(::Type{C}, bytes, pos, len, depth, maxdepth) where {C<:Tuple}
+    D = fieldcount(C)
+    D in (2, 3) || return :(scanposition(C, bytes, pos, len, depth, maxdepth))
+    components = [gensym(:component) for _ in 1:D]
+    steps = Any[:(pos = arraystart(bytes, pos, len, depth, maxdepth))]
+    for i in 1:D
+        push!(steps, quote
+            $(components[i]), pos = scancoordinates(eltype(C), bytes, pos, len, depth + 1, maxdepth)
+            pos = coordinatews(bytes, pos, len)
+            b = scanbyte(bytes, pos, len)
+        end)
+        if i < D
+            push!(steps, quote
+                b == UInt8(']') && throw(dimensionerror($i, $D))
+                b == UInt8(',') || badcoordinates()
+                pos = coordinatews(bytes, pos + 1, len)
+            end)
+        end
+    end
+    push!(steps, :(b == UInt8(']') || throw(CoordinateFallback())))
+    push!(steps, :(return ($(Expr(:tuple, components...)), pos + 1)))
+    Expr(:block, steps...)
 end
 
 # Strict JSON number grammar, independently of Parsers' more permissive syntax.

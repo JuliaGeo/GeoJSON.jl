@@ -26,6 +26,7 @@ Makie = "0.23, 0.24"
 Plots = "1.39"
 StructUtils = "2.10"
 RecipesBase = "1"
+Random = "1"
 Tables = "1"
 Test = "<0.0.1,1"
 julia = "1.10"
@@ -43,7 +44,8 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "DataFrames", "Makie", "Plots", "Test"]
+test = ["Aqua", "DataFrames", "Makie", "Plots", "Random", "Test"]

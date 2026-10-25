@@ -2,9 +2,11 @@
     GeoJSON.read(json; lazyfc=false, ndim=2, numbertype=Float32)
 
 Read GeoJSON to a GeoInterface.jl compatible object.
+Byte vector inputs are normalized to an owning `String`, copying mutable
+storage (including views). The caller's byte vector is never consumed.
 
 # Arguments
-- `json`: A file path, string, IO, or bytes (`AbstractVector{UInt8`) containing JSON to read.
+- `json`: A file path, string, IO, or bytes (`AbstractVector{UInt8}`) containing JSON to read.
 - `lazyfc::Bool=false`: When reading in huge featurecollections (1M+ features),
     set `lazyfc=true` to only parse them into memory when accessed.
 - `ndim::Int=2`: Use 3 for 3D geometries, which is also used when 2D parsing fails.
@@ -26,9 +28,21 @@ function read(source; lazyfc=false, ndim=2, numbertype=Float32)
         end
     end
 end
+# Share JSON's String parser across wrappers instead of compiling its entire
+# parser for another buffer type. Never let String consume caller-owned bytes.
+inputtext(text::AbstractString) = String(text)
+function inputtext(bytes::Vector{UInt8})
+    GC.@preserve bytes unsafe_string(pointer(bytes), length(bytes))
+end
+function inputtext(bytes::SubArray{UInt8,1})
+    if parent(bytes) isa Vector{UInt8} && only(parentindices(bytes)) isa UnitRange{Int}
+        return GC.@preserve bytes unsafe_string(pointer(bytes), length(bytes))
+    end
+    String(bytes)
+end
+inputtext(bytes::AbstractVector{UInt8}) = String(bytes)
 _input(io::IO) = Base.read(io, String)
-# Keep byte views on the precompiled Vector parser without consuming their storage.
-_input(bytes::AbstractVector{UInt8}) = bytes isa Vector{UInt8} ? bytes : Vector{UInt8}(bytes)
+_input(bytes::AbstractVector{UInt8}) = inputtext(bytes)
 # A short JSON string can exceed the filesystem's component limit. Probing is
 # only a convenience: inaccessible or invalid paths still go through detection.
 function isinputfile(text::AbstractString)
@@ -41,14 +55,14 @@ end
 function _input(text::AbstractString)
     # Bound filesystem probes so large JSON documents never become path lookups.
     if ncodeunits(text) <= 256 && !occursin(r"[\r\n]", text) && !occursin('\0', text) && isinputfile(text)
-        return Base.read(text, String)
+        return inputtext(Base.read(text, String))
     end
     for b in codeunits(text)
         b in (0x20, 0x09, 0x0a, 0x0d) && continue
-        b in (UInt8('{'), UInt8('[')) && return String(text)
-        return Base.read(text, String)
+        b in (UInt8('{'), UInt8('[')) && return inputtext(text)
+        return inputtext(Base.read(text, String))
     end
-    String(text)
+    inputtext(text)
 end
 read(source::GeoFormatTypes.GeoJSON; kw...) = read(GeoFormatTypes.val(source); kw...)
 function read(source::GeoFormatTypes.GeoJSON{<:AbstractDict}; kw...)
@@ -69,7 +83,18 @@ the geometry must be written to the `:geometry` column of the GeoJSON according 
 """
 write(io::IO, obj::GeoJSONT) = Base.write(io, write(obj))
 write(path::AbstractString, obj::GeoJSONT) = (open(io -> write(io, obj), path, "w"); path)
-write(obj::GeoJSONT) = JSON.json(obj; sort_keys=false, style=CoordinateWriteStyle())
+write(obj::GeoJSONT) = writejson(obj, Val(WRITE_HINT_AVAILABLE))
+writejson(obj::GeoJSONT, ::Val{false}) = JSON.json(obj; sort_keys=false, style=CoordinateWriteStyle())
+@static if WRITE_HINT_AVAILABLE
+    function writejson(obj::GeoJSONT, ::Val{true})
+        if obj isa FeatureCollection
+            # Public bufsize controls IO flushing, not String preallocation.
+            # The guarded size-hint adapter avoids repeated outer-buffer growth.
+            return JSON.json(SizedGeoJSON(obj, writehint(obj)); sort_keys=false, style=CoordinateWriteStyle())
+        end
+        writejson(obj, Val(false))
+    end
+end
 
 # GeoInterface supported objects
 write(io::IO, obj; geometrycolumn = first(GI.geometrycolumns(obj))) = Base.write(io, write(obj; geometrycolumn))

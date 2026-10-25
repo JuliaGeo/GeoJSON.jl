@@ -30,7 +30,7 @@ end
     end
     nonfinitestyle(st) ? readscalar(st, T, v) : StructUtils.make(st, T, v)
 end
-function readcoordinates_public(st, ::Type{C}, src) where {C<:Tuple}
+@noinline function readcoordinates_public(st, ::Type{C}, src) where {C<:Tuple}
     StructUtils.arraylike(st, src) || throw(ArgumentError("a position must be an array"))
     s = PositionSink(ntuple(_ -> zero(eltype(C)), Val(fieldcount(C))), 0, st)
     pos = StructUtils.applyeach(st, s, src)
@@ -52,7 +52,7 @@ end
     push!(s.values, x)
     pos
 end
-function readcoordinates_public(st, ::Type{Vector{C}}, src) where {C}
+@noinline function readcoordinates_public(st, ::Type{Vector{C}}, src) where {C}
     StructUtils.arraylike(st, src) || throw(ArgumentError("coordinates must be arrays"))
     values = C[]
     pos = StructUtils.applyeach(st, CoordinateSink(values, st), src)
@@ -296,8 +296,6 @@ function _parse(input, ::Type{T}) where {T}
         JSON.parse(input, T; dicttype=Dict{String,Any})
     catch e
         e isa ArgumentError && hasnonfinite(input) || rethrow()
-        # Share one cold specialization across strings and byte buffers. Copy
-        # byte inputs here so String construction cannot consume caller storage.
         text = input isa AbstractString ? String(input) : String(copy(input))
         Base.invokelatest(parsenonfinite, text, T)::T
     end
