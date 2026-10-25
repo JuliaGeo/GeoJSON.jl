@@ -29,9 +29,18 @@ end
 _input(io::IO) = Base.read(io, String)
 # Keep byte views on the precompiled Vector parser without consuming their storage.
 _input(bytes::AbstractVector{UInt8}) = bytes isa Vector{UInt8} ? bytes : Vector{UInt8}(bytes)
+# A short JSON string can exceed the filesystem's component limit. Probing is
+# only a convenience: inaccessible or invalid paths still go through detection.
+function isinputfile(text::AbstractString)
+    try
+        isfile(text)
+    catch
+        false
+    end
+end
 function _input(text::AbstractString)
     # Bound filesystem probes so large JSON documents never become path lookups.
-    if ncodeunits(text) <= 256 && !occursin(r"[\r\n]", text) && !occursin('\0', text) && isfile(text)
+    if ncodeunits(text) <= 256 && !occursin(r"[\r\n]", text) && !occursin('\0', text) && isinputfile(text)
         return Base.read(text, String)
     end
     for b in codeunits(text)

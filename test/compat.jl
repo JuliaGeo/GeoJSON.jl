@@ -318,3 +318,15 @@ end
     @test isnan(GeoJSON.properties(f)[:x])
     @test parent == Vector{UInt8}(special)
 end
+
+@testset "Filesystem probe length boundaries" begin
+    for n in (254, 255, 256, 257, 1024, 4096), slash in (false, true)
+        prefix = slash ? "{\"type\":\"Point\",\"coordinates\":[1,2],\"note\":\"/\"" :
+                         "{\"type\":\"Point\",\"coordinates\":[1,2]"
+        source = prefix * " "^(n - ncodeunits(prefix) - 1) * "}"
+        @test ncodeunits(source) == n
+        @test GeoJSON.read(source).coordinates == (1f0, 2f0)
+        @test GeoJSON.read(SubString(" " * source, 2)).coordinates == (1f0, 2f0)
+    end
+    @test GeoJSON.read("{\"type\":\"Point\",\"coordinates\":[1,2]" * " "^220 * "}").coordinates == (1f0, 2f0)
+end
