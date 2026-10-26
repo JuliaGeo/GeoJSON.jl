@@ -28,6 +28,27 @@ function read(source; lazyfc=false, ndim=2, numbertype=Float32)
         end
     end
 end
+
+"""
+    GeoJSON.read(source, ::Type{T}) where {T<:GeoJSONT}
+
+Read standard JSON into a statically selected GeoJSON type, for example
+`FeatureCollection{2,Float64}`. This inferable entry point is suitable for trimmed
+applications. `T` must be concrete (fully specify its dimension and number type),
+otherwise `ArgumentError` is thrown. Dimensions are fixed: a mismatch throws
+`ArgumentError` without warning or retry. Lazy collections check dimensions
+when a feature is accessed. The untyped reader also supports nonstandard NaN/Inf literals.
+"""
+function read(source, ::Type{T}) where {T<:GeoJSONT}
+    isconcretetype(T) || throw(ArgumentError("GeoJSON.read requires a concrete target type; got $T"))
+    T <: LazyFeature && throw(ArgumentError("GeoJSON.read does not support the private target type $T; use Feature or LazyFeatureCollection"))
+    try
+        parsegeojson(_input(source), T)::T
+    catch e
+        e isa DimensionError && throw(dimensionerror(e.n, e.ndim))
+        rethrow()
+    end
+end
 # Share JSON's String parser across wrappers instead of compiling its entire
 # parser for another buffer type. Never let String consume caller-owned bytes.
 inputtext(text::AbstractString) = String(text)
@@ -71,9 +92,13 @@ end
 
 
 """
-    write([io], geometry; geometrycolumn)
+    write([io], geometry; geometrycolumn, style)
 
 Write a GeoInterface.jl compatible feature or geometry to a string of GeoJSON.
+
+For GeoJSON objects, opt into closed writes suitable for trimmed applications
+with `style=GeoJSON.StrictStyle()`. The default allows arbitrary property values
+and JSON's custom lowering.
 
 `io` may be a filename `String`, or an `IO` object.
 
@@ -81,18 +106,19 @@ If `geometry` is a `Tables.Table`, you may pass a `Symbol` to the `geometrycolum
 to indicate which column of the table holds the geometries.  Note that this will not keep the name,
 the geometry must be written to the `:geometry` column of the GeoJSON according to the spec.
 """
-write(io::IO, obj::GeoJSONT) = Base.write(io, write(obj))
-write(path::AbstractString, obj::GeoJSONT) = (open(io -> write(io, obj), path, "w"); path)
-write(obj::GeoJSONT) = writejson(obj, Val(WRITE_HINT_AVAILABLE))
-writejson(obj::GeoJSONT, ::Val{false}) = JSON.json(obj; sort_keys=false, style=CoordinateWriteStyle())
+write(io::IO, obj::GeoJSONT; style=CoordinateWriteStyle()) = Base.write(io, write(obj; style))
+write(path::AbstractString, obj::GeoJSONT; style=CoordinateWriteStyle()) = (open(io -> write(io, obj; style), path, "w"); path)
+write(obj::GeoJSONT; style=CoordinateWriteStyle()) = writejson(obj, style, Val(WRITE_HINT_AVAILABLE))
+writejson(obj::GeoJSONT, mode::Val) = writejson(obj, CoordinateWriteStyle(), mode)
+writejson(obj::GeoJSONT, style, ::Val{false}) = JSON.json(obj; sort_keys=false, style)
 @static if WRITE_HINT_AVAILABLE
-    function writejson(obj::GeoJSONT, ::Val{true})
+    function writejson(obj::GeoJSONT, style, ::Val{true})
         if obj isa FeatureCollection
             # Public bufsize controls IO flushing, not String preallocation.
             # The guarded size-hint adapter avoids repeated outer-buffer growth.
-            return JSON.json(SizedGeoJSON(obj, writehint(obj)); sort_keys=false, style=CoordinateWriteStyle())
+            return JSON.json(SizedGeoJSON(obj, writehint(obj)); sort_keys=false, style)
         end
-        writejson(obj, Val(false))
+        writejson(obj, style, Val(false))
     end
 end
 

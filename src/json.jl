@@ -124,10 +124,11 @@ function (s::CollectionSink{E,T})(k, v) where {E,T}
             if value === nothing
                 s.crs = nothing
             else
-                (value isa AbstractDict && get(value, "type", nothing) isa String &&
-                    get(value, "properties", nothing) isa AbstractDict) ||
+                (value isa Dict{String,Any} && get(value, "type", nothing) isa String &&
+                    get(value, "properties", nothing) isa Dict{String,Any}) ||
                     throw(ArgumentError("CRS must be an object with string type and object properties, or null"))
-                s.crs = CRS(value["type"], value["properties"])
+                crs = value::Dict{String,Any}
+                s.crs = CRS(crs["type"]::String, crs["properties"]::Dict{String,Any})
             end
         else
             s.crs, pos = StructUtils.make(s.style, Union{Nothing,CRS}, v)
@@ -151,8 +152,8 @@ struct TypeKey{S}
 end
 function (t::TypeKey)(k, v)
     k == "type" || return nothing
-    value, _ = StructUtils.make(t.style, Any, v)
-    value isa String || throw(ArgumentError("GeoJSON type must be a string"))
+    JSON.gettype(v) == JSON.JSONTypes.STRING || throw(ArgumentError("GeoJSON type must be a string"))
+    value, _ = StructUtils.make(t.style, String, v)
     StructUtils.EarlyReturn(value)
 end
 function geometrykind(st, src)
@@ -187,12 +188,17 @@ mutable struct FeatureSink{D,T,S}
 end
 function (s::FeatureSink{D,T})(k, v) where {D,T}
     if k == "geometry"
-        s.geometry, pos = StructUtils.make(s.style, Union{Nothing,AbstractGeometry{D,T}}, v)
+        # Julia 1.12 loses the recursive geometry union at this call. Assert
+        # the reader contract before assignment to avoid dynamic conversion
+        # in safely trimmed lazy-feature reads.
+        value, pos = StructUtils.make(s.style, Union{Nothing,AbstractGeometry{D,T}}, v)
+        s.geometry = value::Union{Nothing,AbstractGeometry{D,T}}
     elseif k == "properties"
         (StructUtils.structlike(s.style, v) || StructUtils.nulllike(s.style, v)) ||
             throw(ArgumentError("Feature properties must be an object or null"))
-        s.properties, pos = nonfinitestyle(s.style) ? readnonfinite(s.style, v, Symbol) :
+        value, pos = nonfinitestyle(s.style) ? readnonfinite(s.style, v, Symbol) :
             StructUtils.make(s.style, Union{Nothing,Dict{Symbol,Any}}, v)
+        s.properties = value::Union{Nothing,Dict{Symbol,Any}}
     elseif k == "id"
         value, pos = nonfinitestyle(s.style) ? readnonfinite(s.style, v) : StructUtils.make(s.style, Any, v)
         # Keep Int64 IDs exact; oversized integer/float IDs retain 0.8.4 normalization.
@@ -227,24 +233,34 @@ function readscalar(st, ::Type{T}, src) where {T}
     text, pos = StructUtils.make(st, JSON.JSONText, src)
     token = text.value
     value = token == "NaN" ? NaN : token in ("Inf", "Infinity") ? Inf :
-        token in ("-Inf", "-Infinity") ? -Inf : JSON.parse(token, T)
+        token in ("-Inf", "-Infinity") ? -Inf : parsegeojson(token, T)
     convert(T, value), pos
 end
-function readnonfinite(st, src, ::Type{K}=String) where {K}
+struct NonFiniteObjectSink{K,S}
+    values::Dict{K,Any}
+    style::S
+end
+function (s::NonFiniteObjectSink{K})(k, v) where {K}
+    value, pos = readnonfinite(s.style, v)
+    s.values[K(String(k))] = value
+    pos
+end
+struct NonFiniteArraySink{S}
+    values::Vector{Any}
+    style::S
+end
+function (s::NonFiniteArraySink)(_, v)
+    value, pos = readnonfinite(s.style, v)
+    push!(s.values, value)
+    pos
+end
+function readnonfinite(st, src, ::Type{K}=String)::Tuple{Any,Int} where {K}
     if StructUtils.structlike(st, src)
         out = Dict{K,Any}()
-        pos = StructUtils.applyeach(st, (k, v) -> begin
-            value, pos = readnonfinite(st, v)
-            out[K(String(k))] = value
-            pos
-        end, src)
+        pos = StructUtils.applyeach(st, NonFiniteObjectSink(out, st), src)
     elseif StructUtils.arraylike(st, src)
         out = Any[]
-        pos = StructUtils.applyeach(st, (_, v) -> begin
-            value, pos = readnonfinite(st, v)
-            push!(out, value)
-            pos
-        end, src)
+        pos = StructUtils.applyeach(st, NonFiniteArraySink(out, st), src)
     else
         return readscalar(st, Any, src)
     end
@@ -293,11 +309,56 @@ end
 end
 function _parse(input, ::Type{T}) where {T}
     try
-        JSON.parse(input, T; dicttype=Dict{String,Any})
+        parsegeojson(input, T)
     catch e
         e isa ArgumentError && hasnonfinite(input) || rethrow()
         text = input isa AbstractString ? String(input) : String(copy(input))
         Base.invokelatest(parsenonfinite, text, T)::T
+    end
+end
+
+# JSON's public parse keyword wrapper does not always propagate dicttype into
+# trimmed callers. Keep the concrete style visible, and isolate this optional
+# internal adapter so an incompatible JSON release retains the public parser.
+const CONCRETE_READ_AVAILABLE = all(n -> isdefined(JSON, n),
+    (:JSONReadStyle, :checkendpos)) &&
+    hasmethod(JSON.JSONReadStyle{Dict{String,Any}},
+        Tuple{Nothing,StructUtils.DefaultStyle,Bool}) &&
+    hasmethod(JSON.JSONReadStyle{Dict{String,Any}},
+        Tuple{Nothing,NonFiniteStyle,Bool})
+# Keep the public parser callable even when the adapter is available, so its
+# results and diagnostics can be compared directly in tests.
+parsegeojson(input, ::Type{T}) where {T} = parsegeojson(input, T, Val(CONCRETE_READ_AVAILABLE))
+parsegeojson(input, ::Type{T}, ::Val{false}) where {T} =
+    JSON.parse(input, T; dicttype=Dict{String,Any})
+@static if CONCRETE_READ_AVAILABLE
+    function parsegeojson(input, ::Type{T}, ::Val{true}) where {T}
+        src = JSON.lazy(input)
+        style = JSON.JSONReadStyle{Dict{String,Any}}(nothing, StructUtils.DefaultStyle(), true)
+        value, pos = StructUtils.make(style, T, src)
+        JSON.checkendpos(src, T, pos)
+        value
+    end
+    # Lazy access also supports the ordinary reader's exceptional literals, but
+    # never enters JSON.parse's keyword retry or an invokelatest call. Typed
+    # reads accept standard JSON, so their retained features take the first path.
+    function parselazynonfinite(input, ::Type{T}) where {T}
+        src = JSON.lazy(input; allownan=true)
+        style = JSON.JSONReadStyle{Dict{String,Any}}(nothing, NonFiniteStyle(), true)
+        StructUtils.make(style, NonFiniteStyle, src) # validate ignored members too
+        value, pos = StructUtils.make(style, T, src)
+        JSON.checkendpos(src, T, pos)
+        value
+    end
+else
+    parselazynonfinite(input, ::Type{T}) where {T} = parsenonfinite(input, T)
+end
+function parselazyfeature(input, ::Type{T}) where {T}
+    try
+        parsegeojson(input, T)
+    catch e
+        e isa ArgumentError && hasnonfinite(input) || rethrow()
+        parselazynonfinite(input, T)::T
     end
 end
 
@@ -329,6 +390,59 @@ function StructUtils.applyeach(st::JSON.JSONStyle, f, g::GeometryCollection)
     b = getfield(g, :bbox); b === nothing || @emit "bbox" b
     # Let JSON carry all writer options (including pretty printing) to children.
     @emit "geometries" getfield(g, :geometries)
+    nothing
+end
+# Start each child at the same JSON.json signature. Passing the parent's
+# WriteClosure recursively through abstract geometry vectors makes inference
+# widen the nested closure types, which the safe-trim verifier cannot resolve.
+# The fixed-format StrictStyle can splice compact child text; ordinary JSON
+# styles retain their option-aware traversal (pretty printing, float options).
+stricttext(st::StrictStyle, g) = JSON.JSONText(JSON.json(g; sort_keys=false, style=st))
+@inline function strictchild(st::StrictStyle, g::AbstractGeometry{D,T}) where {D,T}
+    g isa Point{D,T} && return stricttext(st, g)
+    g isa LineString{D,T} && return stricttext(st, g)
+    g isa Polygon{D,T} && return stricttext(st, g)
+    g isa MultiPoint{D,T} && return stricttext(st, g)
+    g isa MultiLineString{D,T} && return stricttext(st, g)
+    g isa MultiPolygon{D,T} && return stricttext(st, g)
+    g isa GeometryCollection{D,T} && return stricttext(st, g)
+    throw(ArgumentError("unsupported geometry type"))
+end
+# StrictStyle deliberately has a fixed format. Reject options that would be
+# lost when splicing children, rather than silently changing their meaning.
+# These writer internals are optional: if JSON changes their layout, retain
+# strict collection writes and skip the option check instead of failing to load.
+const STRICT_OPTIONS_CHECK_AVAILABLE = isdefined(JSON, :WriteClosure) &&
+    isdefined(JSON, :WriteOptions) && hasfield(JSON.WriteClosure, :opts) &&
+    all(n -> hasfield(JSON.WriteOptions, n),
+        (:pretty, :allownan, :jsonlines, :omit_null, :omit_empty, :inline_limit,
+         :float_style, :float_precision, :ninf, :inf, :nan))
+checkstrictoptions(f, ::Val{false}) = nothing
+checkstrictoptions(f, ::Val{true}) = nothing # non-writer StructUtils visitors
+@static if STRICT_OPTIONS_CHECK_AVAILABLE
+    function checkstrictoptions(f::JSON.WriteClosure, ::Val{true})
+        opts = f.opts
+        opts isa JSON.WriteOptions || return nothing
+        (opts.pretty == 0 && !opts.allownan && !opts.jsonlines &&
+            opts.omit_null === nothing && opts.omit_empty === nothing &&
+            opts.inline_limit == 0 && opts.float_style === :shortest &&
+            opts.float_precision == 1 && opts.ninf == "-Infinity" &&
+            opts.inf == "Infinity" && opts.nan == "NaN") ||
+            throw(ArgumentError("GeoJSON.StrictStyle GeometryCollections require default JSON writer options; pretty, allownan and other format options are unsupported"))
+        nothing
+    end
+end
+StructUtils.applyeach(st::StrictStyle, f, g::GeometryCollection) =
+    applystrictcollection(st, f, g, Val(STRICT_OPTIONS_CHECK_AVAILABLE))
+function applystrictcollection(st::StrictStyle, f, g::GeometryCollection, mode::Val)
+    checkstrictoptions(f, mode)
+    @emit "type" "GeometryCollection"
+    b = getfield(g, :bbox); b === nothing || @emit "bbox" b
+    children = JSON.JSONText[]
+    for child in getfield(g, :geometries)
+        push!(children, strictchild(st, child))
+    end
+    @emit "geometries" children
     nothing
 end
 function StructUtils.applyeach(st::JSON.JSONStyle, f, x::Feature)

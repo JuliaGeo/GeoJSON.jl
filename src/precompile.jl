@@ -17,6 +17,7 @@ using PrecompileTools: @setup_workload, @compile_workload
         # Keep NaN/Inf inputs out: their invokelatest retry compiles on demand.
         write(read(fc))
         write(read(fc; numbertype=Float64))
+        write(read(fc, FeatureCollection{2,Float64}); style=StrictStyle())
         # Compile the wrapper entrypoints; all share JSON's String parser.
         read(Vector{UInt8}(fc))
         read(SubString(fc, firstindex(fc)))

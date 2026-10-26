@@ -1,0 +1,57 @@
+name: Trim
+on:
+  pull_request:
+    paths: ['src/**', 'test/trim/**', 'Project.toml', '.github/workflows/Trim.yml']
+  push:
+    branches: [main]
+    paths: ['src/**', 'test/trim/**', 'Project.toml', '.github/workflows/Trim.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  trim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        julia: ['1.12', '1']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia }}
+      - uses: julia-actions/cache@v2
+      - name: Get Julia cache version
+        id: julia-version
+        run: julia -e 'println("version=", VERSION)' >> "$GITHUB_OUTPUT"
+      - name: Cache JuliaC app environment
+        id: juliac-cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.julia/environments/apps
+            ~/.julia/bin
+          key: ${{ runner.os }}-juliac-${{ steps.julia-version.outputs.version }}-0.3.12-${{ hashFiles('.github/workflows/Trim.yml') }}
+      # JuliaC is not registered in General. Install its pinned release from
+      # the upstream repository. Julia 1.12's Pkg.Apps.add updates registries
+      # but does not install any, so a fresh depot cannot resolve JuliaC's
+      # registered dependencies. A package-cache hit already has General;
+      # leave that restored registry in place.
+      - name: Install pinned JuliaC
+        if: steps.juliac-cache.outputs.cache-hit != 'true'
+        run: |
+          julia -e '
+            using Pkg
+            if isempty(Pkg.Registry.reachable_registries())
+                Pkg.Registry.add("General")
+            end
+            Pkg.Apps.add(PackageSpec(url="https://github.com/JuliaLang/JuliaC.jl", rev="v0.3.12"))
+          '
+      - name: Build safely trimmed app and compare with JIT
+        run: |
+          export PATH="$HOME/.julia/bin:$PATH"
+          julia --project=test/trim test/trim/runtests.jl
