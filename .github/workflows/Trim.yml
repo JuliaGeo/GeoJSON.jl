@@ -37,10 +37,20 @@ jobs:
             ~/.julia/bin
           key: ${{ runner.os }}-juliac-${{ steps.julia-version.outputs.version }}-0.3.12-${{ hashFiles('.github/workflows/Trim.yml') }}
       # JuliaC is not registered in General. Install its pinned release from
-      # the upstream repository, including on Julia 1.12.
+      # the upstream repository. Julia 1.12's Pkg.Apps.add updates registries
+      # but does not install any, so a fresh depot cannot resolve JuliaC's
+      # registered dependencies. A package-cache hit already has General;
+      # leave that restored registry in place.
       - name: Install pinned JuliaC
         if: steps.juliac-cache.outputs.cache-hit != 'true'
-        run: julia -e 'using Pkg; Pkg.Apps.add(PackageSpec(url="https://github.com/JuliaLang/JuliaC.jl", rev="v0.3.12"))'
+        run: |
+          julia -e '
+            using Pkg
+            if isempty(Pkg.Registry.reachable_registries())
+                Pkg.Registry.add("General")
+            end
+            Pkg.Apps.add(PackageSpec(url="https://github.com/JuliaLang/JuliaC.jl", rev="v0.3.12"))
+          '
       - name: Build safely trimmed app and compare with JIT
         run: |
           export PATH="$HOME/.julia/bin:$PATH"
